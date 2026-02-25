@@ -1,6 +1,6 @@
 # kvm-vm-provisioning
 
-Production-oriented KVM VM provisioning playbooks for the `ac-vm-provisioning` domain.
+Production-oriented KVM VM provisioning for the `ac-vm-provisioning` domain.
 
 ## What This Adds
 
@@ -10,14 +10,16 @@ Production-oriented KVM VM provisioning playbooks for the `ac-vm-provisioning` d
   - `ifupdown` (Debian-style `/etc/network/interfaces`)
   - `netplan` (Ubuntu-style `/etc/netplan/*.yaml`)
 - Snapshot support after provisioning
-- Cleanup playbook for safe VM removal
+- Cleanup workflow for safe VM removal
 - `Makefile` workflow
 - Local environment folder named `venv/` (not `.venv`)
+- Single playbook entrypoint: `site.yml`
 
 ## Directory Layout
 
-- `clone-vms.yml`
-- `cleanup-vms.yml`
+- `site.yml` (single playbook entrypoint)
+- `tasks/provision.yml`
+- `tasks/cleanup.yml`
 - `vars/vms.yml`
 - `inventory.ini`
 - `ansible.cfg`
@@ -25,6 +27,7 @@ Production-oriented KVM VM provisioning playbooks for the `ac-vm-provisioning` d
 - `Makefile`
 - `venv/` (project-local Python environment path)
 - `wheelhouse/` (optional cached Python wheels)
+- `DEVELOPER.md` (implementation standard for contributors)
 
 ## Quick Start
 
@@ -48,11 +51,11 @@ Edit `vars/vms.yml` and define:
 2. `template_profiles` (Debian/Ubuntu templates)
 3. `vms` list referencing `template_profile`
 
-Then run:
+Then run provisioning:
 
 ```bash
-make clone-check
-make clone
+make provision-check
+make provision
 ```
 
 Cleanup:
@@ -61,6 +64,11 @@ Cleanup:
 make cleanup
 make cleanup-force
 ```
+
+The same `site.yml` handles both workflows using `kvm_action`:
+
+- `kvm_action=provision`
+- `kvm_action=cleanup`
 
 ## VM OS Variant Model
 

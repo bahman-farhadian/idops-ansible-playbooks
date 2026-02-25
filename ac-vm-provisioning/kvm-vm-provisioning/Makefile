@@ -1,9 +1,8 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv deps-bundle lint check clone clone-check cleanup cleanup-force
+.PHONY: help venv deps-bundle lint check provision-check provision cleanup cleanup-force
 
 INVENTORY ?= inventory.ini
-CLONE_PLAYBOOK ?= clone-vms.yml
-CLEANUP_PLAYBOOK ?= cleanup-vms.yml
+SITE_PLAYBOOK ?= site.yml
 VENV ?= venv
 WHEELHOUSE ?= wheelhouse
 PYTHON ?= python3
@@ -18,10 +17,10 @@ help:
 	@echo "  make venv          - create venv/ and install dependencies"
 	@echo "  make deps-bundle   - download wheel artifacts into wheelhouse/"
 	@echo "  make lint          - run ansible-lint"
-	@echo "  make check         - syntax-check playbooks"
-	@echo "  make clone-check   - dry-run VM provisioning"
-	@echo "  make clone         - execute VM provisioning"
-	@echo "  make cleanup       - preview VM cleanup (confirm_delete default is false)"
+	@echo "  make check         - syntax-check site playbook"
+	@echo "  make provision-check - dry-run provisioning workflow"
+	@echo "  make provision     - execute provisioning workflow"
+	@echo "  make cleanup       - preview cleanup workflow (confirm_delete default is false)"
 	@echo "  make cleanup-force - execute cleanup with confirm_delete=true"
 
 $(VENV)/bin/activate:
@@ -44,20 +43,19 @@ deps-bundle: venv
 	$(VENV_ACTIVATE) && pip download -r requirements.txt -d $(WHEELHOUSE)
 
 lint: venv
-	$(VENV_ACTIVATE) && ansible-lint $(CLONE_PLAYBOOK) $(CLEANUP_PLAYBOOK)
+	$(VENV_ACTIVATE) && ansible-lint $(SITE_PLAYBOOK)
 
 check: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(CLONE_PLAYBOOK) --syntax-check
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(CLEANUP_PLAYBOOK) --syntax-check
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) --syntax-check
 
-clone-check: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(CLONE_PLAYBOOK) --check $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+provision-check: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) --check -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
-clone: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(CLONE_PLAYBOOK) $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+provision: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 cleanup: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(CLEANUP_PLAYBOOK) $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=cleanup $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 cleanup-force: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(CLEANUP_PLAYBOOK) -e confirm_delete=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=cleanup -e confirm_delete=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)

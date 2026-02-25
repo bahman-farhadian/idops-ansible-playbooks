@@ -18,7 +18,8 @@ Provider-specific VM provisioning implementations.
 - Upstream domains: `aa-physical-server-foundation`, `ab-hypervisor-host-platform`
 - Downstream domains: `ag-os-baseline-and-hardening`, `ah-container-runtime`, and higher layers
 
-## Execution Notes
+## Consistency Contract
 
-- This domain follows the stack model from root README.
-- Execution is wave-based and iterative; VM provisioning is usually rerun as capacity grows.
+- Each provider directory must expose one playbook entrypoint: `site.yml`.
+- Workflow logic should be organized in `tasks/` and included by `site.yml`.
+- Operator docs go in `README.md`; contributor rules go in `DEVELOPER.md`.

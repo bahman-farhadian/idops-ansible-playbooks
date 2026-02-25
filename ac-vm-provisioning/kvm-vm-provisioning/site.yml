@@ -1,0 +1,44 @@
+---
+- name: Setup KVM host
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/vms.yml
+  vars:
+    kvm_action: "{{ kvm_action | default('provision') }}"
+
+  tasks:
+    - name: Validate requested action
+      ansible.builtin.assert:
+        that:
+          - kvm_action in ['provision', 'cleanup']
+        fail_msg: "kvm_action must be 'provision' or 'cleanup'."
+
+    - name: Add KVM hypervisor to inventory
+      ansible.builtin.add_host:
+        name: "{{ kvm_host }}"
+        groups: hypervisor
+        ansible_python_interpreter: "{{ hypervisor_python_interpreter }}"
+
+- name: Execute KVM VM action
+  hosts: hypervisor
+  gather_facts: false
+  vars_files:
+    - vars/vms.yml
+  vars:
+    kvm_action: "{{ kvm_action | default('provision') }}"
+    supported_guest_os_variants:
+      - debian
+      - ubuntu
+    supported_guest_network_modes:
+      - ifupdown
+      - netplan
+
+  tasks:
+    - name: Run KVM provisioning workflow
+      ansible.builtin.include_tasks: tasks/provision.yml
+      when: kvm_action == 'provision'
+
+    - name: Run KVM cleanup workflow
+      ansible.builtin.include_tasks: tasks/cleanup.yml
+      when: kvm_action == 'cleanup'
