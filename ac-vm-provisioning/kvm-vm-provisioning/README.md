@@ -2,6 +2,8 @@
 
 Production-oriented KVM VM provisioning for the `ac-vm-provisioning` domain.
 
+This project is the production migration target for `old_playbooks/kvm-clone-ansible/`.
+
 ## What This Adds
 
 - Parallel VM cloning workflow using `virt-clone`

@@ -1,6 +1,6 @@
 # ac-vm-provisioning
 
-Domain status: active scaffold
+Domain status: active implementation
 
 ## Purpose
 Provider-specific VM provisioning implementations.
@@ -8,6 +8,12 @@ Provider-specific VM provisioning implementations.
 ## Current Providers
 
 - `kvm-vm-provisioning/`: KVM/libvirt VM clone + customize workflow
+
+## Migration Notes
+
+- Legacy guest provisioning source: `old_playbooks/kvm-clone-ansible/`
+- Current implementation target: `ac-vm-provisioning/kvm-vm-provisioning/`
+- `ab-hypervisor-host-platform/` remains host-platform automation only.
 
 ## Planned Providers
 

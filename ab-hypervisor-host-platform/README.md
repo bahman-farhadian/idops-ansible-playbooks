@@ -33,6 +33,7 @@ make configure
 
 ## Notes
 
-- This domain is for hypervisor host setup, not guest VM provisioning.
-- Guest VM provisioning lives under `ac-vm-provisioning/` providers.
+- This domain is only for hypervisor host platform setup.
+- Guest VM provisioning is implemented under `ac-vm-provisioning/`.
+- Legacy guest clone reference `old_playbooks/kvm-clone-ansible/` maps to `ac-vm-provisioning/kvm-vm-provisioning/`.
 - Contributor standards are defined at repository root in `CONTRIBUTOR-GUIDE.md`.
