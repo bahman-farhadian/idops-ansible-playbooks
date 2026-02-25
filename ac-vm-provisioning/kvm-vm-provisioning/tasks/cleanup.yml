@@ -18,15 +18,15 @@
 - name: Build list of VMs to delete
   ansible.builtin.set_fact:
     vms_to_delete: >-
-      {{ vms | zip(vm_exists_check.results) 
-         | selectattr('1.rc', 'eq', 0) 
-         | map(attribute='0') 
+      {{ vms | zip(vm_exists_check.results)
+         | selectattr('1.rc', 'eq', 0)
+         | map(attribute='0')
          | list }}
 
 - name: Show VMs that would be deleted (dry run)
   ansible.builtin.debug:
     msg: "Would delete: {{ vms_to_delete | map(attribute='name') | join(', ') }}"
-  when: 
+  when:
     - not confirm_delete
     - vms_to_delete | length > 0
 
@@ -36,7 +36,7 @@
   when: vms_to_delete | length == 0
 
 - name: Delete VMs
-  when: 
+  when:
     - confirm_delete
     - vms_to_delete | length > 0
   block:
@@ -60,6 +60,7 @@
       poll: 0
       register: destroy_jobs
       failed_when: false
+      changed_when: true
 
     - name: Wait for VMs to stop
       ansible.builtin.async_status:
@@ -84,6 +85,7 @@
       async: 60
       poll: 0
       register: snapshot_delete_jobs
+      changed_when: true
 
     - name: Wait for snapshot deletions
       ansible.builtin.async_status:
@@ -106,6 +108,7 @@
       async: 120
       poll: 0
       register: undefine_jobs
+      changed_when: true
 
     - name: Wait for VM deletions
       ansible.builtin.async_status:

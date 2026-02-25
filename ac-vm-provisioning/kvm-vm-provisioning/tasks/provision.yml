@@ -40,7 +40,15 @@
 
 - name: Build normalized VM definition list
   ansible.builtin.set_fact:
-    normalized_vms: "{{ (normalized_vms | default([])) + [ vm_defaults | combine(template_profiles[item.template_profile], recursive=True) | combine(item, recursive=True) ] }}"
+    normalized_vms: >-
+      {{
+        (normalized_vms | default([]))
+        + [
+          vm_defaults
+          | combine(template_profiles[item.template_profile], recursive=True)
+          | combine(item, recursive=True)
+        ]
+      }}
   loop: "{{ vms }}"
   loop_control:
     label: "{{ item.name }}"
@@ -181,6 +189,7 @@
       loop_control:
         label: "{{ item.name }}"
       register: clone_results
+      changed_when: true
 
 - name: "PHASE 1B: Clone VMs (parallel)"
   when:
@@ -201,6 +210,7 @@
       async: "{{ clone_async_timeout_sec | default(1800) }}"
       poll: 0
       register: clone_jobs
+      changed_when: true
 
     - name: Wait for clone operations
       ansible.builtin.async_status:
@@ -233,6 +243,7 @@
       async: "{{ clone_async_timeout_sec | default(1800) }}"
       poll: 0
       register: clone_jobs
+      changed_when: true
 
     - name: Collect clone operation results
       ansible.builtin.async_status:
@@ -297,6 +308,7 @@
         label: "{{ item.name }}"
       register: clone_fallback_results
       when: clone_pool_locked_vms | length > 0
+      changed_when: true
 
 # =========================================================================
 # PHASE 2: Guest network customization by OS/network mode
@@ -362,6 +374,7 @@
   poll: 0
   register: customize_ifupdown_jobs
   when: vms_ifupdown | length > 0
+  changed_when: true
 
 - name: Wait for ifupdown customization jobs
   ansible.builtin.async_status:
@@ -394,6 +407,7 @@
   poll: 0
   register: customize_netplan_jobs
   when: vms_netplan | length > 0
+  changed_when: true
 
 - name: Wait for netplan customization jobs
   ansible.builtin.async_status:
@@ -427,6 +441,7 @@
       async: 60
       poll: 0
       register: resource_jobs
+      changed_when: true
 
     - name: Wait for resource configuration
       ansible.builtin.async_status:
@@ -455,6 +470,7 @@
       async: 60
       poll: 0
       register: start_jobs
+      changed_when: true
 
     - name: Wait for VM starts
       ansible.builtin.async_status:
@@ -519,6 +535,7 @@
       async: 60
       poll: 0
       register: shutdown_jobs
+      changed_when: true
 
     - name: Wait for shutdown commands
       ansible.builtin.async_status:
@@ -542,6 +559,7 @@
       until: vm_state.stdout == "shut off"
       retries: 30
       delay: 2
+      changed_when: false
 
     - name: Create snapshots on all VMs (async)
       ansible.builtin.command:
@@ -555,6 +573,7 @@
       async: 120
       poll: 0
       register: snapshot_jobs
+      changed_when: true
 
     - name: Wait for snapshots to complete
       ansible.builtin.async_status:
@@ -578,6 +597,7 @@
       poll: 0
       register: final_start_jobs
       when: start_after_snapshot | default(true)
+      changed_when: true
 
     - name: Wait for final VM starts
       ansible.builtin.async_status:
