@@ -70,6 +70,12 @@ Edit `vars/kvm-provisioning.yml` and define:
    - `vcpu_count`
    - `memory_mb`
 
+`template_profile_id` can be either:
+- a key from `kvm_template_catalog` (for example `debian-trixie`)
+- or a `template_instance_name` alias from that catalog (for example `debian-bookworm`)
+
+`instance_name` must be different from `template_instance_name`.
+
 Then run provisioning:
 
 ```bash

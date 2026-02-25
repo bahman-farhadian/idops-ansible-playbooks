@@ -16,12 +16,50 @@
       - kvm_template_catalog | length > 0
     fail_msg: "Define at least one template profile in vars/kvm-provisioning.yml under kvm_template_catalog."
 
+- name: Build template profile alias map by template instance name
+  ansible.builtin.set_fact:
+    template_profile_aliases: >-
+      {{
+        (template_profile_aliases | default({}))
+        | combine({item.value.template_instance_name: item.key})
+      }}
+  loop: "{{ kvm_template_catalog | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - item.value.template_instance_name is defined
+    - item.value.template_instance_name | length > 0
+
+- name: Build list of template instance names from catalog
+  ansible.builtin.set_fact:
+    template_instance_names: >-
+      {{ (template_instance_names | default([])) + [item.value.template_instance_name] }}
+  loop: "{{ kvm_template_catalog | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - item.value.template_instance_name is defined
+    - item.value.template_instance_name | length > 0
+
+- name: Validate template instance names are unique
+  ansible.builtin.assert:
+    that:
+      - template_instance_names | length == (template_instance_names | unique | length)
+    fail_msg: "Each template_instance_name in kvm_template_catalog must be unique."
+  when: (template_instance_names | default([])) | length > 0
+
 - name: Validate instance profile references
   ansible.builtin.assert:
     that:
       - item.template_profile_id is defined
-      - item.template_profile_id in kvm_template_catalog
-    fail_msg: "Instance {{ item.instance_name | default('unknown') }} references an undefined template_profile_id."
+      - >-
+        item.template_profile_id in kvm_template_catalog
+        or item.template_profile_id in (template_profile_aliases | default({}))
+    fail_msg: >-
+      Instance {{ item.instance_name | default('unknown') }} references an undefined template_profile_id
+      '{{ item.template_profile_id | default('missing') }}'. Valid profile ids:
+      {{ kvm_template_catalog.keys() | list | join(', ') }}. Valid template aliases:
+      {{ (template_profile_aliases | default({})).keys() | list | join(', ') }}.
   loop: "{{ kvm_instance_definitions }}"
   loop_control:
     label: "{{ item.instance_name | default('unknown') }}"
@@ -45,7 +83,16 @@
         (normalized_instances | default([]))
         + [
           instance_defaults
-          | combine(kvm_template_catalog[item.template_profile_id], recursive=True)
+          | combine(
+              kvm_template_catalog[
+                (
+                  item.template_profile_id
+                  if item.template_profile_id in kvm_template_catalog
+                  else template_profile_aliases[item.template_profile_id]
+                )
+              ],
+              recursive=True
+            )
           | combine(item, recursive=True)
         ]
       }}
@@ -68,6 +115,7 @@
       - item.guest_os_variant in supported_guest_os_variants
       - item.guest_network_mode in supported_guest_network_modes
       - item.clone_disk_extension is match('^[A-Za-z0-9]+$')
+      - item.instance_name != item.template_instance_name
     fail_msg: "Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields."
   loop: "{{ normalized_instances }}"
   loop_control:
