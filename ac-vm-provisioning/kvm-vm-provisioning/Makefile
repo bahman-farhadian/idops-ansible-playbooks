@@ -21,8 +21,8 @@ help:
 	@echo "  make ping          - test connectivity to hypervisor"
 	@echo "  make provision-check - dry-run provisioning workflow"
 	@echo "  make provision     - execute provisioning workflow"
-	@echo "  make cleanup       - preview cleanup workflow (confirm_delete default is false)"
-	@echo "  make cleanup-force - execute cleanup with confirm_delete=true"
+	@echo "  make cleanup       - preview cleanup workflow (kvm_cleanup_confirmed default is false)"
+	@echo "  make cleanup-force - execute cleanup with kvm_cleanup_confirmed=true"
 
 $(VENV)/bin/activate:
 	$(PYTHON) -m venv $(VENV)
@@ -62,4 +62,4 @@ cleanup: venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 cleanup-force: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e confirm_delete=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)

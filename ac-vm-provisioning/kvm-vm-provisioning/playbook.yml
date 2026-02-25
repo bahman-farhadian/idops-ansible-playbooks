@@ -3,7 +3,7 @@
   hosts: localhost
   gather_facts: false
   vars_files:
-    - vars/vms.yml
+    - vars/kvm-provisioning.yml
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
 
@@ -16,15 +16,15 @@
 
     - name: Add KVM hypervisor to inventory
       ansible.builtin.add_host:
-        name: "{{ kvm_host }}"
+        name: "{{ kvm_hypervisor_host }}"
         groups: hypervisor
-        ansible_python_interpreter: "{{ hypervisor_python_interpreter }}"
+        ansible_python_interpreter: "{{ kvm_hypervisor_python_interpreter }}"
 
 - name: Execute KVM VM action
   hosts: hypervisor
   gather_facts: false
   vars_files:
-    - vars/vms.yml
+    - vars/kvm-provisioning.yml
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
     supported_guest_os_variants:

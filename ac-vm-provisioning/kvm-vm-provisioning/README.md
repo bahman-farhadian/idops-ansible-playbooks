@@ -7,12 +7,14 @@ This project is the production migration target for `old_playbooks/kvm-clone-ans
 ## What This Adds
 
 - Parallel VM cloning workflow using `virt-clone`
-- Per-VM template profiles with OS variant support (`debian`, `ubuntu`)
-- Per-VM network mode support:
+- Explicit instance pool model (`kvm_instance_pool_path`)
+- Explicit template catalog with template disk file path lists
+- Per-instance template profile selection with OS variant support (`debian`, `ubuntu`)
+- Per-instance network mode support:
   - `ifupdown` (Debian-style `/etc/network/interfaces`)
   - `netplan` (Ubuntu-style `/etc/netplan/*.yaml`)
 - Snapshot support after provisioning
-- Cleanup workflow for safe VM removal
+- Cleanup workflow with safety confirmation flag
 - `Makefile` workflow
 - Local environment folder named `venv/` (not `.venv`)
 - Single playbook entrypoint: `playbook.yml`
@@ -22,7 +24,7 @@ This project is the production migration target for `old_playbooks/kvm-clone-ans
 - `playbook.yml` (single playbook entrypoint)
 - `tasks/provision.yml`
 - `tasks/cleanup.yml`
-- `vars/vms.yml`
+- `vars/kvm-provisioning.yml`
 - `inventory.ini`
 - `ansible.cfg`
 - `requirements.txt`
@@ -48,11 +50,25 @@ make deps-bundle
 When `wheelhouse/` contains wheel files, `make venv` installs from local cache first.
 `wheelhouse/` is a local cache for Python wheel packages to reduce repeated downloads.
 
-Edit `vars/vms.yml` and define:
+## Variable Model (Official)
 
-1. Hypervisor connection (`kvm_host`)
-2. `template_profiles` (Debian/Ubuntu templates)
-3. `vms` list referencing `template_profile`
+Edit `vars/kvm-provisioning.yml` and define:
+
+1. Hypervisor connection:
+   - `kvm_hypervisor_host`
+   - `kvm_hypervisor_python_interpreter`
+2. Instance pool and execution behavior:
+   - `kvm_instance_pool_path`
+   - `kvm_clone_workspace_path`
+3. Template catalog (`kvm_template_catalog`), including:
+   - `template_instance_name`
+   - `template_instance_disk_files` (list of full paths on the hypervisor)
+4. Instance definitions (`kvm_instance_definitions`) with:
+   - `instance_name`
+   - `template_profile_id`
+   - `instance_ipv4_address`
+   - `vcpu_count`
+   - `memory_mb`
 
 Then run provisioning:
 
@@ -68,21 +84,13 @@ make cleanup
 make cleanup-force
 ```
 
+`make cleanup-force` sets `kvm_cleanup_confirmed=true`.
+
 The same `playbook.yml` handles all workflows using `kvm_action`:
 
 - `kvm_action=provision`
 - `kvm_action=cleanup`
 - `kvm_action=ping`
-
-## VM OS Variant Model
-
-Each VM references a profile under `template_profiles`:
-
-- `guest_os_variant`: `debian` or `ubuntu`
-- `guest_network_mode`: `ifupdown` or `netplan`
-- `template_vm`: source VM template name
-
-This allows mixed Debian and Ubuntu provisioning in one run.
 
 ## Notes on venv/
 

@@ -67,8 +67,9 @@ Reference tree:
    - `tasks/cleanup.yml`
    - `tasks/ping.yml`
 3. Use descriptive variable file names under `vars/`:
-   - `vars/hypervisor.yml`
-   - `vars/vms.yml`
+   - Prefer domain-scoped names, for example:
+   - `vars/kvm-provisioning.yml`
+   - `vars/hypervisor-platform.yml`
 4. Use kebab-case for directory names and repository domains.
 
 ## What Is `wheelhouse`?

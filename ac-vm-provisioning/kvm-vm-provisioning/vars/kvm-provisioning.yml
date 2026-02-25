@@ -1,0 +1,110 @@
+---
+# KVM VM Provisioning configuration
+#
+# This file is the single source of user-editable settings.
+# Naming follows an explicit, production-grade convention.
+
+# -----------------------------------------------------------------------------
+# Hypervisor connection
+# -----------------------------------------------------------------------------
+kvm_hypervisor_host: "change-me-hypervisor"
+kvm_hypervisor_python_interpreter: "/usr/bin/python3"
+
+# -----------------------------------------------------------------------------
+# Instance pool and execution behavior
+# -----------------------------------------------------------------------------
+kvm_instance_pool_path: "/var/lib/libvirt/images"
+kvm_default_clone_disk_extension: "qcow2"
+kvm_clone_workspace_path: "/tmp/idops-kvm-vm-provisioning"
+kvm_cleanup_workspace_path_after_run: true
+
+# -----------------------------------------------------------------------------
+# Guest network defaults (can be overridden per template or per instance)
+# -----------------------------------------------------------------------------
+kvm_default_guest_network_interface: "enp1s0"
+kvm_default_guest_network_prefix: "24"
+kvm_default_guest_network_gateway: "192.168.24.1"
+kvm_default_guest_dns_servers:
+  - "1.1.1.1"
+  - "8.8.8.8"
+
+# -----------------------------------------------------------------------------
+# Snapshot and workflow behavior
+# -----------------------------------------------------------------------------
+kvm_snapshot_enabled: true
+kvm_snapshot_name: "snapshot-a"
+kvm_snapshot_description: "initial configuration"
+kvm_start_instances_after_snapshot: true
+kvm_restart_template_instances_after_run: false
+kvm_wait_for_instance_ssh: true
+kvm_cleanup_confirmed: false
+kvm_clone_mode: "auto"  # auto | sequential | parallel
+kvm_clone_async_timeout_seconds: 1800
+kvm_clone_wait_retries: 180
+kvm_clone_wait_delay_seconds: 10
+
+# -----------------------------------------------------------------------------
+# Template catalog
+# -----------------------------------------------------------------------------
+# guest_os_variant:
+#   - debian
+#   - ubuntu
+# guest_network_mode:
+#   - ifupdown : writes /etc/network/interfaces
+#   - netplan  : writes /etc/netplan/99-idops-static.yaml
+#
+# template_instance_disk_files must be a list of full paths on the hypervisor.
+# This enables explicit operator control over template disk file sources.
+
+kvm_template_catalog:
+  debian-trixie:
+    template_instance_name: "debian-trixie-template"
+    template_instance_disk_files:
+      - "/var/lib/libvirt/images/debian-trixie-template.qcow2"
+    guest_os_variant: "debian"
+    guest_network_mode: "ifupdown"
+    guest_network_interface: "enp1s0"
+
+  ubuntu-noble:
+    template_instance_name: "ubuntu-24-04-template"
+    template_instance_disk_files:
+      - "/var/lib/libvirt/images/ubuntu-24-04-template.qcow2"
+    guest_os_variant: "ubuntu"
+    guest_network_mode: "netplan"
+    guest_network_interface: "ens3"
+    netplan_renderer: "networkd"
+
+# -----------------------------------------------------------------------------
+# Instance definitions
+# -----------------------------------------------------------------------------
+# Required per instance:
+# - instance_name
+# - template_profile_id
+# - instance_ipv4_address
+# - vcpu_count
+# - memory_mb
+#
+# Optional per-instance overrides:
+# - template_instance_name
+# - template_instance_disk_files
+# - guest_os_variant
+# - guest_network_mode
+# - guest_network_interface
+# - guest_network_prefix
+# - guest_network_gateway
+# - guest_dns_servers
+# - ssh_port
+# - clone_disk_extension
+
+kvm_instance_definitions:
+  - instance_name: "debian-app-01"
+    template_profile_id: "debian-trixie"
+    instance_ipv4_address: "192.168.24.110"
+    vcpu_count: 2
+    memory_mb: 2048
+
+  - instance_name: "ubuntu-ci-01"
+    template_profile_id: "ubuntu-noble"
+    instance_ipv4_address: "192.168.24.120"
+    vcpu_count: 2
+    memory_mb: 4096

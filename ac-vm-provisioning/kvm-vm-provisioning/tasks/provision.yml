@@ -1,111 +1,145 @@
 # =========================================================================
 # PHASE 0: Validate and normalize input
 # =========================================================================
-- name: Validate VM list is provided
+- name: Validate instance definition list is provided
   ansible.builtin.assert:
     that:
-      - vms is defined
-      - vms | length > 0
-    fail_msg: "Define at least one VM in vars/vms.yml under vms."
+      - kvm_instance_definitions is defined
+      - kvm_instance_definitions | length > 0
+    fail_msg: "Define at least one instance in vars/kvm-provisioning.yml under kvm_instance_definitions."
 
 - name: Validate template profile map is provided
   ansible.builtin.assert:
     that:
-      - template_profiles is defined
-      - template_profiles is mapping
-      - template_profiles | length > 0
-    fail_msg: "Define at least one template profile in vars/vms.yml under template_profiles."
+      - kvm_template_catalog is defined
+      - kvm_template_catalog is mapping
+      - kvm_template_catalog | length > 0
+    fail_msg: "Define at least one template profile in vars/kvm-provisioning.yml under kvm_template_catalog."
 
-- name: Validate VM profile references
+- name: Validate instance profile references
   ansible.builtin.assert:
     that:
-      - item.template_profile is defined
-      - item.template_profile in template_profiles
-    fail_msg: "VM {{ item.name | default('unknown') }} references an undefined template_profile."
-  loop: "{{ vms }}"
+      - item.template_profile_id is defined
+      - item.template_profile_id in kvm_template_catalog
+    fail_msg: "Instance {{ item.instance_name | default('unknown') }} references an undefined template_profile_id."
+  loop: "{{ kvm_instance_definitions }}"
   loop_control:
-    label: "{{ item.name | default('unknown') }}"
+    label: "{{ item.instance_name | default('unknown') }}"
 
-- name: Set per-VM default values
+- name: Set per-instance default values
   ansible.builtin.set_fact:
-    vm_defaults:
+    instance_defaults:
       guest_os_variant: "debian"
       guest_network_mode: "ifupdown"
-      guest_interface: "{{ default_guest_interface }}"
-      network_prefix: "{{ default_network_prefix }}"
-      network_gateway: "{{ default_network_gateway }}"
-      dns_servers: "{{ default_dns_servers }}"
+      guest_network_interface: "{{ kvm_default_guest_network_interface }}"
+      guest_network_prefix: "{{ kvm_default_guest_network_prefix }}"
+      guest_network_gateway: "{{ kvm_default_guest_network_gateway }}"
+      guest_dns_servers: "{{ kvm_default_guest_dns_servers }}"
       ssh_port: 22
-      clone_disk_ext: "{{ default_clone_disk_ext }}"
+      clone_disk_extension: "{{ kvm_default_clone_disk_extension }}"
 
-- name: Build normalized VM definition list
+- name: Build normalized instance definitions
   ansible.builtin.set_fact:
-    normalized_vms: >-
+    normalized_instances: >-
       {{
-        (normalized_vms | default([]))
+        (normalized_instances | default([]))
         + [
-          vm_defaults
-          | combine(template_profiles[item.template_profile], recursive=True)
+          instance_defaults
+          | combine(kvm_template_catalog[item.template_profile_id], recursive=True)
           | combine(item, recursive=True)
         ]
       }}
-  loop: "{{ vms }}"
+  loop: "{{ kvm_instance_definitions }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.instance_name }}"
 
-- name: Validate normalized VM fields
+- name: Validate normalized instance fields
   ansible.builtin.assert:
     that:
-      - item.name is defined
-      - item.template_vm is defined
-      - item.ip is defined
-      - item.vcpu is defined
-      - item.ram_mb is defined
+      - item.instance_name is defined
+      - item.template_instance_name is defined
+      - item.template_instance_disk_files is defined
+      - item.template_instance_disk_files is sequence
+      - item.template_instance_disk_files is not string
+      - item.template_instance_disk_files | length > 0
+      - item.instance_ipv4_address is defined
+      - item.vcpu_count is defined
+      - item.memory_mb is defined
       - item.guest_os_variant in supported_guest_os_variants
       - item.guest_network_mode in supported_guest_network_modes
-      - item.clone_disk_ext is match('^[A-Za-z0-9]+$')
-    fail_msg: "VM {{ item.name | default('unknown') }} has invalid or missing required fields."
-  loop: "{{ normalized_vms }}"
+      - item.clone_disk_extension is match('^[A-Za-z0-9]+$')
+    fail_msg: "Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields."
+  loop: "{{ normalized_instances }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.instance_name }}"
 
 - name: Ensure workspace directory exists on hypervisor
   ansible.builtin.file:
-    path: "{{ clone_workspace_dir }}"
+    path: "{{ kvm_clone_workspace_path }}"
     state: directory
     mode: "0700"
 
 - name: Validate disk pool path exists
   ansible.builtin.stat:
-    path: "{{ disk_pool }}"
-  register: disk_pool_stat
+    path: "{{ kvm_instance_pool_path }}"
+  register: instance_pool_stat
   changed_when: false
 
 - name: Fail if disk pool path is invalid
   ansible.builtin.fail:
     msg: |
-      Invalid disk_pool path on hypervisor: {{ disk_pool }}
-      Update disk_pool in vars/vms.yml to a valid directory.
-  when: not disk_pool_stat.stat.exists or not disk_pool_stat.stat.isdir
+      Invalid kvm_instance_pool_path path on hypervisor: {{ kvm_instance_pool_path }}
+      Update kvm_instance_pool_path in vars/kvm-provisioning.yml to a valid directory.
+  when: not instance_pool_stat.stat.exists or not instance_pool_stat.stat.isdir
 
 - name: Build unique list of required templates
   ansible.builtin.set_fact:
-    required_templates: "{{ normalized_vms | map(attribute='template_vm') | unique | list }}"
+    required_template_instances: "{{ normalized_instances | map(attribute='template_instance_name') | unique | list }}"
 
-- name: Ensure template VMs exist
+- name: Build template disk file validation list
+  ansible.builtin.set_fact:
+    required_template_disk_files: "{{ normalized_instances | map(attribute='template_instance_disk_files') | flatten | unique | list }}"
+
+- name: Validate template disk files exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ required_template_disk_files }}"
+  loop_control:
+    label: "{{ item }}"
+  register: template_disk_file_stats
+  changed_when: false
+
+- name: Fail if any template disk files are missing
+  ansible.builtin.fail:
+    msg: >-
+      Missing template disk files on hypervisor: {{
+      template_disk_file_stats.results
+      | rejectattr('stat.exists')
+      | map(attribute='item')
+      | join(', ')
+      }}
+  when: >-
+    (
+      template_disk_file_stats.results
+      | rejectattr('stat.exists')
+      | list
+      | length
+    ) > 0
+
+- name: Ensure template instances exist
   ansible.builtin.command:
     cmd: virsh dominfo "{{ item }}"
-  loop: "{{ required_templates }}"
+  loop: "{{ required_template_instances }}"
   loop_control:
     label: "{{ item }}"
   register: template_check
   changed_when: false
   failed_when: template_check.rc != 0
 
-- name: Check template VM states
+- name: Check template instance states
   ansible.builtin.command:
     cmd: virsh domstate "{{ item }}"
-  loop: "{{ required_templates }}"
+  loop: "{{ required_template_instances }}"
   loop_control:
     label: "{{ item }}"
   register: template_state_results
@@ -136,78 +170,78 @@
   delay: 2
   changed_when: false
 
-- name: Check which VMs already exist
+- name: Check which instances already exist
   ansible.builtin.command:
-    cmd: virsh dominfo "{{ item.name }}"
-  loop: "{{ normalized_vms }}"
+    cmd: virsh dominfo "{{ item.instance_name }}"
+  loop: "{{ normalized_instances }}"
   loop_control:
-    label: "{{ item.name }}"
-  register: vm_exists_check
+    label: "{{ item.instance_name }}"
+  register: instance_exists_check
   failed_when: false
   changed_when: false
 
-- name: Build list of VMs to create
+- name: Build list of instances to create
   ansible.builtin.set_fact:
-    vms_to_create: >-
-      {{ normalized_vms | zip(vm_exists_check.results)
+    instances_to_create: >-
+      {{ normalized_instances | zip(instance_exists_check.results)
          | selectattr('1.rc', 'ne', 0)
          | map(attribute='0')
          | list }}
 
 - name: Build network-mode groups
   ansible.builtin.set_fact:
-    vms_ifupdown: "{{ vms_to_create | selectattr('guest_network_mode', 'equalto', 'ifupdown') | list }}"
-    vms_netplan: "{{ vms_to_create | selectattr('guest_network_mode', 'equalto', 'netplan') | list }}"
+    instances_ifupdown: "{{ instances_to_create | selectattr('guest_network_mode', 'equalto', 'ifupdown') | list }}"
+    instances_netplan: "{{ instances_to_create | selectattr('guest_network_mode', 'equalto', 'netplan') | list }}"
 
-- name: Display VMs to be created
+- name: Display instances to be created
   ansible.builtin.debug:
-    msg: "Will create {{ vms_to_create | length }} VM(s): {{ vms_to_create | map(attribute='name') | join(', ') }}"
-  when: vms_to_create | length > 0
+    msg: "Will create {{ instances_to_create | length }} instance(s): {{ instances_to_create | map(attribute='instance_name') | join(', ') }}"
+  when: instances_to_create | length > 0
 
-- name: No VMs to create
+- name: No instances to create
   ansible.builtin.debug:
-    msg: "All requested VMs already exist; nothing to do."
-  when: vms_to_create | length == 0
+    msg: "All requested instances already exist; nothing to do."
+  when: instances_to_create | length == 0
 
 # =========================================================================
-# PHASE 1: Clone VMs with virt-clone
+# PHASE 1: Clone instances with virt-clone
 # =========================================================================
-- name: "PHASE 1A: Clone VMs (sequential)"
+- name: "PHASE 1A: Clone instances (sequential)"
   when:
-    - vms_to_create | length > 0
-    - (clone_mode | default('auto')) == 'sequential'
+    - instances_to_create | length > 0
+    - (kvm_clone_mode | default('auto')) == 'sequential'
   block:
-    - name: Clone VMs from profile templates (sequential)
+    - name: Clone instances from profile templates (sequential)
       ansible.builtin.command:
         cmd: >-
           virt-clone
-          --original "{{ item.template_vm }}"
-          --name "{{ item.name }}"
-          --file "{{ disk_pool }}/{{ item.name }}.{{ item.clone_disk_ext }}"
+          --original "{{ item.template_instance_name }}"
+          --name "{{ item.instance_name }}"
+          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
           --check path_in_use=off
-      loop: "{{ vms_to_create }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
+        label: "{{ item.instance_name }}"
       register: clone_results
       changed_when: true
 
-- name: "PHASE 1B: Clone VMs (parallel)"
+- name: "PHASE 1B: Clone instances (parallel)"
   when:
-    - vms_to_create | length > 0
-    - (clone_mode | default('auto')) == 'parallel'
+    - instances_to_create | length > 0
+    - (kvm_clone_mode | default('auto')) == 'parallel'
   block:
-    - name: Clone VMs from profile templates (async)
+    - name: Clone instances from profile templates (async)
       ansible.builtin.command:
         cmd: >-
           virt-clone
-          --original "{{ item.template_vm }}"
-          --name "{{ item.name }}"
-          --file "{{ disk_pool }}/{{ item.name }}.{{ item.clone_disk_ext }}"
+          --original "{{ item.template_instance_name }}"
+          --name "{{ item.instance_name }}"
+          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
           --check path_in_use=off
-      loop: "{{ vms_to_create }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
-      async: "{{ clone_async_timeout_sec | default(1800) }}"
+        label: "{{ item.instance_name }}"
+      async: "{{ kvm_clone_async_timeout_seconds | default(1800) }}"
       poll: 0
       register: clone_jobs
       changed_when: true
@@ -217,30 +251,30 @@
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ clone_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: clone_results
       until: clone_results.finished
-      retries: "{{ clone_wait_retries | default(180) }}"
-      delay: "{{ clone_wait_delay_sec | default(10) }}"
+      retries: "{{ kvm_clone_wait_retries | default(180) }}"
+      delay: "{{ kvm_clone_wait_delay_seconds | default(10) }}"
       when: item.ansible_job_id is defined
 
-- name: "PHASE 1C: Clone VMs (auto parallel + fallback)"
+- name: "PHASE 1C: Clone instances (auto parallel + fallback)"
   when:
-    - vms_to_create | length > 0
-    - (clone_mode | default('auto')) == 'auto'
+    - instances_to_create | length > 0
+    - (kvm_clone_mode | default('auto')) == 'auto'
   block:
-    - name: Clone VMs from profile templates (async attempt)
+    - name: Clone instances from profile templates (async attempt)
       ansible.builtin.command:
         cmd: >-
           virt-clone
-          --original "{{ item.template_vm }}"
-          --name "{{ item.name }}"
-          --file "{{ disk_pool }}/{{ item.name }}.{{ item.clone_disk_ext }}"
+          --original "{{ item.template_instance_name }}"
+          --name "{{ item.instance_name }}"
+          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
           --check path_in_use=off
-      loop: "{{ vms_to_create }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
-      async: "{{ clone_async_timeout_sec | default(1800) }}"
+        label: "{{ item.instance_name }}"
+      async: "{{ kvm_clone_async_timeout_seconds | default(1800) }}"
       poll: 0
       register: clone_jobs
       changed_when: true
@@ -250,17 +284,17 @@
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ clone_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: clone_results
       until: clone_results.finished
-      retries: "{{ clone_wait_retries | default(180) }}"
-      delay: "{{ clone_wait_delay_sec | default(10) }}"
+      retries: "{{ kvm_clone_wait_retries | default(180) }}"
+      delay: "{{ kvm_clone_wait_delay_seconds | default(10) }}"
       when: item.ansible_job_id is defined
       failed_when: false
 
     - name: Build fallback and hard-failure clone lists
       ansible.builtin.set_fact:
-        clone_pool_locked_vms: >-
+        clone_pool_locked_instances: >-
           {{
             clone_results.results
             | selectattr('rc', 'defined')
@@ -291,23 +325,23 @@
     - name: Fail on non-recoverable clone errors
       ansible.builtin.fail:
         msg: >-
-          Clone failed for {{ clone_hard_failures | length }} VM(s) with non pool-lock errors.
+          Clone failed for {{ clone_hard_failures | length }} instance(s) with non pool-lock errors.
           First error: {{ (clone_hard_failures | first).stderr | default((clone_hard_failures | first).msg | default('unknown error')) }}
       when: clone_hard_failures | length > 0
 
-    - name: Retry pool-locked VMs sequentially
+    - name: Retry pool-locked instances sequentially
       ansible.builtin.command:
         cmd: >-
           virt-clone
-          --original "{{ item.template_vm }}"
-          --name "{{ item.name }}"
-          --file "{{ disk_pool }}/{{ item.name }}.{{ item.clone_disk_ext }}"
+          --original "{{ item.template_instance_name }}"
+          --name "{{ item.instance_name }}"
+          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
           --check path_in_use=off
-      loop: "{{ clone_pool_locked_vms | default([]) }}"
+      loop: "{{ clone_pool_locked_instances | default([]) }}"
       loop_control:
-        label: "{{ item.name }}"
+        label: "{{ item.instance_name }}"
       register: clone_fallback_results
-      when: clone_pool_locked_vms | length > 0
+      when: clone_pool_locked_instances | length > 0
       changed_when: true
 
 # =========================================================================
@@ -315,7 +349,7 @@
 # =========================================================================
 - name: Generate ifupdown network files
   ansible.builtin.copy:
-    dest: "{{ clone_workspace_dir }}/{{ item.name }}-interfaces"
+    dest: "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-interfaces"
     mode: "0600"
     content: |
       # Managed by Ansible (idops)
@@ -324,19 +358,19 @@
       auto lo
       iface lo inet loopback
 
-      allow-hotplug {{ item.guest_interface }}
-      iface {{ item.guest_interface }} inet static
-        address {{ item.ip }}/{{ item.network_prefix }}
-        gateway {{ item.network_gateway }}
-        dns-nameservers {{ ([item.dns_servers] if item.dns_servers is string else item.dns_servers) | join(' ') }}
-  loop: "{{ vms_ifupdown }}"
+      allow-hotplug {{ item.guest_network_interface }}
+      iface {{ item.guest_network_interface }} inet static
+        address {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
+        gateway {{ item.guest_network_gateway }}
+        dns-nameservers {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | join(' ') }}
+  loop: "{{ instances_ifupdown }}"
   loop_control:
-    label: "{{ item.name }}"
-  when: vms_ifupdown | length > 0
+    label: "{{ item.instance_name }}"
+  when: instances_ifupdown | length > 0
 
 - name: Generate netplan network files
   ansible.builtin.copy:
-    dest: "{{ clone_workspace_dir }}/{{ item.name }}-netplan.yaml"
+    dest: "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-netplan.yaml"
     mode: "0600"
     content: |
       # Managed by Ansible (idops)
@@ -344,36 +378,36 @@
         version: 2
         renderer: {{ item.netplan_renderer | default('networkd') }}
         ethernets:
-          {{ item.guest_interface }}:
+          {{ item.guest_network_interface }}:
             dhcp4: false
             addresses:
-              - {{ item.ip }}/{{ item.network_prefix }}
+              - {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
             routes:
               - to: default
-                via: {{ item.network_gateway }}
+                via: {{ item.guest_network_gateway }}
             nameservers:
-              addresses: {{ ([item.dns_servers] if item.dns_servers is string else item.dns_servers) | to_json }}
-  loop: "{{ vms_netplan }}"
+              addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
+  loop: "{{ instances_netplan }}"
   loop_control:
-    label: "{{ item.name }}"
-  when: vms_netplan | length > 0
+    label: "{{ item.instance_name }}"
+  when: instances_netplan | length > 0
 
 - name: Customize ifupdown guests (async)
   ansible.builtin.shell: |
     virt-customize \
-      -a "{{ disk_pool }}/{{ item.name }}.{{ item.clone_disk_ext }}" \
-      --hostname "{{ item.name }}" \
-      --upload "{{ clone_workspace_dir }}/{{ item.name }}-interfaces:/etc/network/interfaces" \
+      -a "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}" \
+      --hostname "{{ item.instance_name }}" \
+      --upload "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-interfaces:/etc/network/interfaces" \
       --truncate /etc/machine-id \
       --run-command "rm -f /etc/ssh/ssh_host_*" \
       --run-command "dpkg-reconfigure -f noninteractive openssh-server"
-  loop: "{{ vms_ifupdown }}"
+  loop: "{{ instances_ifupdown }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.instance_name }}"
   async: 300
   poll: 0
   register: customize_ifupdown_jobs
-  when: vms_ifupdown | length > 0
+  when: instances_ifupdown | length > 0
   changed_when: true
 
 - name: Wait for ifupdown customization jobs
@@ -381,32 +415,32 @@
     jid: "{{ item.ansible_job_id }}"
   loop: "{{ customize_ifupdown_jobs.results }}"
   loop_control:
-    label: "{{ item.item.name }}"
+    label: "{{ item.item.instance_name }}"
   register: customize_ifupdown_results
   until: customize_ifupdown_results.finished
   retries: 60
   delay: 5
   when:
-    - vms_ifupdown | length > 0
+    - instances_ifupdown | length > 0
     - item.ansible_job_id is defined
 
 - name: Customize netplan guests (async)
   ansible.builtin.shell: |
     virt-customize \
-      -a "{{ disk_pool }}/{{ item.name }}.{{ item.clone_disk_ext }}" \
-      --hostname "{{ item.name }}" \
-      --upload "{{ clone_workspace_dir }}/{{ item.name }}-netplan.yaml:/etc/netplan/99-idops-static.yaml" \
+      -a "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}" \
+      --hostname "{{ item.instance_name }}" \
+      --upload "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-netplan.yaml:/etc/netplan/99-idops-static.yaml" \
       --truncate /etc/machine-id \
       --run-command "chmod 600 /etc/netplan/99-idops-static.yaml" \
       --run-command "rm -f /etc/ssh/ssh_host_*" \
       --run-command "dpkg-reconfigure -f noninteractive openssh-server"
-  loop: "{{ vms_netplan }}"
+  loop: "{{ instances_netplan }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ item.instance_name }}"
   async: 300
   poll: 0
   register: customize_netplan_jobs
-  when: vms_netplan | length > 0
+  when: instances_netplan | length > 0
   changed_when: true
 
 - name: Wait for netplan customization jobs
@@ -414,30 +448,30 @@
     jid: "{{ item.ansible_job_id }}"
   loop: "{{ customize_netplan_jobs.results }}"
   loop_control:
-    label: "{{ item.item.name }}"
+    label: "{{ item.item.instance_name }}"
   register: customize_netplan_results
   until: customize_netplan_results.finished
   retries: 60
   delay: 5
   when:
-    - vms_netplan | length > 0
+    - instances_netplan | length > 0
     - item.ansible_job_id is defined
 
 # =========================================================================
 # PHASE 3: Configure resources (parallel)
 # =========================================================================
 - name: "PHASE 3: Configure resources"
-  when: vms_to_create | length > 0
+  when: instances_to_create | length > 0
   block:
-    - name: Set VM resources (async)
+    - name: Set instance resources (async)
       ansible.builtin.shell: |
-        virsh setmaxmem "{{ item.name }}" "{{ item.ram_mb }}M" --config && \
-        virsh setmem "{{ item.name }}" "{{ item.ram_mb }}M" --config && \
-        virsh setvcpus "{{ item.name }}" "{{ item.vcpu }}" --config --maximum && \
-        virsh setvcpus "{{ item.name }}" "{{ item.vcpu }}" --config
-      loop: "{{ vms_to_create }}"
+        virsh setmaxmem "{{ item.instance_name }}" "{{ item.memory_mb }}M" --config && \
+        virsh setmem "{{ item.instance_name }}" "{{ item.memory_mb }}M" --config && \
+        virsh setvcpus "{{ item.instance_name }}" "{{ item.vcpu_count }}" --config --maximum && \
+        virsh setvcpus "{{ item.instance_name }}" "{{ item.vcpu_count }}" --config
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
+        label: "{{ item.instance_name }}"
       async: 60
       poll: 0
       register: resource_jobs
@@ -448,7 +482,7 @@
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ resource_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: resource_results
       until: resource_results.finished
       retries: 12
@@ -456,28 +490,28 @@
       when: item.ansible_job_id is defined
 
 # =========================================================================
-# PHASE 4: Start VMs (parallel)
+# PHASE 4: Start instances (parallel)
 # =========================================================================
-- name: "PHASE 4: Start VMs"
-  when: vms_to_create | length > 0
+- name: "PHASE 4: Start instances"
+  when: instances_to_create | length > 0
   block:
-    - name: Start VMs (async)
+    - name: Start instances (async)
       ansible.builtin.command:
-        cmd: virsh start "{{ item.name }}"
-      loop: "{{ vms_to_create }}"
+        cmd: virsh start "{{ item.instance_name }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
+        label: "{{ item.instance_name }}"
       async: 60
       poll: 0
       register: start_jobs
       changed_when: true
 
-    - name: Wait for VM starts
+    - name: Wait for instance starts
       ansible.builtin.async_status:
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ start_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: start_results
       until: start_results.finished
       retries: 12
@@ -489,19 +523,19 @@
 # =========================================================================
 - name: "PHASE 5: Wait for SSH"
   when:
-    - vms_to_create | length > 0
-    - wait_for_ssh | default(true)
+    - instances_to_create | length > 0
+    - kvm_wait_for_instance_ssh | default(true)
   block:
-    - name: Wait for SSH on all VMs (parallel)
+    - name: Wait for SSH on all instances (parallel)
       ansible.builtin.wait_for:
-        host: "{{ item.ip }}"
+        host: "{{ item.instance_ipv4_address }}"
         port: "{{ item.ssh_port | int }}"
         delay: 5
         timeout: 180
         state: started
-      loop: "{{ vms_to_create }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }} ({{ item.ip }}:{{ item.ssh_port | int }})"
+        label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
       async: 180
       poll: 0
       register: ssh_wait_jobs
@@ -511,7 +545,7 @@
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ ssh_wait_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: ssh_results
       until: ssh_results.finished
       retries: 40
@@ -523,15 +557,15 @@
 # =========================================================================
 - name: "PHASE 6: Create snapshots"
   when:
-    - vms_to_create | length > 0
-    - create_snapshot | default(true)
+    - instances_to_create | length > 0
+    - kvm_snapshot_enabled | default(true)
   block:
-    - name: Shut down VMs for snapshot (async)
+    - name: Shut down instances for snapshot (async)
       ansible.builtin.command:
-        cmd: virsh shutdown "{{ item.name }}"
-      loop: "{{ vms_to_create }}"
+        cmd: virsh shutdown "{{ item.instance_name }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
+        label: "{{ item.instance_name }}"
       async: 60
       poll: 0
       register: shutdown_jobs
@@ -542,34 +576,34 @@
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ shutdown_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: shutdown_cmd_results
       until: shutdown_cmd_results.finished
       retries: 12
       delay: 5
       when: item.ansible_job_id is defined
 
-    - name: Wait for VMs to be shut off
+    - name: Wait for instances to be shut off
       ansible.builtin.command:
-        cmd: virsh domstate "{{ item.name }}"
-      loop: "{{ vms_to_create }}"
+        cmd: virsh domstate "{{ item.instance_name }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
-      register: vm_state
-      until: vm_state.stdout == "shut off"
+        label: "{{ item.instance_name }}"
+      register: instance_state
+      until: instance_state.stdout == "shut off"
       retries: 30
       delay: 2
       changed_when: false
 
-    - name: Create snapshots on all VMs (async)
+    - name: Create snapshots on all instances (async)
       ansible.builtin.command:
         cmd: >-
-          virsh snapshot-create-as "{{ item.name }}"
-          --name "{{ snapshot_name }}"
-          --description "{{ snapshot_description }}"
-      loop: "{{ vms_to_create }}"
+          virsh snapshot-create-as "{{ item.instance_name }}"
+          --name "{{ kvm_snapshot_name }}"
+          --description "{{ kvm_snapshot_description }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
+        label: "{{ item.instance_name }}"
       async: 120
       poll: 0
       register: snapshot_jobs
@@ -580,37 +614,37 @@
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ snapshot_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: snapshot_results
       until: snapshot_results.finished
       retries: 24
       delay: 5
       when: item.ansible_job_id is defined
 
-    - name: Start VMs after snapshot (async)
+    - name: Start instances after snapshot (async)
       ansible.builtin.command:
-        cmd: virsh start "{{ item.name }}"
-      loop: "{{ vms_to_create }}"
+        cmd: virsh start "{{ item.instance_name }}"
+      loop: "{{ instances_to_create }}"
       loop_control:
-        label: "{{ item.name }}"
+        label: "{{ item.instance_name }}"
       async: 60
       poll: 0
       register: final_start_jobs
-      when: start_after_snapshot | default(true)
+      when: kvm_start_instances_after_snapshot | default(true)
       changed_when: true
 
-    - name: Wait for final VM starts
+    - name: Wait for final instance starts
       ansible.builtin.async_status:
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ final_start_jobs.results }}"
       loop_control:
-        label: "{{ item.item.name }}"
+        label: "{{ item.item.instance_name }}"
       register: final_start_results
       until: final_start_results.finished
       retries: 12
       delay: 5
       when:
-        - start_after_snapshot | default(true)
+        - kvm_start_instances_after_snapshot | default(true)
         - item.ansible_job_id is defined
 
 # =========================================================================
@@ -624,21 +658,23 @@
       loop: "{{ templates_running | default([]) }}"
       loop_control:
         label: "{{ item }}"
-      when: restart_template_after | default(false)
+      when: kvm_restart_template_instances_after_run | default(false)
       register: restart_result
       changed_when: restart_result.rc == 0
 
     - name: Remove provisioning workspace when enabled
       ansible.builtin.file:
-        path: "{{ clone_workspace_dir }}"
+        path: "{{ kvm_clone_workspace_path }}"
         state: absent
-      when: cleanup_workspace | default(true)
+      when: kvm_cleanup_workspace_path_after_run | default(true)
 
 - name: Summary
   ansible.builtin.debug:
     msg: |
-      VM provisioning complete.
-      Created {{ vms_to_create | length }} VM(s):
-      {% for vm in vms_to_create %}
-        - {{ vm.name }} | os={{ vm.guest_os_variant }} | template={{ vm.template_vm }} | ip={{ vm.ip }} | vcpu={{ vm.vcpu }} | ram_mb={{ vm.ram_mb }}
+      Instance provisioning complete.
+      Created {{ instances_to_create | length }} instance(s):
+      {% for instance in instances_to_create %}
+        - {{ instance.instance_name }} | os={{ instance.guest_os_variant }}
+          template={{ instance.template_instance_name }} | ip={{ instance.instance_ipv4_address }}
+          vcpu={{ instance.vcpu_count }} | memory_mb={{ instance.memory_mb }}
       {% endfor %}
