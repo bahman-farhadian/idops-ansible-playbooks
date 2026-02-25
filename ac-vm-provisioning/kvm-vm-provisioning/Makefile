@@ -2,7 +2,7 @@
 .PHONY: help venv deps-bundle lint check ping provision-check provision cleanup cleanup-force
 
 INVENTORY ?= inventory.ini
-SITE_PLAYBOOK ?= site.yml
+PLAYBOOK_FILE ?= playbook.yml
 VENV ?= venv
 WHEELHOUSE ?= wheelhouse
 PYTHON ?= python3
@@ -17,7 +17,7 @@ help:
 	@echo "  make venv          - create venv/ and install dependencies"
 	@echo "  make deps-bundle   - download wheel artifacts into wheelhouse/"
 	@echo "  make lint          - run ansible-lint"
-	@echo "  make check         - syntax-check site playbook"
+	@echo "  make check         - syntax-check playbook entrypoint"
 	@echo "  make ping          - test connectivity to hypervisor"
 	@echo "  make provision-check - dry-run provisioning workflow"
 	@echo "  make provision     - execute provisioning workflow"
@@ -44,22 +44,22 @@ deps-bundle: venv
 	$(VENV_ACTIVATE) && pip download -r requirements.txt -d $(WHEELHOUSE)
 
 lint: venv
-	$(VENV_ACTIVATE) && ansible-lint $(SITE_PLAYBOOK)
+	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
 check: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) --syntax-check
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check
 
 ping: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=ping $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=ping $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 provision-check: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) --check -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --check -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 provision: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 cleanup: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=cleanup $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 cleanup-force: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=cleanup -e confirm_delete=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e confirm_delete=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)

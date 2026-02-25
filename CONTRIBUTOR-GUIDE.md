@@ -12,9 +12,9 @@ These rules apply to every implementation project inside this repository.
 
 ## Required Standards
 
-1. Exactly one top-level playbook entrypoint: `site.yml`.
+1. Exactly one top-level playbook entrypoint: `playbook.yml`.
 2. Do not create multiple top-level workflow playbooks.
-3. Put workflow logic in `tasks/*.yml` and include from `site.yml`.
+3. Put workflow logic in `tasks/*.yml` and include from `playbook.yml`.
 4. Keep user-editable runtime settings in `vars/` with documented defaults.
 5. Use `venv/` as local Python environment path when needed (not `.venv`).
 6. Expose user workflows through `Makefile` targets.
@@ -26,7 +26,7 @@ These rules apply to every implementation project inside this repository.
 
 Minimum structure for each implementation project:
 
-- `site.yml`
+- `playbook.yml`
 - `tasks/`
 - `vars/`
 - `inventory.*`
@@ -45,7 +45,7 @@ Reference tree:
 
 ```text
 <project>/
-  site.yml
+  playbook.yml
   tasks/
   vars/
   inventory.ini
@@ -58,6 +58,18 @@ Reference tree:
   wheelhouse/
     .gitkeep
 ```
+
+## Naming Rules
+
+1. Use `playbook.yml` for the single top-level playbook entrypoint.
+2. Use descriptive action names for task files, for example:
+   - `tasks/provision.yml`
+   - `tasks/cleanup.yml`
+   - `tasks/ping.yml`
+3. Use descriptive variable file names under `vars/`:
+   - `vars/hypervisor.yml`
+   - `vars/vms.yml`
+4. Use kebab-case for directory names and repository domains.
 
 ## What Is `wheelhouse`?
 

@@ -13,11 +13,11 @@ Production-oriented KVM VM provisioning for the `ac-vm-provisioning` domain.
 - Cleanup workflow for safe VM removal
 - `Makefile` workflow
 - Local environment folder named `venv/` (not `.venv`)
-- Single playbook entrypoint: `site.yml`
+- Single playbook entrypoint: `playbook.yml`
 
 ## Directory Layout
 
-- `site.yml` (single playbook entrypoint)
+- `playbook.yml` (single playbook entrypoint)
 - `tasks/provision.yml`
 - `tasks/cleanup.yml`
 - `vars/vms.yml`
@@ -66,7 +66,7 @@ make cleanup
 make cleanup-force
 ```
 
-The same `site.yml` handles all workflows using `kvm_action`:
+The same `playbook.yml` handles all workflows using `kvm_action`:
 
 - `kvm_action=provision`
 - `kvm_action=cleanup`

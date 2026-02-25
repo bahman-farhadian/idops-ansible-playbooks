@@ -20,7 +20,7 @@ Provider-specific VM provisioning implementations.
 
 ## Consistency Contract
 
-- Each provider directory must expose one playbook entrypoint: `site.yml`.
-- Workflow logic should be organized in `tasks/` and included by `site.yml`.
+- Each provider directory must expose one playbook entrypoint: `playbook.yml`.
+- Workflow logic should be organized in `tasks/` and included by `playbook.yml`.
 - Operator docs go in local `README.md`.
 - Contributor rules are centralized in root `CONTRIBUTOR-GUIDE.md`.

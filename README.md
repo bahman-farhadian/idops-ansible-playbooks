@@ -10,7 +10,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - Directory order expresses platform dependency and design layering, not a mandatory single-pass execution order.
 - Legacy content stays in `old_playbooks/` and is not modified during layout migration.
 - Every top-level domain directory must contain its own `README.md` with scope, dependencies, variables, and runbook.
-- Implementation projects use one playbook entrypoint (`site.yml`) and organize workflows via `tasks/`.
+- Implementation projects use one playbook entrypoint (`playbook.yml`) and organize workflows via `tasks/`.
 
 ## Root Stack Layout (Bottom -> Top)
 

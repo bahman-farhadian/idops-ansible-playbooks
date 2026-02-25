@@ -6,11 +6,11 @@ Hypervisor host platform automation for Debian-based KVM hosts.
 
 - Prepare hypervisor hosts with required KVM/libvirt packages
 - Validate virtualization and libvirt readiness
-- Keep one-playbook entrypoint structure (`site.yml`)
+- Keep one-playbook entrypoint structure (`playbook.yml`)
 
 ## Standard Layout
 
-- `site.yml` (single playbook entrypoint)
+- `playbook.yml` (single playbook entrypoint)
 - `tasks/configure.yml`
 - `tasks/ping.yml`
 - `vars/hypervisor.yml`
