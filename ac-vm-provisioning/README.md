@@ -13,7 +13,7 @@ Provider-specific VM provisioning implementations.
 
 - Legacy guest provisioning source: `old_playbooks/kvm-clone-ansible/`
 - Current implementation target: `ac-vm-provisioning/kvm-vm-provisioning/`
-- `ab-hypervisor-host-platform/` remains host-platform automation only.
+- `ab-hypervisor-host-platform/` is reserved for host-platform automation and is currently empty.
 
 ## Planned Providers
 

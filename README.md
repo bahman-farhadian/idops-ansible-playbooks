@@ -39,7 +39,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 ## Domain Intent (Production)
 
 - `aa-physical-server-foundation`: rack-level baseline, firmware/BIOS policy, storage/RAID, and hardware prep standards.
-- `ab-hypervisor-host-platform`: hypervisor host build (Debian+KVM, ESXi host integration, host-level prerequisites).
+- `ab-hypervisor-host-platform`: reserved for hypervisor host build (currently empty placeholder).
 - `ac-vm-provisioning`: VM lifecycle creation and allocation for workload environments.
 - `ad-network-and-connectivity`: routing, addressing, segmentation, firewall paths, and connectivity enforcement.
 - `ae-internal-services`: core in-house platform services (DNS, DHCP, NTP, internal supporting services).
@@ -86,5 +86,6 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - Each top-level directory will become a dedicated playbook domain.
 - `old_playbooks/` is kept as reference material while the new idops layout is built incrementally.
 - Guest provisioning legacy `old_playbooks/kvm-clone-ansible/` is migrated into `ac-vm-provisioning/kvm-vm-provisioning/`.
+- `ab-hypervisor-host-platform/` is intentionally empty until host-platform automation is implemented.
 - Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
 - Makefile standard: every project must provide `make ping`, and all user commands must appear in `make help`.

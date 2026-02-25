@@ -1,39 +1,22 @@
 # ab-hypervisor-host-platform
 
-Hypervisor host platform automation for Debian-based KVM hosts.
+Domain status: empty placeholder
 
-## Scope
+## Purpose
 
-- Prepare hypervisor hosts with required KVM/libvirt packages
-- Validate virtualization and libvirt readiness
-- Keep one-playbook entrypoint structure (`playbook.yml`)
+Reserved domain for future hypervisor host platform automation.
 
-## Standard Layout
+## Current State
 
-- `playbook.yml` (single playbook entrypoint)
-- `tasks/configure.yml`
-- `tasks/ping.yml`
-- `vars/hypervisor.yml`
-- `inventory.ini`
-- `ansible.cfg`
-- `requirements.txt`
-- `Makefile`
-- `README.md`
+- No playbook implementation exists yet in this directory.
+- This directory is intentionally kept empty until `ab` implementation starts.
 
-## Quick Start
+## Planned Scope (Later)
 
-```bash
-cd ab-hypervisor-host-platform
-make venv
-make check
-make ping
-make configure-check
-make configure
-```
+- Hypervisor host build and lifecycle automation (KVM/ESXi host layer).
+- Host-level prerequisites before VM provisioning in `ac-vm-provisioning/`.
 
 ## Notes
 
-- This domain is only for hypervisor host platform setup.
 - Guest VM provisioning is implemented under `ac-vm-provisioning/`.
-- Legacy guest clone reference `old_playbooks/kvm-clone-ansible/` maps to `ac-vm-provisioning/kvm-vm-provisioning/`.
 - Contributor standards are defined at repository root in `CONTRIBUTOR-GUIDE.md`.
