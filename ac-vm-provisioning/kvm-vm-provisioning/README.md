@@ -27,7 +27,7 @@ Production-oriented KVM VM provisioning for the `ac-vm-provisioning` domain.
 - `Makefile`
 - `venv/` (project-local Python environment path)
 - `wheelhouse/` (optional cached Python wheels)
-- `DEVELOPER.md` (implementation standard for contributors)
+- `CONTRIBUTOR-GUIDE.md` (implementation standard for contributors)
 
 ## Quick Start
 
@@ -35,6 +35,7 @@ Production-oriented KVM VM provisioning for the `ac-vm-provisioning` domain.
 cd ac-vm-provisioning/kvm-vm-provisioning
 make venv
 make check
+make ping
 ```
 
 Optional dependency cache workflow:
@@ -65,10 +66,11 @@ make cleanup
 make cleanup-force
 ```
 
-The same `site.yml` handles both workflows using `kvm_action`:
+The same `site.yml` handles all workflows using `kvm_action`:
 
 - `kvm_action=provision`
 - `kvm_action=cleanup`
+- `kvm_action=ping`
 
 ## VM OS Variant Model
 

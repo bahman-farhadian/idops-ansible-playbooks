@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv deps-bundle lint check provision-check provision cleanup cleanup-force
+.PHONY: help venv deps-bundle lint check ping provision-check provision cleanup cleanup-force
 
 INVENTORY ?= inventory.ini
 SITE_PLAYBOOK ?= site.yml
@@ -18,6 +18,7 @@ help:
 	@echo "  make deps-bundle   - download wheel artifacts into wheelhouse/"
 	@echo "  make lint          - run ansible-lint"
 	@echo "  make check         - syntax-check site playbook"
+	@echo "  make ping          - test connectivity to hypervisor"
 	@echo "  make provision-check - dry-run provisioning workflow"
 	@echo "  make provision     - execute provisioning workflow"
 	@echo "  make cleanup       - preview cleanup workflow (confirm_delete default is false)"
@@ -47,6 +48,9 @@ lint: venv
 
 check: venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) --syntax-check
+
+ping: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) -e kvm_action=ping $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
 
 provision-check: venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(SITE_PLAYBOOK) --check -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)

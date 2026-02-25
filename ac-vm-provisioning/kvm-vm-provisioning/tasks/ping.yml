@@ -1,0 +1,13 @@
+---
+- name: Check Ansible connectivity to hypervisor
+  ansible.builtin.ping:
+
+- name: Check virsh command availability
+  ansible.builtin.command:
+    cmd: virsh --version
+  register: virsh_version
+  changed_when: false
+
+- name: Display hypervisor connectivity summary
+  ansible.builtin.debug:
+    msg: "Hypervisor reachable. virsh version: {{ virsh_version.stdout | default('unknown') }}"

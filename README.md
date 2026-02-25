@@ -84,3 +84,5 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 
 - Each top-level directory will become a dedicated playbook domain.
 - `old_playbooks/` is kept as reference material while the new idops layout is built incrementally.
+- Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
+- Makefile standard: every project must provide `make ping`, and all user commands must appear in `make help`.

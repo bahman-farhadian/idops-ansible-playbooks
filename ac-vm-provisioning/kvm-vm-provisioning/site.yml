@@ -11,8 +11,8 @@
     - name: Validate requested action
       ansible.builtin.assert:
         that:
-          - kvm_action in ['provision', 'cleanup']
-        fail_msg: "kvm_action must be 'provision' or 'cleanup'."
+          - kvm_action in ['provision', 'cleanup', 'ping']
+        fail_msg: "kvm_action must be 'provision', 'cleanup', or 'ping'."
 
     - name: Add KVM hypervisor to inventory
       ansible.builtin.add_host:
@@ -42,3 +42,7 @@
     - name: Run KVM cleanup workflow
       ansible.builtin.include_tasks: tasks/cleanup.yml
       when: kvm_action == 'cleanup'
+
+    - name: Run KVM connectivity check workflow
+      ansible.builtin.include_tasks: tasks/ping.yml
+      when: kvm_action == 'ping'

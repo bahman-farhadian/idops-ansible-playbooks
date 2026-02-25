@@ -1,4 +1,4 @@
-# Developer Workflow Standards
+# Contributor Guide
 
 This repository is organized as domain directories (`aa-...`, `ab-...`, ...).
 
@@ -13,7 +13,14 @@ The goal is consistency across all playbook projects.
 5. Project commands are exposed through `Makefile` targets.
 6. Each project must include:
    - `README.md` for operators
-   - `DEVELOPER.md` for contributor rules
+   - `CONTRIBUTOR-GUIDE.md` for contributor rules
+
+## Makefile Rules (Required)
+
+1. Every project `Makefile` must include a `ping` target.
+2. Every user-facing target must be listed in the `help` target output.
+3. `help` must be the default goal.
+4. Keep command names consistent across projects when possible (`check`, `ping`, `provision`, etc.).
 
 ## Recommended Project Layout
 
@@ -25,7 +32,7 @@ The goal is consistency across all playbook projects.
 - `requirements.txt`
 - `Makefile`
 - `README.md`
-- `DEVELOPER.md`
+- `CONTRIBUTOR-GUIDE.md`
 
 ## Commit Practice
 
