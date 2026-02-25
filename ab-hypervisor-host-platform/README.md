@@ -19,7 +19,6 @@ Hypervisor host platform automation for Debian-based KVM hosts.
 - `requirements.txt`
 - `Makefile`
 - `README.md`
-- `CONTRIBUTOR-GUIDE.md`
 
 ## Quick Start
 
@@ -36,3 +35,4 @@ make configure
 
 - This domain is for hypervisor host setup, not guest VM provisioning.
 - Guest VM provisioning lives under `ac-vm-provisioning/` providers.
+- Contributor standards are defined at repository root in `CONTRIBUTOR-GUIDE.md`.

@@ -22,4 +22,5 @@ Provider-specific VM provisioning implementations.
 
 - Each provider directory must expose one playbook entrypoint: `site.yml`.
 - Workflow logic should be organized in `tasks/` and included by `site.yml`.
-- Operator docs go in `README.md`; contributor rules go in `CONTRIBUTOR-GUIDE.md`.
+- Operator docs go in local `README.md`.
+- Contributor rules are centralized in root `CONTRIBUTOR-GUIDE.md`.

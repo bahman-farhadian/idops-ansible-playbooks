@@ -27,7 +27,6 @@ Production-oriented KVM VM provisioning for the `ac-vm-provisioning` domain.
 - `Makefile`
 - `venv/` (project-local Python environment path)
 - `wheelhouse/` (optional cached Python wheels)
-- `CONTRIBUTOR-GUIDE.md` (implementation standard for contributors)
 
 ## Quick Start
 
@@ -45,6 +44,7 @@ make deps-bundle
 ```
 
 When `wheelhouse/` contains wheel files, `make venv` installs from local cache first.
+`wheelhouse/` is a local cache for Python wheel packages to reduce repeated downloads.
 
 Edit `vars/vms.yml` and define:
 
@@ -86,3 +86,4 @@ This allows mixed Debian and Ubuntu provisioning in one run.
 
 This project uses `venv/` as the local environment folder name by design.
 The folder is included in repo layout so teams use a consistent path.
+Contributor standards are defined at repository root in `CONTRIBUTOR-GUIDE.md`.

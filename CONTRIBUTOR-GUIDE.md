@@ -1,34 +1,30 @@
 # Contributor Guide
 
-This repository is organized as domain directories (`aa-...`, `ab-...`, ...).
+This is the single contributor standard for the entire repository.
 
-The goal is consistency across all playbook projects.
+## Purpose
 
-## Core Conventions
+Use one consistent Ansible project pattern across all domain directories (`aa-*`, `ab-*`, ...).
 
-1. Every implementation project uses one playbook entrypoint file: `site.yml`.
-2. Complex logic is split into `tasks/*.yml` includes from `site.yml`.
-3. User-editable variables live in `vars/` with documented defaults.
-4. Local environment path is `venv/` (not `.venv`) when a Python environment is needed.
-5. Project commands are exposed through `Makefile` targets.
-6. Each project must include:
-   - `README.md` for operators
-   - `CONTRIBUTOR-GUIDE.md` for contributor rules
+## Scope
 
-## Playbook File Policy (Required)
+These rules apply to every implementation project inside this repository.
 
-1. Keep exactly one top-level playbook entrypoint per implementation project: `site.yml`.
-2. Do not add additional top-level playbook files for separate workflows.
-3. Use an action variable (for example `*_action`) and `include_tasks` to switch workflows inside `site.yml`.
+## Required Standards
 
-## Makefile Rules (Required)
+1. Exactly one top-level playbook entrypoint: `site.yml`.
+2. Do not create multiple top-level workflow playbooks.
+3. Put workflow logic in `tasks/*.yml` and include from `site.yml`.
+4. Keep user-editable runtime settings in `vars/` with documented defaults.
+5. Use `venv/` as local Python environment path when needed (not `.venv`).
+6. Expose user workflows through `Makefile` targets.
+7. Every implementation `Makefile` must include `make ping`.
+8. Every user-facing Make target must appear in `make help`.
+9. Keep `help` as default Make target.
 
-1. Every project `Makefile` must include a `ping` target.
-2. Every user-facing target must be listed in the `help` target output.
-3. `help` must be the default goal.
-4. Keep command names consistent across projects when possible (`check`, `ping`, `provision`, etc.).
+## Best-Practice Project Structure
 
-## Recommended Project Layout
+Minimum structure for each implementation project:
 
 - `site.yml`
 - `tasks/`
@@ -38,10 +34,49 @@ The goal is consistency across all playbook projects.
 - `requirements.txt`
 - `Makefile`
 - `README.md`
-- `CONTRIBUTOR-GUIDE.md`
+
+Optional but recommended:
+
+- `venv/` (local environment path placeholder, not committed with binaries)
+- `wheelhouse/` (local wheel cache directory)
+- `docs/` (operator runbooks and architecture notes)
+
+Reference tree:
+
+```text
+<project>/
+  site.yml
+  tasks/
+  vars/
+  inventory.ini
+  ansible.cfg
+  requirements.txt
+  Makefile
+  README.md
+  venv/
+    .gitkeep
+  wheelhouse/
+    .gitkeep
+```
+
+## What Is `wheelhouse`?
+
+`wheelhouse/` is a local cache directory for Python wheel files downloaded by pip.
+
+Why it exists:
+
+1. Reduces repeated dependency downloads.
+2. Helps offline or restricted-network environments.
+3. Makes dependency bootstrap more predictable.
+
+Best practice:
+
+1. Do not commit full `venv` binaries.
+2. Keep only placeholders in `wheelhouse/` by default.
+3. If your team decides to commit wheel artifacts, treat them as managed release artifacts and document that policy in the project README.
 
 ## Commit Practice
 
-- Commit after each coherent change set.
-- Keep commit messages short and explicit.
-- Prefer one intent per commit.
+1. Commit after each coherent change set.
+2. Keep commit messages short and explicit.
+3. Prefer one intent per commit.
