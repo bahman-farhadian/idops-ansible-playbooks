@@ -15,6 +15,12 @@ The goal is consistency across all playbook projects.
    - `README.md` for operators
    - `CONTRIBUTOR-GUIDE.md` for contributor rules
 
+## Playbook File Policy (Required)
+
+1. Keep exactly one top-level playbook entrypoint per implementation project: `site.yml`.
+2. Do not add additional top-level playbook files for separate workflows.
+3. Use an action variable (for example `*_action`) and `include_tasks` to switch workflows inside `site.yml`.
+
 ## Makefile Rules (Required)
 
 1. Every project `Makefile` must include a `ping` target.
