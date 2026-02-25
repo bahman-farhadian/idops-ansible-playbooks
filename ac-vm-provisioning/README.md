@@ -1,30 +1,24 @@
 # ac-vm-provisioning
 
-Domain status: scaffold
+Domain status: active scaffold
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ac-vm-provisioning domain.
+Provider-specific VM provisioning implementations.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+## Current Providers
+
+- `kvm-vm-provisioning/`: KVM/libvirt VM clone + customize workflow
+
+## Planned Providers
+
+- `esxi-vm-provisioning/` (planned)
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
+
+- Upstream domains: `aa-physical-server-foundation`, `ab-hypervisor-host-platform`
+- Downstream domains: `ag-os-baseline-and-hardening`, `ah-container-runtime`, and higher layers
 
 ## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
 
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
-
-## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+- This domain follows the stack model from root README.
+- Execution is wave-based and iterative; VM provisioning is usually rerun as capacity grows.
