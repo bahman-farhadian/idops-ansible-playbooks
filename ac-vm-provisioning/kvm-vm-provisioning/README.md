@@ -32,7 +32,7 @@ Scope: this playbook supports **Debian images only**.
 - `tasks/cleanup.yml`
 - `tasks/ping.yml`
 - `vars/kvm-provisioning.yml`
-- `inventory.ini`
+- `host.yml`
 - `ansible.cfg`
 - `requirements.txt`
 - `Makefile`
@@ -202,6 +202,10 @@ Seed/user-data defaults are centralized in `vars/kvm-provisioning.yml`:
 - `kvm_default_cloud_init_write_files`
 - `kvm_default_cloud_init_storage_layout_enabled`
 - `kvm_default_cloud_init_storage_config`
+
+Default APT mirror is `deb.debian.org` via `kvm_default_cloud_init_apt_config`.
+Default storage map targets a 20GiB disk layout: 1GiB `/boot/efi`, 2GiB `/boot`,
+10GiB `/`, and 7GiB `/var`.
 
 Nexus/local apt cache example:
 

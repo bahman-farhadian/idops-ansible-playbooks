@@ -35,7 +35,7 @@ kvm_allow_nocloud_images: false                    # Allow nocloud images. Value
 # Instance defaults
 # -----------------------------------------------------------------------------
 kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
-kvm_default_root_disk_size_gb: 40              # Default target root disk size in GiB for new instances.
+kvm_default_root_disk_size_gb: 20              # Default total instance disk size in GiB for new instances.
 kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance disk files when domain is missing.
 
 # -----------------------------------------------------------------------------
@@ -72,7 +72,14 @@ kvm_default_cloud_init_locale: "en_US.UTF-8"            # Guest locale.
 kvm_default_cloud_init_package_update: true             # Run apt update during first boot.
 kvm_default_cloud_init_package_upgrade: true            # Run apt upgrade during first boot.
 kvm_default_cloud_init_package_reboot_if_required: false # Reboot automatically if upgrades require it.
-kvm_default_cloud_init_apt_config: {}                   # Cloud-init apt map (proxy/mirror/sources) for apt cache use-cases.
+kvm_default_cloud_init_apt_config:                      # Default Debian APT mirrors (cloud-init apt map).
+  preserve_sources_list: true
+  primary:
+    - arches: [default]
+      uri: "http://deb.debian.org/debian"
+  security:
+    - arches: [default]
+      uri: "http://deb.debian.org/debian-security"
 kvm_default_cloud_init_packages: []                     # Package list to install on first boot.
 kvm_default_cloud_init_bootcmd: []                      # cloud-init bootcmd list.
 kvm_default_cloud_init_runcmd: []                       # cloud-init runcmd list.
@@ -85,16 +92,16 @@ kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" 
 kvm_default_cloud_init_growpart_devices: []             # Keep root fixed at 10GiB for split-root layout.
 kvm_default_cloud_init_resize_rootfs: false             # Do not auto-expand root when split-root layout is enabled.
 kvm_default_cloud_init_storage_layout_enabled: true     # Enable custom storage map injection.
-kvm_default_cloud_init_storage_config:                  # 1GiB /boot/efi, 2GiB /boot, 10GiB /, remainder /var.
+kvm_default_cloud_init_storage_config:                  # 20GiB total: 1GiB /boot/efi, 2GiB /boot, 10GiB /, 7GiB /var.
   disk_setup:
     /dev/vda:
       table_type: gpt
       overwrite: true
       layout:
-        - 3
-        - 5
-        - 25
-        - 67
+        - 5   # /boot/efi = 1GiB
+        - 10  # /boot = 2GiB
+        - 50  # / = 10GiB
+        - 35  # /var = 7GiB
   fs_setup:
     - label: efi
       filesystem: vfat
@@ -189,25 +196,25 @@ kvm_instance_definitions:
     instance_ipv4_address: "192.168.24.121" # Instance static IPv4 address.
     vcpu_count: 2                           # vCPU allocation.
     memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 40                   # Root disk target size in GiB.
+    root_disk_size_gb: 20                   # Root disk target size in GiB.
 
   - instance_name: "debian-12-b"            # Target libvirt domain name.
     image_profile_id: "debian-12"           # Cloud image profile reference.
     instance_ipv4_address: "192.168.24.122" # Instance static IPv4 address.
     vcpu_count: 2                           # vCPU allocation.
     memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 40                   # Root disk target size in GiB.
+    root_disk_size_gb: 20                   # Root disk target size in GiB.
 
   - instance_name: "debian-13-a"            # Target libvirt domain name.
     image_profile_id: "debian-12"           # Cloud image profile reference.
     instance_ipv4_address: "192.168.24.131" # Instance static IPv4 address.
     vcpu_count: 2                           # vCPU allocation.
     memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 40                   # Root disk target size in GiB.
+    root_disk_size_gb: 20                   # Root disk target size in GiB.
 
   - instance_name: "debian-13-b"            # Target libvirt domain name.
     image_profile_id: "debian-12"           # Cloud image profile reference.
     instance_ipv4_address: "192.168.24.132" # Instance static IPv4 address.
     vcpu_count: 2                           # vCPU allocation.
     memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 40                   # Root disk target size in GiB.
+    root_disk_size_gb: 20                   # Root disk target size in GiB.
