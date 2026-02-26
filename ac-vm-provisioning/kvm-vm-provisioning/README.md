@@ -109,9 +109,11 @@ Cleanup:
 ```bash
 make cleanup
 make cleanup-force
+make cleanup-force-disks
 ```
 
-`make cleanup-force` sets `kvm_cleanup_confirmed=true`.
+`make cleanup-force` sets `kvm_cleanup_confirmed=true` and keeps disks by default.
+`make cleanup-force-disks` sets `kvm_cleanup_confirmed=true` and `kvm_cleanup_remove_instance_disks=true`.
 Cleanup is target-scoped: only `instance_name` entries in `kvm_instance_definitions` are affected.
 Cleanup does not use `virsh undefine --remove-all-storage`; it removes only expected instance disk paths under `kvm_instance_pool_path`.
 
