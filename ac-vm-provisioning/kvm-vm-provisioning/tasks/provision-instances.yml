@@ -374,7 +374,7 @@
 - name: Remove stale seed iso files before regeneration
   ansible.builtin.file:
     path: "{{ item.seed_disk_path }}"
-  state: absent
+    state: absent
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"

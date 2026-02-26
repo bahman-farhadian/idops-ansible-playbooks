@@ -151,7 +151,13 @@
 
 - name: Get all libvirt networks
   ansible.builtin.command:
-    cmd: virsh net-list --all --name
+    argv:
+      - virsh
+      - -c
+      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - net-list
+      - --all
+      - --name
   register: libvirt_all_networks_cmd
   changed_when: false
 
@@ -189,7 +195,12 @@
 
 - name: Get active libvirt networks
   ansible.builtin.command:
-    cmd: virsh net-list --name
+    argv:
+      - virsh
+      - -c
+      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - net-list
+      - --name
   register: libvirt_active_networks_cmd
   changed_when: false
 
@@ -213,7 +224,12 @@
 
 - name: Start inactive required libvirt networks when enabled
   ansible.builtin.command:
-    cmd: virsh net-start "{{ item }}"
+    argv:
+      - virsh
+      - -c
+      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - net-start
+      - "{{ item }}"
   loop: "{{ inactive_required_libvirt_networks | default([]) }}"
   loop_control:
     label: "{{ item }}"
@@ -226,7 +242,12 @@
 
 - name: Re-check active libvirt networks after auto-start attempts
   ansible.builtin.command:
-    cmd: virsh net-list --name
+    argv:
+      - virsh
+      - -c
+      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - net-list
+      - --name
   register: libvirt_active_networks_after_start_cmd
   changed_when: false
   when:
