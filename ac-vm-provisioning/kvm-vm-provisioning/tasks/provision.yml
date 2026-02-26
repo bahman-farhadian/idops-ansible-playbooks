@@ -1,6 +1,14 @@
+---
 # =========================================================================
-# PHASE 0: Validate and normalize input
+# PROVISION ORCHESTRATOR: cloud-image workflow
+# Stages: full | preflight | image-cache | provision | runtime
 # =========================================================================
+- name: Validate provision stage value
+  ansible.builtin.assert:
+    that:
+      - (kvm_provision_stage | default('full')) in ['full', 'preflight', 'image-cache', 'provision', 'runtime']
+    fail_msg: "kvm_provision_stage must be one of: full, preflight, image-cache, provision, runtime."
+
 - name: Validate instance definition list is provided
   ansible.builtin.assert:
     that:
@@ -8,118 +16,20 @@
       - kvm_instance_definitions | length > 0
     fail_msg: "Define at least one instance in vars/kvm-provisioning.yml under kvm_instance_definitions."
 
-- name: Validate template profile map is provided
+- name: Validate cloud image catalog is provided
   ansible.builtin.assert:
     that:
-      - kvm_template_catalog is defined
-      - kvm_template_catalog is mapping
-      - kvm_template_catalog | length > 0
-    fail_msg: "Define at least one template profile in vars/kvm-provisioning.yml under kvm_template_catalog."
+      - kvm_cloud_image_catalog is defined
+      - kvm_cloud_image_catalog is mapping
+      - kvm_cloud_image_catalog | length > 0
+    fail_msg: "Define at least one image profile in vars/kvm-provisioning.yml under kvm_cloud_image_catalog."
 
-- name: Build template profile alias map by template instance name
-  ansible.builtin.set_fact:
-    template_profile_aliases: >-
-      {{
-        (template_profile_aliases | default({}))
-        | combine({item.value.template_instance_name: item.key})
-      }}
-  loop: "{{ kvm_template_catalog | dict2items }}"
-  loop_control:
-    label: "{{ item.key }}"
-  when:
-    - item.value.template_instance_name is defined
-    - item.value.template_instance_name | length > 0
-
-- name: Build list of template instance names from catalog
-  ansible.builtin.set_fact:
-    template_instance_names: >-
-      {{ (template_instance_names | default([])) + [item.value.template_instance_name] }}
-  loop: "{{ kvm_template_catalog | dict2items }}"
-  loop_control:
-    label: "{{ item.key }}"
-  when:
-    - item.value.template_instance_name is defined
-    - item.value.template_instance_name | length > 0
-
-- name: Validate template instance names are unique
-  ansible.builtin.assert:
-    that:
-      - template_instance_names | length == (template_instance_names | unique | length)
-    fail_msg: "Each template_instance_name in kvm_template_catalog must be unique."
-  when: (template_instance_names | default([])) | length > 0
-
-- name: Validate instance profile references
-  ansible.builtin.assert:
-    that:
-      - item.template_profile_id is defined
-      - >-
-        item.template_profile_id in kvm_template_catalog
-        or item.template_profile_id in (template_profile_aliases | default({}))
-    fail_msg: >-
-      Instance {{ item.instance_name | default('unknown') }} references an undefined template_profile_id
-      '{{ item.template_profile_id | default('missing') }}'. Valid profile ids:
-      {{ kvm_template_catalog.keys() | list | join(', ') }}. Valid template aliases:
-      {{ (template_profile_aliases | default({})).keys() | list | join(', ') }}.
-  loop: "{{ kvm_instance_definitions }}"
-  loop_control:
-    label: "{{ item.instance_name | default('unknown') }}"
-
-- name: Set per-instance default values
-  ansible.builtin.set_fact:
-    instance_defaults:
-      guest_os_variant: "debian"
-      guest_network_mode: "ifupdown"
-      guest_network_interface: "{{ kvm_default_guest_network_interface }}"
-      guest_network_prefix: "{{ kvm_default_guest_network_prefix }}"
-      guest_network_gateway: "{{ kvm_default_guest_network_gateway }}"
-      guest_dns_servers: "{{ kvm_default_guest_dns_servers }}"
-      ssh_port: 22
-      clone_disk_extension: "{{ kvm_default_clone_disk_extension }}"
-
-- name: Build normalized instance definitions
-  ansible.builtin.set_fact:
-    normalized_instances: >-
-      {{
-        (normalized_instances | default([]))
-        + [
-          instance_defaults
-          | combine(
-              kvm_template_catalog[
-                (
-                  item.template_profile_id
-                  if item.template_profile_id in kvm_template_catalog
-                  else template_profile_aliases[item.template_profile_id]
-                )
-              ],
-              recursive=True
-            )
-          | combine(item, recursive=True)
-        ]
-      }}
-  loop: "{{ kvm_instance_definitions }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-
-- name: Validate normalized instance fields
-  ansible.builtin.assert:
-    that:
-      - item.instance_name is defined
-      - item.template_instance_name is defined
-      - item.template_instance_disk_files is defined
-      - item.template_instance_disk_files is sequence
-      - item.template_instance_disk_files is not string
-      - item.template_instance_disk_files | length > 0
-      - item.instance_ipv4_address is defined
-      - item.vcpu_count is defined
-      - item.memory_mb is defined
-      - item.guest_os_variant in supported_guest_os_variants
-      - item.guest_network_mode in supported_guest_network_modes
-      - item.clone_disk_extension is match('^[A-Za-z0-9]+$')
-      - item.instance_name != item.template_instance_name
-    fail_msg: "Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields."
-  loop: "{{ normalized_instances }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
+- name: Fail when deprecated clone template variables are still used
+  ansible.builtin.fail:
+    msg: >-
+      Deprecated clone-template variables were detected. This project now uses cloud-image provisioning.
+      Remove kvm_template_catalog/template_instance_* settings and use kvm_cloud_image_catalog + image_profile_id.
+  when: kvm_template_catalog is defined
 
 - name: Determine whether mutation phases are allowed
   ansible.builtin.set_fact:
@@ -134,375 +44,138 @@
     msg: >-
       Check mode is active and mutation phases are disabled
       (kvm_execute_mutation_phases_in_check_mode=false).
-      Provisioning preflight will run without clone/customize/start operations.
+      Mutating stages are evaluated but will not create/download/start resources.
   when:
     - ansible_check_mode
     - not (kvm_run_mutation_phases | bool)
 
-- name: Ensure workspace directory exists on hypervisor
-  ansible.builtin.file:
-    path: "{{ kvm_clone_workspace_path }}"
-    state: directory
-    mode: "0700"
-  when: kvm_run_mutation_phases | bool
+- name: Build stage execution flags
+  ansible.builtin.set_fact:
+    kvm_selected_stage: "{{ kvm_provision_stage | default('full') }}"
+    kvm_run_stage_preflight: "{{ (kvm_provision_stage | default('full')) in ['full', 'preflight'] }}"
+    kvm_run_stage_image_cache: "{{ (kvm_provision_stage | default('full')) in ['full', 'image-cache'] }}"
+    kvm_run_stage_provision: "{{ (kvm_provision_stage | default('full')) in ['full', 'provision'] }}"
+    kvm_run_stage_runtime: "{{ (kvm_provision_stage | default('full')) in ['full', 'runtime'] }}"
 
-- name: Validate disk pool path exists
-  ansible.builtin.stat:
-    path: "{{ kvm_instance_pool_path }}"
-  register: instance_pool_stat
-  changed_when: false
-
-- name: Warn when disk pool path is invalid during non-mutation check mode
-  ansible.builtin.debug:
-    msg: |
-      kvm_instance_pool_path is not a valid directory right now: {{ kvm_instance_pool_path }}
-      This is non-fatal in check mode because mutation phases are disabled.
-      Run make provision only after creating/fixing this directory and permissions.
-  when:
-    - not (kvm_run_mutation_phases | bool)
-    - >-
-      not (instance_pool_stat.stat.exists | default(false))
-      or not (instance_pool_stat.stat.isdir | default(false))
-
-- name: Fail if disk pool path is invalid for mutation phases
-  ansible.builtin.fail:
-    msg: |
-      Invalid kvm_instance_pool_path path on hypervisor: {{ kvm_instance_pool_path }}
-      Create/fix this directory and permissions before running make provision.
-      This project does not auto-create the pool path to avoid ownership mistakes.
-  when:
-    - kvm_run_mutation_phases | bool
-    - >-
-      not (instance_pool_stat.stat.exists | default(false))
-      or not (instance_pool_stat.stat.isdir | default(false))
-
-- name: Validate workspace path does not overlap instance pool when cleanup is enabled
+- name: Validate instance image profile references
   ansible.builtin.assert:
     that:
+      - item.image_profile_id is defined
+      - item.image_profile_id in kvm_cloud_image_catalog
+    fail_msg: >-
+      Instance {{ item.instance_name | default('unknown') }} references undefined image_profile_id
+      '{{ item.image_profile_id | default('missing') }}'. Valid profile ids:
+      {{ kvm_cloud_image_catalog.keys() | list | join(', ') }}.
+  loop: "{{ kvm_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name | default('unknown') }}"
+
+- name: Set per-instance defaults
+  ansible.builtin.set_fact:
+    instance_defaults:
+      instance_disk_extension: "{{ kvm_default_instance_disk_extension }}"
+      root_disk_size_gb: "{{ kvm_default_root_disk_size_gb }}"
+      guest_network_interface: "{{ kvm_default_guest_network_interface }}"
+      guest_network_prefix: "{{ kvm_default_guest_network_prefix }}"
+      guest_network_gateway: "{{ kvm_default_guest_network_gateway }}"
+      guest_dns_servers: "{{ kvm_default_guest_dns_servers }}"
+      libvirt_network_name: "{{ kvm_default_libvirt_network_name }}"
+      ssh_port: 22
+      cloud_init_user: "{{ kvm_default_cloud_init_user }}"
+      cloud_init_ssh_public_keys: "{{ kvm_default_cloud_init_ssh_public_keys }}"
+      cloud_init_password_hash: "{{ kvm_default_cloud_init_password_hash }}"
+      cloud_init_ssh_password_auth: "{{ kvm_default_cloud_init_ssh_password_auth }}"
+      cloud_init_disable_root: "{{ kvm_default_cloud_init_disable_root }}"
+
+- name: Build normalized instance definitions
+  ansible.builtin.set_fact:
+    normalized_instances: >-
+      {{
+        (normalized_instances | default([]))
+        + [
+          instance_defaults
+          | combine(kvm_cloud_image_catalog[item.image_profile_id], recursive=True)
+          | combine(item, recursive=True)
+        ]
+      }}
+  loop: "{{ kvm_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+
+- name: Validate normalized instance fields
+  ansible.builtin.assert:
+    that:
+      - item.instance_name is defined
+      - item.instance_name | length > 0
+      - item.instance_name is match('^[A-Za-z0-9][A-Za-z0-9-]{0,62}$')
+      - item.image_profile_id is defined
+      - item.image_url is defined
+      - item.image_url | length > 0
+      - item.image_filename is defined
+      - item.image_filename | length > 0
+      - item.image_sha256 is defined
       - >-
         (
-          kvm_clone_workspace_path | regex_replace('/+$', '')
-        ) != (
-          kvm_instance_pool_path | regex_replace('/+$', '')
+          not (kvm_image_cache_verify_on_run | default(true) | bool)
         )
-    fail_msg: >-
-      kvm_clone_workspace_path and kvm_instance_pool_path must be different when
-      kvm_cleanup_workspace_path_after_run=true. Otherwise cleanup can delete
-      your instance/template storage.
-  when:
-    - kvm_cleanup_workspace_path_after_run | default(true) | bool
-    - kvm_run_mutation_phases | bool
+        or
+        (
+          item.image_sha256 is match('^[A-Fa-f0-9]{64}$')
+        )
+      - item.virt_install_os_variant is defined
+      - item.virt_install_os_variant | length > 0
+      - item.instance_ipv4_address is defined
+      - item.vcpu_count is defined
+      - (item.vcpu_count | int) > 0
+      - item.memory_mb is defined
+      - (item.memory_mb | int) > 0
+      - item.root_disk_size_gb is defined
+      - (item.root_disk_size_gb | int) > 0
+      - item.instance_disk_extension is match('^[A-Za-z0-9]+$')
+      - item.libvirt_network_name is defined
+      - item.libvirt_network_name | length > 0
+      - item.cloud_init_user is defined
+      - item.cloud_init_user | length > 0
+      - item.cloud_init_ssh_public_keys is sequence
+      - item.cloud_init_ssh_public_keys is not string
+      - (item.cloud_init_password_hash | length > 0) or not (item.cloud_init_ssh_password_auth | bool)
+    fail_msg: "Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields."
+  loop: "{{ normalized_instances }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
 
-- name: Build unique list of required templates
-  ansible.builtin.set_fact:
-    required_template_instances: "{{ normalized_instances | map(attribute='template_instance_name') | unique | list }}"
-
-- name: Build template disk file validation list
-  ansible.builtin.set_fact:
-    required_template_disk_files: "{{ normalized_instances | map(attribute='template_instance_disk_files') | flatten | unique | list }}"
-
-- name: Validate template validation mode
+- name: Validate instance names are unique
   ansible.builtin.assert:
     that:
-      - (kvm_template_validation_mode | default('always')) in ['always', 'once']
-    fail_msg: "kvm_template_validation_mode must be 'always' or 'once'."
+      - normalized_instances | map(attribute='instance_name') | list | length
+        ==
+        normalized_instances | map(attribute='instance_name') | list | unique | length
+    fail_msg: "Instance names must be unique in kvm_instance_definitions."
 
-- name: Build template validation marker metadata
+- name: Build unique image profile list from requested instances
   ansible.builtin.set_fact:
-    template_validation_fingerprint: >-
-      {{
-        (
-          (required_template_instances | sort)
-          + (required_template_disk_files | sort)
-        )
-        | join('|')
-        | hash('sha1')
-      }}
-    template_validation_state_directory: >-
-      {{ kvm_template_validation_state_dir | default('/var/tmp/idops-kvm-template-validation') }}
+    required_image_profiles: "{{ normalized_instances | map(attribute='image_profile_id') | unique | list }}"
 
-- name: Build template validation marker path
+- name: Build required cloud image metadata list
   ansible.builtin.set_fact:
-    template_validation_marker_path: >-
+    required_cloud_images: >-
       {{
-        template_validation_state_directory
-        ~ '/template-validation-'
-        ~ template_validation_fingerprint
-        ~ '.ok'
+        (required_cloud_images | default([]))
+        + [
+          {
+            'profile_id': item,
+            'image_url': kvm_cloud_image_catalog[item].image_url,
+            'image_filename': kvm_cloud_image_catalog[item].image_filename,
+            'image_sha256': kvm_cloud_image_catalog[item].image_sha256,
+            'cached_image_path': (kvm_image_cache_path ~ '/' ~ kvm_cloud_image_catalog[item].image_filename)
+          }
+        ]
       }}
-
-- name: Ensure template validation state directory exists
-  ansible.builtin.file:
-    path: "{{ template_validation_state_directory }}"
-    state: directory
-    mode: "0755"
-  when:
-    - (kvm_template_validation_mode | default('always')) == 'once'
-    - not ansible_check_mode
-
-- name: Check template validation marker
-  ansible.builtin.stat:
-    path: "{{ template_validation_marker_path }}"
-  register: template_validation_marker_stat
-  changed_when: false
-  when: (kvm_template_validation_mode | default('always')) == 'once'
-
-- name: Decide whether template validation should run
-  ansible.builtin.set_fact:
-    kvm_run_template_validation: >-
-      {{
-        (kvm_template_validation_mode | default('always')) == 'always'
-        or not (template_validation_marker_stat.stat.exists | default(false))
-      }}
-
-- name: Skip repeated template validation when marker exists
-  ansible.builtin.debug:
-    msg: >-
-      Template validation marker found at {{ template_validation_marker_path }}.
-      Skipping repeated template disk/template instance validation.
-  when:
-    - (kvm_template_validation_mode | default('always')) == 'once'
-    - not (kvm_run_template_validation | bool)
-
-- name: Check setfacl availability when runtime auto-fix is enabled
-  ansible.builtin.command:
-    cmd: which setfacl
-  register: setfacl_check
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - kvm_auto_fix_runtime_pool_access | default(true) | bool
-
-- name: Fail when runtime auto-fix is enabled but setfacl is unavailable
-  ansible.builtin.fail:
-    msg: >-
-      Runtime auto-fix requires setfacl, but it is not installed on the hypervisor.
-      Install package 'acl' or disable kvm_auto_fix_runtime_pool_access.
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - kvm_auto_fix_runtime_pool_access | default(true) | bool
-    - setfacl_check.rc != 0
-
-- name: Validate template disk files exist
-  ansible.builtin.stat:
-    path: "{{ item }}"
-  loop: "{{ required_template_disk_files }}"
+  loop: "{{ required_image_profiles }}"
   loop_control:
     label: "{{ item }}"
-  register: template_disk_file_stats
-  changed_when: false
-  when:
-    - kvm_run_template_validation | bool or kvm_run_mutation_phases | bool
 
-- name: Fail if any template disk files are missing
-  ansible.builtin.fail:
-    msg: >-
-      Missing template disk files on hypervisor: {{
-      template_disk_file_stats.results
-      | rejectattr('stat.exists')
-      | map(attribute='item')
-      | join(', ')
-      }}
-  when:
-    - kvm_run_template_validation | bool or kvm_run_mutation_phases | bool
-    - >-
-      (
-        template_disk_file_stats.results
-        | rejectattr('stat.exists')
-        | list
-        | length
-      ) > 0
-
-- name: Check runtime user access to instance pool path
-  ansible.builtin.command:
-    cmd: "stat {{ kvm_instance_pool_path }}"
-  become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
-  register: runtime_pool_access_check
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-
-- name: Check runtime user access to template disk files
-  ansible.builtin.command:
-    cmd: "stat {{ item }}"
-  loop: "{{ required_template_disk_files }}"
-  loop_control:
-    label: "{{ item }}"
-  become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
-  register: runtime_template_disk_access_check
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-
-- name: Build runtime access failure state
-  ansible.builtin.set_fact:
-    runtime_pool_access_failed: "{{ (runtime_pool_access_check.rc | default(0) | int) != 0 }}"
-    runtime_template_access_failures: >-
-      {{
-        runtime_template_disk_access_check.results
-        | default([])
-        | selectattr('rc', 'defined')
-        | rejectattr('rc', 'eq', 0)
-        | map(attribute='item')
-        | list
-      }}
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-
-- name: Build runtime ACL auto-fix target list
-  ansible.builtin.set_fact:
-    runtime_acl_fix_targets: >-
-      {{
-        (
-          ([kvm_instance_pool_path] if (runtime_pool_access_failed | default(false)) else [])
-          + (runtime_template_access_failures | default([]))
-        )
-        | unique
-      }}
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - kvm_auto_fix_runtime_pool_access | default(true) | bool
-
-- name: Auto-fix runtime ACLs for pool and template files
-  ansible.builtin.shell: |
-    set -euo pipefail
-    runtime_user={{ (kvm_libvirt_runtime_user | default('libvirt-qemu')) | quote }}
-    target={{ item | quote }}
-    if [ -d "$target" ]; then
-      parent="$target"
-      target_is_dir=1
-    else
-      parent="$(dirname "$target")"
-      target_is_dir=0
-    fi
-
-    current="$parent"
-    while [ "$current" != "/" ] && [ -n "$current" ]; do
-      setfacl -m "u:${runtime_user}:x" "$current"
-      current="$(dirname "$current")"
-    done
-
-    if [ "$target_is_dir" -eq 1 ]; then
-      setfacl -m "u:${runtime_user}:rwx" "$target"
-      setfacl -m "d:u:${runtime_user}:rwx" "$target"
-    else
-      setfacl -m "u:${runtime_user}:r" "$target"
-    fi
-  args:
-    executable: /bin/bash
-  loop: "{{ runtime_acl_fix_targets | default([]) }}"
-  loop_control:
-    label: "{{ item }}"
-  become: true
-  register: runtime_acl_fix_results
-  changed_when: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - kvm_auto_fix_runtime_pool_access | default(true) | bool
-    - (runtime_acl_fix_targets | default([])) | length > 0
-
-- name: Re-check runtime user access to instance pool path
-  ansible.builtin.command:
-    cmd: "stat {{ kvm_instance_pool_path }}"
-  become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
-  register: runtime_pool_access_check_after_fix
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-
-- name: Re-check runtime user access to template disk files
-  ansible.builtin.command:
-    cmd: "stat {{ item }}"
-  loop: "{{ required_template_disk_files }}"
-  loop_control:
-    label: "{{ item }}"
-  become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
-  register: runtime_template_disk_access_check_after_fix
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-
-- name: Fail when runtime user cannot access instance pool path
-  ansible.builtin.fail:
-    msg: |
-      Libvirt runtime user '{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}'
-      cannot access kvm_instance_pool_path: {{ kvm_instance_pool_path }}.
-      Fix parent directory traversal and ACLs, or use a libvirt-managed path.
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - (runtime_pool_access_check_after_fix.rc | default(runtime_pool_access_check.rc | default(0)) | int) != 0
-
-- name: Fail when runtime user cannot access template disk files
-  ansible.builtin.fail:
-    msg: >-
-      Libvirt runtime user '{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}'
-      cannot access template disk file(s): {{
-      (
-        runtime_template_disk_access_check_after_fix.results
-        | default(runtime_template_disk_access_check.results | default([]))
-        | selectattr('rc', 'defined')
-        | rejectattr('rc', 'eq', 0)
-        | map(attribute='item')
-        | list
-      )
-      | join(', ')
-      }}.
-      Fix file and parent-directory permissions/ACLs before provisioning.
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - >-
-      (
-        runtime_template_disk_access_check_after_fix.results
-        | default(runtime_template_disk_access_check.results | default([]))
-        | selectattr('rc', 'defined')
-        | rejectattr('rc', 'eq', 0)
-        | list
-        | length
-      ) > 0
-
-- name: Ensure template instances exist
-  ansible.builtin.command:
-    cmd: virsh dominfo "{{ item }}"
-  loop: "{{ required_template_instances }}"
-  loop_control:
-    label: "{{ item }}"
-  register: template_check
-  changed_when: false
-  failed_when: template_check.rc != 0
-  check_mode: false
-  when: kvm_run_template_validation | bool or kvm_run_mutation_phases | bool
-
-- name: Mark template validation as complete
-  ansible.builtin.file:
-    path: "{{ template_validation_marker_path }}"
-    state: touch
-    mode: "0644"
-  when:
-    - (kvm_template_validation_mode | default('always')) == 'once'
-    - kvm_run_template_validation | bool
-    - not ansible_check_mode
-
-- name: Check which instances already exist
+- name: Check which requested instances already exist
   ansible.builtin.command:
     cmd: virsh dominfo "{{ item.instance_name }}"
   loop: "{{ normalized_instances }}"
@@ -516,15 +189,16 @@
 - name: Build list of instances to create
   ansible.builtin.set_fact:
     instances_to_create: >-
-      {{ normalized_instances | zip(instance_exists_check.results)
-         | selectattr('1.rc', 'ne', 0)
-         | map(attribute='0')
-         | list }}
+      {{
+        normalized_instances
+        | zip(instance_exists_check.results)
+        | selectattr('1.rc', 'ne', 0)
+        | map(attribute='0')
+        | list
+      }}
 
-- name: Build network-mode groups
+- name: Build runtime target list
   ansible.builtin.set_fact:
-    instances_ifupdown: "{{ instances_to_create | selectattr('guest_network_mode', 'equalto', 'ifupdown') | list }}"
-    instances_netplan: "{{ instances_to_create | selectattr('guest_network_mode', 'equalto', 'netplan') | list }}"
     instance_runtime_targets: >-
       {{
         normalized_instances
@@ -532,689 +206,26 @@
         else instances_to_create
       }}
 
-- name: Display instances to be created
+- name: Display stage and target summary
   ansible.builtin.debug:
-    msg: "Will create {{ instances_to_create | length }} instance(s): {{ instances_to_create | map(attribute='instance_name') | join(', ') }}"
-  when: instances_to_create | length > 0
-
-- name: No instances to create
-  ansible.builtin.debug:
-    msg: "All requested instances already exist; nothing to do."
-  when: instances_to_create | length == 0
-
-- name: Initialize running template list
-  ansible.builtin.set_fact:
-    templates_running: []
-
-- name: Check template instance states
-  ansible.builtin.command:
-    cmd: virsh domstate "{{ item }}"
-  loop: "{{ required_template_instances }}"
-  loop_control:
-    label: "{{ item }}"
-  register: template_state_results
-  changed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-
-- name: Build list of templates currently running
-  ansible.builtin.set_fact:
-    templates_running: >-
-      {{
-        template_state_results.results
-        | default([])
-        | selectattr('stdout', 'equalto', 'running')
-        | map(attribute='item')
-        | list
-      }}
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-
-- name: Shut down running templates
-  ansible.builtin.command:
-    cmd: virsh shutdown "{{ item }}"
-  loop: "{{ templates_running | default([]) }}"
-  loop_control:
-    label: "{{ item }}"
-  register: shutdown_result
-  changed_when: shutdown_result.rc == 0
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - (templates_running | default([])) | length > 0
-
-- name: Wait for templates to shut down
-  ansible.builtin.command:
-    cmd: virsh domstate "{{ item }}"
-  loop: "{{ templates_running | default([]) }}"
-  loop_control:
-    label: "{{ item }}"
-  register: template_state_check
-  until: template_state_check.stdout == "shut off"
-  retries: 30
-  delay: 2
-  changed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - (templates_running | default([])) | length > 0
-
-# =========================================================================
-# PHASE 1: Clone instances with virt-clone
-# =========================================================================
-- name: "PHASE 1A: Clone instances (sequential)"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - (kvm_clone_mode | default('auto')) == 'sequential'
-  block:
-    - name: Clone instances from profile templates (sequential)
-      ansible.builtin.command:
-        cmd: >-
-          virt-clone
-          --original "{{ item.template_instance_name }}"
-          --name "{{ item.instance_name }}"
-          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
-          --check path_in_use=off
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      register: clone_results
-      changed_when: true
-
-- name: "PHASE 1B: Clone instances (parallel)"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - (kvm_clone_mode | default('auto')) == 'parallel'
-  block:
-    - name: Clone instances from profile templates (async)
-      ansible.builtin.command:
-        cmd: >-
-          virt-clone
-          --original "{{ item.template_instance_name }}"
-          --name "{{ item.instance_name }}"
-          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
-          --check path_in_use=off
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      async: "{{ kvm_clone_async_timeout_seconds | default(1800) }}"
-      poll: 0
-      register: clone_jobs
-      changed_when: true
-
-    - name: Wait for clone operations
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ clone_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: clone_results
-      until: (clone_results.finished | default(0) | int) == 1
-      retries: "{{ kvm_clone_wait_retries | default(180) }}"
-      delay: "{{ kvm_clone_wait_delay_seconds | default(10) }}"
-      when: item.ansible_job_id is defined
-
-- name: "PHASE 1C: Clone instances (auto parallel + fallback)"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - (kvm_clone_mode | default('auto')) == 'auto'
-  block:
-    - name: Clone instances from profile templates (async attempt)
-      ansible.builtin.command:
-        cmd: >-
-          virt-clone
-          --original "{{ item.template_instance_name }}"
-          --name "{{ item.instance_name }}"
-          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
-          --check path_in_use=off
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      async: "{{ kvm_clone_async_timeout_seconds | default(1800) }}"
-      poll: 0
-      register: clone_jobs
-      changed_when: true
-
-    - name: Collect clone operation results
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ clone_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: clone_results
-      until: (clone_results.finished | default(0) | int) == 1
-      retries: "{{ kvm_clone_wait_retries | default(180) }}"
-      delay: "{{ kvm_clone_wait_delay_seconds | default(10) }}"
-      when: item.ansible_job_id is defined
-      failed_when: false
-
-    - name: Build fallback and hard-failure clone lists
-      ansible.builtin.set_fact:
-        clone_pool_locked_instances: >-
-          {{
-            clone_results.results
-            | selectattr('rc', 'defined')
-            | selectattr('rc', 'ne', 0)
-            | selectattr('stderr', 'defined')
-            | selectattr('stderr', 'search', 'asynchronous jobs running')
-            | map(attribute='item.item')
-            | list
-          }}
-        clone_hard_failures: >-
-          {{
-            clone_results.results
-            | selectattr('rc', 'defined')
-            | selectattr('rc', 'ne', 0)
-            | rejectattr('stderr', 'defined')
-            | list
-            +
-            (
-              clone_results.results
-              | selectattr('rc', 'defined')
-              | selectattr('rc', 'ne', 0)
-              | selectattr('stderr', 'defined')
-              | rejectattr('stderr', 'search', 'asynchronous jobs running')
-              | list
-            )
-          }}
-
-    - name: Fail on non-recoverable clone errors
-      ansible.builtin.fail:
-        msg: >-
-          Clone failed for {{ clone_hard_failures | length }} instance(s) with non pool-lock errors.
-          First error: {{ (clone_hard_failures | first).stderr | default((clone_hard_failures | first).msg | default('unknown error')) }}
-      when: clone_hard_failures | length > 0
-
-    - name: Retry pool-locked instances sequentially
-      ansible.builtin.command:
-        cmd: >-
-          virt-clone
-          --original "{{ item.template_instance_name }}"
-          --name "{{ item.instance_name }}"
-          --file "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
-          --check path_in_use=off
-      loop: "{{ clone_pool_locked_instances | default([]) }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      register: clone_fallback_results
-      when: clone_pool_locked_instances | length > 0
-      changed_when: true
-
-- name: Ensure runtime ACL defaults on instance pool path
-  ansible.builtin.command:
-    argv:
-      - setfacl
-      - -m
-      - "u:{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}:rwx,d:u:{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}:rwx"
-      - "{{ kvm_instance_pool_path }}"
-  become: true
-  changed_when: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - kvm_auto_fix_runtime_pool_access | default(true) | bool
-
-- name: Ensure runtime user can read/write cloned instance disks
-  ansible.builtin.command:
-    argv:
-      - setfacl
-      - -m
-      - "u:{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}:rw"
-      - "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
-  loop: "{{ instances_to_create }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  become: true
-  changed_when: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - kvm_validate_runtime_pool_access | default(true) | bool
-    - kvm_auto_fix_runtime_pool_access | default(true) | bool
-
-# =========================================================================
-# PHASE 2: Guest network customization by OS/network mode
-# =========================================================================
-- name: Generate ifupdown network files
-  ansible.builtin.copy:
-    dest: "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-interfaces"
-    mode: "0600"
-    content: |
-      # Managed by Ansible (idops)
-      source /etc/network/interfaces.d/*
-
-      auto lo
-      iface lo inet loopback
-
-      allow-hotplug {{ item.guest_network_interface }}
-      iface {{ item.guest_network_interface }} inet static
-        address {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
-        gateway {{ item.guest_network_gateway }}
-        dns-nameservers {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | join(' ') }}
-  loop: "{{ instances_ifupdown }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_ifupdown | length > 0
-
-- name: Generate netplan network files
-  ansible.builtin.copy:
-    dest: "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-netplan.yaml"
-    mode: "0600"
-    content: |
-      # Managed by Ansible (idops)
-      network:
-        version: 2
-        renderer: {{ item.netplan_renderer | default('networkd') }}
-        ethernets:
-          {{ item.guest_network_interface }}:
-            dhcp4: false
-            addresses:
-              - {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
-            routes:
-              - to: default
-                via: {{ item.guest_network_gateway }}
-            nameservers:
-              addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
-  loop: "{{ instances_netplan }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_netplan | length > 0
-
-- name: Customize ifupdown guests (async)
-  ansible.builtin.shell: |
-    virt-customize \
-      -a "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}" \
-      --hostname "{{ item.instance_name }}" \
-      --upload "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-interfaces:/etc/network/interfaces" \
-      --truncate /etc/machine-id \
-      --run-command "rm -f /etc/ssh/ssh_host_*" \
-      --run-command "dpkg-reconfigure -f noninteractive openssh-server"
-  loop: "{{ instances_ifupdown }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  async: 300
-  poll: 0
-  register: customize_ifupdown_jobs
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_ifupdown | length > 0
-  changed_when: true
-
-- name: Wait for ifupdown customization jobs
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ customize_ifupdown_jobs.results }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  register: customize_ifupdown_results
-  until: (customize_ifupdown_results.finished | default(0) | int) == 1
-  retries: 60
-  delay: 5
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_ifupdown | length > 0
-    - item.ansible_job_id is defined
-
-- name: Customize netplan guests (async)
-  ansible.builtin.shell: |
-    virt-customize \
-      -a "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}" \
-      --hostname "{{ item.instance_name }}" \
-      --upload "{{ kvm_clone_workspace_path }}/{{ item.instance_name }}-netplan.yaml:/etc/netplan/99-idops-static.yaml" \
-      --truncate /etc/machine-id \
-      --run-command "chmod 600 /etc/netplan/99-idops-static.yaml" \
-      --run-command "rm -f /etc/ssh/ssh_host_*" \
-      --run-command "dpkg-reconfigure -f noninteractive openssh-server"
-  loop: "{{ instances_netplan }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  async: 300
-  poll: 0
-  register: customize_netplan_jobs
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_netplan | length > 0
-  changed_when: true
-
-- name: Wait for netplan customization jobs
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ customize_netplan_jobs.results }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  register: customize_netplan_results
-  until: (customize_netplan_results.finished | default(0) | int) == 1
-  retries: 60
-  delay: 5
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_netplan | length > 0
-    - item.ansible_job_id is defined
-
-# =========================================================================
-# PHASE 3: Configure resources (parallel)
-# =========================================================================
-- name: "PHASE 3: Configure resources"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-  block:
-    - name: Set instance resources (async)
-      ansible.builtin.shell: |
-        virsh setmaxmem "{{ item.instance_name }}" "{{ item.memory_mb }}M" --config && \
-        virsh setmem "{{ item.instance_name }}" "{{ item.memory_mb }}M" --config && \
-        virsh setvcpus "{{ item.instance_name }}" "{{ item.vcpu_count }}" --config --maximum && \
-        virsh setvcpus "{{ item.instance_name }}" "{{ item.vcpu_count }}" --config
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      async: 60
-      poll: 0
-      register: resource_jobs
-      changed_when: true
-
-    - name: Wait for resource configuration
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ resource_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: resource_results
-      until: (resource_results.finished | default(0) | int) == 1
-      retries: 12
-      delay: 5
-      when: item.ansible_job_id is defined
-
-- name: Check runtime target instance states before start phase
-  ansible.builtin.command:
-    cmd: virsh domstate "{{ item.instance_name }}"
-  loop: "{{ instance_runtime_targets }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  register: runtime_target_state_results
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-
-- name: Fail when any runtime target instance does not exist
-  ansible.builtin.fail:
     msg: >-
-      Runtime target instance state check failed for: {{
-      runtime_target_state_results.results
-      | rejectattr('rc', 'eq', 0)
-      | map(attribute='item.instance_name')
-      | join(', ')
-      }}.
-      Ensure those instances exist or keep defaults so missing ones are created in this run.
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-    - >-
-      (
-        runtime_target_state_results.results
-        | rejectattr('rc', 'eq', 0)
-        | list
-        | length
-      ) > 0
+      Stage={{ kvm_selected_stage }} | requested={{ normalized_instances | length }} |
+      create={{ instances_to_create | length }} |
+      runtime_targets={{ instance_runtime_targets | length }} |
+      mutation={{ kvm_run_mutation_phases | bool }}
 
-- name: Build list of instances that need start
-  ansible.builtin.set_fact:
-    instances_to_start: >-
-      {{
-        instance_runtime_targets
-        | zip(runtime_target_state_results.results)
-        | rejectattr('1.stdout', 'equalto', 'running')
-        | map(attribute='0')
-        | list
-      }}
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
+- name: Run preflight stage
+  ansible.builtin.include_tasks: tasks/provision-preflight.yml
+  when: kvm_run_stage_preflight | bool
 
-# =========================================================================
-# PHASE 4: Start instances (parallel)
-# =========================================================================
-- name: "PHASE 4: Start instances"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-    - instances_to_start | default([]) | length > 0
-  block:
-    - name: Start instances (async)
-      ansible.builtin.command:
-        cmd: virsh start "{{ item.instance_name }}"
-      loop: "{{ instances_to_start }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      async: 60
-      poll: 0
-      register: start_jobs
-      changed_when: true
+- name: Run image-cache stage
+  ansible.builtin.include_tasks: tasks/provision-image-cache.yml
+  when: kvm_run_stage_image_cache | bool
 
-    - name: Wait for instance starts
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ start_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: start_results
-      until: (start_results.finished | default(0) | int) == 1
-      retries: 12
-      delay: 5
-      when: item.ansible_job_id is defined
+- name: Run instance provisioning stage
+  ansible.builtin.include_tasks: tasks/provision-instances.yml
+  when: kvm_run_stage_provision | bool
 
-# =========================================================================
-# PHASE 5: Wait for SSH (parallel)
-# =========================================================================
-- name: "PHASE 5: Wait for SSH"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-    - kvm_wait_for_instance_ssh | default(true) | bool
-  block:
-    - name: Wait for SSH on all instances (parallel)
-      ansible.builtin.wait_for:
-        host: "{{ item.instance_ipv4_address }}"
-        port: "{{ item.ssh_port | int }}"
-        delay: 5
-        timeout: 180
-        state: started
-      loop: "{{ instance_runtime_targets }}"
-      loop_control:
-        label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
-      async: 180
-      poll: 0
-      register: ssh_wait_jobs
-
-    - name: Confirm SSH availability
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ ssh_wait_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: ssh_results
-      until: (ssh_results.finished | default(0) | int) == 1
-      retries: 40
-      delay: 5
-      when: item.ansible_job_id is defined
-
-# =========================================================================
-# PHASE 6: Create snapshots (parallel)
-# =========================================================================
-- name: "PHASE 6: Create snapshots"
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - kvm_snapshot_enabled | default(true) | bool
-  block:
-    - name: Shut down instances for snapshot (async)
-      ansible.builtin.command:
-        cmd: virsh shutdown "{{ item.instance_name }}"
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      async: 60
-      poll: 0
-      register: shutdown_jobs
-      changed_when: true
-
-    - name: Wait for shutdown commands
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ shutdown_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: shutdown_cmd_results
-      until: (shutdown_cmd_results.finished | default(0) | int) == 1
-      retries: 12
-      delay: 5
-      when: item.ansible_job_id is defined
-
-    - name: Wait for instances to be shut off
-      ansible.builtin.command:
-        cmd: virsh domstate "{{ item.instance_name }}"
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      register: instance_state
-      until: instance_state.stdout == "shut off"
-      retries: 30
-      delay: 2
-      changed_when: false
-
-    - name: Create snapshots on all instances (async)
-      ansible.builtin.command:
-        cmd: >-
-          virsh snapshot-create-as "{{ item.instance_name }}"
-          --name "{{ kvm_snapshot_name }}"
-          --description "{{ kvm_snapshot_description }}"
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      async: 120
-      poll: 0
-      register: snapshot_jobs
-      changed_when: true
-
-    - name: Wait for snapshots to complete
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ snapshot_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: snapshot_results
-      until: (snapshot_results.finished | default(0) | int) == 1
-      retries: 24
-      delay: 5
-      when: item.ansible_job_id is defined
-
-    - name: Start instances after snapshot (async)
-      ansible.builtin.command:
-        cmd: virsh start "{{ item.instance_name }}"
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      async: 60
-      poll: 0
-      register: final_start_jobs
-      when: kvm_start_instances_after_snapshot | default(true) | bool
-      changed_when: true
-
-    - name: Wait for final instance starts
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ final_start_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: final_start_results
-      until: (final_start_results.finished | default(0) | int) == 1
-      retries: 12
-      delay: 5
-      when:
-        - kvm_start_instances_after_snapshot | default(true) | bool
-        - item.ansible_job_id is defined
-
-    - name: Wait for SSH after snapshot restarts
-      ansible.builtin.wait_for:
-        host: "{{ item.instance_ipv4_address }}"
-        port: "{{ item.ssh_port | int }}"
-        delay: 5
-        timeout: 180
-        state: started
-      loop: "{{ instances_to_create }}"
-      loop_control:
-        label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
-      async: 180
-      poll: 0
-      register: post_snapshot_ssh_wait_jobs
-      when:
-        - kvm_start_instances_after_snapshot | default(true) | bool
-        - kvm_wait_for_instance_ssh | default(true) | bool
-
-    - name: Confirm SSH after snapshot restarts
-      ansible.builtin.async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ post_snapshot_ssh_wait_jobs.results }}"
-      loop_control:
-        label: "{{ item.item.instance_name }}"
-      register: post_snapshot_ssh_results
-      until: (post_snapshot_ssh_results.finished | default(0) | int) == 1
-      retries: 40
-      delay: 5
-      when:
-        - kvm_start_instances_after_snapshot | default(true) | bool
-        - kvm_wait_for_instance_ssh | default(true) | bool
-        - item.ansible_job_id is defined
-
-# =========================================================================
-# PHASE 7: Cleanup and summary
-# =========================================================================
-- name: "PHASE 7: Cleanup"
-  when: kvm_run_mutation_phases | bool
-  block:
-    - name: Restart templates that were running before clone
-      ansible.builtin.command:
-        cmd: virsh start "{{ item }}"
-      loop: "{{ templates_running | default([]) }}"
-      loop_control:
-        label: "{{ item }}"
-      when: kvm_restart_template_instances_after_run | default(false) | bool
-      register: restart_result
-      changed_when: restart_result.rc == 0
-
-    - name: Remove provisioning workspace when enabled
-      ansible.builtin.file:
-        path: "{{ kvm_clone_workspace_path }}"
-        state: absent
-      when:
-        - kvm_cleanup_workspace_path_after_run | default(true) | bool
-        - >-
-          (
-            kvm_clone_workspace_path | regex_replace('/+$', '')
-          ) != (
-            kvm_instance_pool_path | regex_replace('/+$', '')
-          )
-
-- name: Summary
-  ansible.builtin.debug:
-    msg: |
-      Instance provisioning complete.
-      Created {{ instances_to_create | length }} instance(s):
-      {% for instance in instances_to_create %}
-        - {{ instance.instance_name }} | os={{ instance.guest_os_variant }}
-          template={{ instance.template_instance_name }} | ip={{ instance.instance_ipv4_address }}
-          vcpu={{ instance.vcpu_count }} | memory_mb={{ instance.memory_mb }}
-      {% endfor %}
-      Started {{ instances_to_start | default([]) | length }} instance(s) in this run.
+- name: Run runtime stage
+  ansible.builtin.include_tasks: tasks/provision-runtime.yml
+  when: kvm_run_stage_runtime | bool

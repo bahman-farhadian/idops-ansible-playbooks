@@ -27,12 +27,6 @@
     - vars/kvm-provisioning.yml
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
-    supported_guest_os_variants:
-      - debian
-      - ubuntu
-    supported_guest_network_modes:
-      - ifupdown
-      - netplan
 
   tasks:
     - name: Run KVM provisioning workflow

@@ -9,82 +9,109 @@ kvm_hypervisor_host: "kvm-hypervisor"  # SSH target for KVM host. Values: SSH al
 kvm_hypervisor_python_interpreter: "/usr/bin/python3"  # Python path on hypervisor. Values: absolute path.
 
 # -----------------------------------------------------------------------------
-# Instance pool and execution behavior
+# Provision workflow stage control
 # -----------------------------------------------------------------------------
-kvm_instance_pool_path: "/var/lib/libvirt/images/"  # Storage path for cloned instance disks. Values: existing absolute directory.
-kvm_default_clone_disk_extension: "qcow2"  # Default clone disk extension. Values: alphanumeric (for example qcow2, img).
-kvm_clone_workspace_path: "/tmp/idops-kvm-workspace/"  # Temporary workspace for generated files. Values: absolute directory (must differ from pool path when workspace cleanup=true).
-kvm_cleanup_workspace_path_after_run: true  # Remove workspace at end of run. Values: true | false.
+kvm_provision_stage: "full"  # Stage selector for provision workflow. Values: full | preflight | image-cache | provision | runtime.
+kvm_execute_mutation_phases_in_check_mode: false  # Allow mutating stages in --check mode. Values: true | false.
 
 # -----------------------------------------------------------------------------
-# Guest network defaults (can be overridden per template or per instance)
+# Storage paths
 # -----------------------------------------------------------------------------
-kvm_default_guest_network_interface: "enp1s0"  # Default NIC inside guest. Values: interface name string (for example enp1s0, ens3).
-kvm_default_guest_network_prefix: "24"  # Default IPv4 prefix length. Values: prefix string/integer (for example 24).
-kvm_default_guest_network_gateway: "192.168.24.1"  # Default IPv4 gateway. Values: IPv4 string.
-kvm_default_guest_dns_servers:  # Default DNS resolvers. Values: list of IP strings.
+kvm_image_cache_path: "/var/lib/libvirt/images/idops-cloud-cache"  # Base-image cache directory on hypervisor. Values: absolute directory.
+kvm_auto_create_image_cache_path: true  # Auto-create kvm_image_cache_path when missing. Values: true | false.
+kvm_instance_disk_pool_path: "/var/lib/libvirt/images"  # Per-instance VM disk directory. Values: existing absolute directory.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"  # Temporary cloud-init file workspace. Values: absolute directory.
+kvm_cleanup_workspace_path_after_run: true  # Remove cloud-init workspace at end of provision stage. Values: true | false.
+
+# -----------------------------------------------------------------------------
+# Image cache behavior
+# -----------------------------------------------------------------------------
+kvm_image_cache_verify_on_run: true  # Verify cached image checksums on image-cache stage. Values: true | false.
+kvm_image_cache_repair_on_checksum_mismatch: false  # Auto-delete and re-download checksum-mismatched cached files. Values: true | false.
+
+# -----------------------------------------------------------------------------
+# Instance defaults
+# -----------------------------------------------------------------------------
+kvm_default_instance_disk_extension: "qcow2"  # Default disk file extension/format. Values: alphanumeric string (for example qcow2).
+kvm_default_root_disk_size_gb: 20  # Default target root disk size in GiB for new instances. Values: positive integer.
+kvm_allow_reuse_existing_instance_disks: false  # Reuse pre-existing instance disk files when domain is missing. Values: true | false.
+
+# -----------------------------------------------------------------------------
+# Network defaults (overridable per instance)
+# -----------------------------------------------------------------------------
+kvm_default_libvirt_network_name: "default"  # Libvirt network name for guest NIC attach. Values: existing libvirt network name.
+kvm_default_guest_network_interface: "ens3"  # Guest NIC name written into cloud-init network config. Values: interface name string.
+kvm_default_guest_network_prefix: "24"  # Default IPv4 prefix length. Values: prefix string or integer.
+kvm_default_guest_network_gateway: "192.168.122.1"  # Default IPv4 gateway. Values: IPv4 string.
+kvm_default_guest_dns_servers:  # Default DNS resolvers for guest cloud-init config. Values: list of IP strings.
   - "1.1.1.1"
   - "8.8.8.8"
 
 # -----------------------------------------------------------------------------
-# Snapshot and workflow behavior
+# Cloud-init guest access defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_snapshot_enabled: true  # Create snapshots after provisioning. Values: true | false.
+kvm_default_cloud_init_user: "debian"  # Initial guest username created by cloud-init. Values: Linux username string.
+kvm_default_cloud_init_ssh_public_keys:  # Initial SSH authorized keys for cloud-init user. Values: list of public key strings.
+  - "ssh-ed25519 REPLACE_ME_WITH_YOUR_PUBLIC_KEY"
+kvm_default_cloud_init_password_hash: "$6$5BS/rn169ahbrhYw$up/SaxFM811iEt61BLwdYc3taxKFTTd.OBoSiBmw07jWsgga/0KMPDBCMAB0oSmZp2eoDL3IgHuw/1lU3cE0t."  # Linux SHA-512 password hash for cloud-init user. Values: crypt hash string.
+kvm_default_cloud_init_ssh_password_auth: true  # Enable SSH password auth in guest. Values: true | false.
+kvm_default_cloud_init_disable_root: true  # Disable direct root login via cloud-init. Values: true | false.
+
+# -----------------------------------------------------------------------------
+# Runtime behavior
+# -----------------------------------------------------------------------------
+kvm_ensure_requested_instances_running: true  # Ensure requested instances are running in runtime stage. Values: true | false.
+kvm_wait_for_instance_ssh: true  # Wait for SSH reachability after start phases. Values: true | false.
+
+# -----------------------------------------------------------------------------
+# Snapshot behavior
+# -----------------------------------------------------------------------------
+kvm_snapshot_enabled: true  # Create snapshots after provisioning for newly created instances. Values: true | false.
 kvm_snapshot_name: "snapshot-a"  # Snapshot name label. Values: string.
 kvm_snapshot_description: "initial configuration"  # Snapshot description. Values: string.
-kvm_start_instances_after_snapshot: true  # Start created instances after snapshot phase. Values: true | false.
-kvm_ensure_requested_instances_running: true  # Ensure requested instances are running even if already existing. Values: true | false.
-kvm_restart_template_instances_after_run: false  # Restart template domains that were running before provisioning. Values: true | false.
-kvm_wait_for_instance_ssh: true  # Wait for SSH reachability after start phases. Values: true | false.
-kvm_execute_mutation_phases_in_check_mode: false  # Allow clone/start/mutate in --check mode. Values: true | false.
+kvm_start_instances_after_snapshot: true  # Start newly created instances after snapshot phase. Values: true | false.
+
+# -----------------------------------------------------------------------------
+# Cleanup safeguards
+# -----------------------------------------------------------------------------
 kvm_cleanup_confirmed: false  # Safety flag for cleanup action. Values: true | false.
-kvm_cleanup_remove_instance_disks: false  # Remove declared instance disk files during cleanup. Values: true | false.
-kvm_cleanup_allow_template_instance_deletion: false  # Allow deleting template domain names via cleanup targets. Values: true | false.
-kvm_clone_mode: "parallel"  # Clone strategy. Values: auto | sequential | parallel.
-kvm_clone_async_timeout_seconds: 1800  # Max seconds per async clone job. Values: positive integer.
-kvm_clone_wait_retries: 180  # Poll retries while waiting for clone jobs. Values: positive integer.
-kvm_clone_wait_delay_seconds: 10  # Delay between clone status polls in seconds. Values: positive integer.
+kvm_cleanup_remove_instance_disks: false  # Remove declared instance disks + seed ISOs during cleanup. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Runtime access behavior (libvirt/qemu user)
 # -----------------------------------------------------------------------------
-kvm_validate_runtime_pool_access: true  # Validate runtime user path access before mutation phases. Values: true | false.
+kvm_validate_runtime_pool_access: true  # Validate runtime user path access before mutation. Values: true | false.
 kvm_auto_fix_runtime_pool_access: true  # Auto-apply ACL fixes when runtime access checks fail. Values: true | false.
 kvm_libvirt_runtime_user: "libvirt-qemu"  # Runtime disk-access user for libvirt/qemu. Values: Linux username.
 
 # -----------------------------------------------------------------------------
-# Template validation behavior
+# Cloud image catalog
+# IMPORTANT: With kvm_image_cache_verify_on_run=true, each image_sha256 must be set.
+# To get checksums, use the Debian checksum files under the same release directory.
 # -----------------------------------------------------------------------------
-kvm_template_validation_mode: "once"  # Template validation mode. Values: always | once.
-kvm_template_validation_state_dir: "/var/tmp/idops-kvm-template-validation"  # Marker directory when mode=once. Values: absolute directory.
+kvm_cloud_image_catalog:  # Image profile map. Keys: profile IDs.
+  debian-12:
+    image_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"  # Source URL for cached base image.
+    image_filename: "debian-12-genericcloud-amd64.qcow2"  # Local cached filename under kvm_image_cache_path.
+    image_sha256: ""  # Required 64-char SHA256 when kvm_image_cache_verify_on_run=true.
+    virt_install_os_variant: "debian12"  # OS variant for virt-install. Values: libosinfo variant string.
+    cloud_init_user: "debian"  # Default cloud-init username for this profile. Values: Linux username string.
+
+  debian-13:
+    image_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"  # Source URL for cached base image.
+    image_filename: "debian-13-genericcloud-amd64.qcow2"  # Local cached filename under kvm_image_cache_path.
+    image_sha256: ""  # Required 64-char SHA256 when kvm_image_cache_verify_on_run=true.
+    virt_install_os_variant: "debian13"  # OS variant for virt-install. Values: libosinfo variant string.
+    cloud_init_user: "debian"  # Default cloud-init username for this profile. Values: Linux username string.
 
 # -----------------------------------------------------------------------------
-# Template catalog
+# Instance definitions (managed scope for provision + cleanup)
+# Cleanup is exact-name scoped to these instance_name values only.
 # -----------------------------------------------------------------------------
-kvm_template_catalog:  # Template profile map. Keys: profile IDs.
-  debian-12-template:
-    template_instance_name: "debian-12-template"  # Source template domain name. Values: existing libvirt domain.
-    template_instance_disk_files:  # Source template disk file list. Values: absolute file paths on hypervisor.
-      - "/var/lib/libvirt/images/debian-12-template.qcow2"
-    guest_os_variant: "debian"  # Guest OS variant. Values: debian | ubuntu.
-    guest_network_mode: "ifupdown"  # Guest network writer mode. Values: ifupdown | netplan.
-    guest_network_interface: "enp1s0"  # Guest NIC for network config. Values: interface name string.
-
-  ubuntu-noble:
-    template_instance_name: "ubuntu-24-04-template"  # Source template domain name. Values: existing libvirt domain.
-    template_instance_disk_files:  # Source template disk file list. Values: absolute file paths on hypervisor.
-      - "/var/lib/libvirt/images/ubuntu-24-04-template.qcow2"
-    guest_os_variant: "ubuntu"  # Guest OS variant. Values: debian | ubuntu.
-    guest_network_mode: "netplan"  # Guest network writer mode. Values: ifupdown | netplan.
-    guest_network_interface: "ens3"  # Guest NIC for network config. Values: interface name string.
-    netplan_renderer: "networkd"  # Netplan renderer for netplan mode. Values: networkd | NetworkManager.
-
-# -----------------------------------------------------------------------------
-# Instance definitions
-# -----------------------------------------------------------------------------
-kvm_instance_definitions:  # Target instance list for provision/cleanup actions.
+kvm_instance_definitions:
   - instance_name: "debian-12-app-01"  # Target libvirt domain name. Values: unique string.
-    template_profile_id: "debian-12-template"  # Template reference. Values: catalog key or template alias.
-    instance_ipv4_address: "192.168.122.100"  # Instance static IPv4. Values: IPv4 string.
+    image_profile_id: "debian-12"  # Cloud image profile reference. Values: key from kvm_cloud_image_catalog.
+    instance_ipv4_address: "192.168.122.100"  # Instance static IPv4 address. Values: IPv4 string.
     vcpu_count: 2  # vCPU allocation. Values: positive integer.
     memory_mb: 2048  # Memory allocation in MB. Values: positive integer.
+    root_disk_size_gb: 20  # Root disk target size in GiB. Values: positive integer.

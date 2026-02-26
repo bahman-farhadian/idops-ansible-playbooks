@@ -1,0 +1,133 @@
+---
+# =========================================================================
+# STAGE: preflight
+# =========================================================================
+- name: Validate core path variables are absolute
+  ansible.builtin.assert:
+    that:
+      - kvm_image_cache_path is defined
+      - kvm_image_cache_path is match('^/')
+      - kvm_instance_disk_pool_path is defined
+      - kvm_instance_disk_pool_path is match('^/')
+      - kvm_cloud_init_workspace_path is defined
+      - kvm_cloud_init_workspace_path is match('^/')
+    fail_msg: >-
+      kvm_image_cache_path, kvm_instance_disk_pool_path, and kvm_cloud_init_workspace_path
+      must be absolute paths on the hypervisor.
+
+- name: Ensure image cache path exists when auto-create is enabled
+  ansible.builtin.file:
+    path: "{{ kvm_image_cache_path }}"
+    state: directory
+    mode: "0755"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_auto_create_image_cache_path | default(true) | bool
+
+- name: Validate image cache path exists
+  ansible.builtin.stat:
+    path: "{{ kvm_image_cache_path }}"
+  register: image_cache_path_stat
+  changed_when: false
+
+- name: Fail when image cache path is invalid
+  ansible.builtin.fail:
+    msg: >-
+      Invalid kvm_image_cache_path on hypervisor: {{ kvm_image_cache_path }}.
+      Set a valid directory for downloaded cloud images.
+  when:
+    - >-
+      not (image_cache_path_stat.stat.exists | default(false))
+      or not (image_cache_path_stat.stat.isdir | default(false))
+
+- name: Validate instance disk pool path exists
+  ansible.builtin.stat:
+    path: "{{ kvm_instance_disk_pool_path }}"
+  register: instance_disk_pool_path_stat
+  changed_when: false
+
+- name: Fail when instance disk pool path is invalid for mutation stages
+  ansible.builtin.fail:
+    msg: >-
+      Invalid kvm_instance_disk_pool_path on hypervisor: {{ kvm_instance_disk_pool_path }}.
+      Set this path to an existing directory for per-instance VM disks.
+  when:
+    - kvm_run_mutation_phases | bool
+    - >-
+      not (instance_disk_pool_path_stat.stat.exists | default(false))
+      or not (instance_disk_pool_path_stat.stat.isdir | default(false))
+
+- name: Validate cloud-init workspace safety overlap rules
+  ansible.builtin.assert:
+    that:
+      - >-
+        (kvm_cloud_init_workspace_path | regex_replace('/+$', ''))
+        !=
+        (kvm_instance_disk_pool_path | regex_replace('/+$', ''))
+      - >-
+        (kvm_cloud_init_workspace_path | regex_replace('/+$', ''))
+        !=
+        (kvm_image_cache_path | regex_replace('/+$', ''))
+    fail_msg: >-
+      kvm_cloud_init_workspace_path must be different from
+      kvm_instance_disk_pool_path and kvm_image_cache_path.
+
+- name: Ensure cloud-init workspace path exists
+  ansible.builtin.file:
+    path: "{{ kvm_cloud_init_workspace_path }}"
+    state: directory
+    mode: "0700"
+  when: kvm_run_mutation_phases | bool
+
+- name: Check required command availability
+  ansible.builtin.command:
+    cmd: "which {{ item }}"
+  loop:
+    - virsh
+    - sha256sum
+    - qemu-img
+    - cloud-localds
+    - virt-install
+  loop_control:
+    label: "{{ item }}"
+  register: preflight_command_checks
+  changed_when: false
+  failed_when: false
+
+- name: Fail when required commands are missing
+  ansible.builtin.fail:
+    msg: >-
+      Missing required commands on hypervisor: {{
+      preflight_command_checks.results
+      | rejectattr('rc', 'eq', 0)
+      | map(attribute='item')
+      | join(', ')
+      }}.
+      Install required packages before provisioning.
+  when: >-
+    (
+      preflight_command_checks.results
+      | rejectattr('rc', 'eq', 0)
+      | list
+      | length
+    ) > 0
+
+- name: Check setfacl availability when runtime ACL auto-fix is enabled
+  ansible.builtin.command:
+    cmd: which setfacl
+  register: preflight_setfacl_check
+  changed_when: false
+  failed_when: false
+  when:
+    - kvm_validate_runtime_pool_access | default(true) | bool
+    - kvm_auto_fix_runtime_pool_access | default(true) | bool
+
+- name: Fail when runtime ACL auto-fix is enabled but setfacl is missing
+  ansible.builtin.fail:
+    msg: >-
+      Runtime ACL auto-fix requires setfacl, but it is not installed on the hypervisor.
+      Install package 'acl' or disable kvm_auto_fix_runtime_pool_access.
+  when:
+    - kvm_validate_runtime_pool_access | default(true) | bool
+    - kvm_auto_fix_runtime_pool_access | default(true) | bool
+    - (preflight_setfacl_check.rc | default(1) | int) != 0

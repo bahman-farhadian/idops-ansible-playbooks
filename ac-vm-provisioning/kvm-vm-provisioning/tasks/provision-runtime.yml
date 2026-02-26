@@ -1,0 +1,279 @@
+---
+# =========================================================================
+# STAGE: runtime (start + SSH checks + optional snapshot)
+# =========================================================================
+- name: Explain runtime stage skip in check mode
+  ansible.builtin.debug:
+    msg: >-
+      Runtime stage is skipped because mutation phases are disabled in check mode.
+      Run make provision for actual start/ssh/snapshot actions.
+  when: not (kvm_run_mutation_phases | bool)
+
+- name: No runtime targets selected
+  ansible.builtin.debug:
+    msg: "No runtime targets were selected for this run."
+  when: instance_runtime_targets | length == 0
+
+- name: Check runtime target instance states
+  ansible.builtin.command:
+    cmd: virsh domstate "{{ item.instance_name }}"
+  loop: "{{ instance_runtime_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_target_state_results
+  changed_when: false
+  failed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
+
+- name: Fail when any runtime target instance does not exist
+  ansible.builtin.fail:
+    msg: >-
+      Runtime stage cannot continue because these requested instances do not exist:
+      {{
+      runtime_target_state_results.results
+      | rejectattr('rc', 'eq', 0)
+      | map(attribute='item.instance_name')
+      | join(', ')
+      }}.
+      Run stage=provision (or full run) first.
+  when:
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
+    - >-
+      (
+        runtime_target_state_results.results
+        | rejectattr('rc', 'eq', 0)
+        | list
+        | length
+      ) > 0
+
+- name: Build list of instances that need start
+  ansible.builtin.set_fact:
+    instances_to_start: >-
+      {{
+        instance_runtime_targets
+        | zip(runtime_target_state_results.results)
+        | rejectattr('1.stdout', 'equalto', 'running')
+        | map(attribute='0')
+        | list
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
+
+- name: Start instances that are not running
+  ansible.builtin.command:
+    cmd: virsh start "{{ item.instance_name }}"
+  loop: "{{ instances_to_start | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: 90
+  poll: 0
+  register: start_jobs
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - (instances_to_start | default([])) | length > 0
+
+- name: Wait for instance start operations
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ start_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: start_job_status
+  until: (start_job_status.finished | default(false)) | bool
+  retries: 18
+  delay: 5
+  when:
+    - kvm_run_mutation_phases | bool
+    - item.ansible_job_id is defined
+
+- name: Wait for SSH on runtime targets
+  ansible.builtin.wait_for:
+    host: "{{ item.instance_ipv4_address }}"
+    port: "{{ item.ssh_port | int }}"
+    delay: 5
+    timeout: 180
+    state: started
+  loop: "{{ instance_runtime_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
+  async: 240
+  poll: 0
+  register: ssh_wait_jobs
+  when:
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
+    - kvm_wait_for_instance_ssh | default(true) | bool
+
+- name: Confirm SSH availability on runtime targets
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ ssh_wait_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: ssh_wait_status
+  until: (ssh_wait_status.finished | default(false)) | bool
+  retries: 40
+  delay: 5
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - item.ansible_job_id is defined
+
+- name: Shut down newly created instances for snapshot
+  ansible.builtin.command:
+    cmd: virsh shutdown "{{ item.instance_name }}"
+  loop: "{{ instances_to_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: 90
+  poll: 0
+  register: snapshot_shutdown_jobs
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
+- name: Wait for snapshot shutdown commands
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ snapshot_shutdown_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: snapshot_shutdown_status
+  until: (snapshot_shutdown_status.finished | default(false)) | bool
+  retries: 18
+  delay: 5
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - item.ansible_job_id is defined
+
+- name: Wait for newly created instances to be shut off
+  ansible.builtin.command:
+    cmd: virsh domstate "{{ item.instance_name }}"
+  loop: "{{ instances_to_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: snapshot_vm_state
+  until: snapshot_vm_state.stdout == 'shut off'
+  retries: 40
+  delay: 3
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
+- name: Create snapshots for newly created instances
+  ansible.builtin.command:
+    cmd: >-
+      virsh snapshot-create-as "{{ item.instance_name }}"
+      --name "{{ kvm_snapshot_name }}"
+      --description "{{ kvm_snapshot_description }}"
+  loop: "{{ instances_to_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: 180
+  poll: 0
+  register: snapshot_jobs
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
+- name: Wait for snapshot creation operations
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ snapshot_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: snapshot_status
+  until: (snapshot_status.finished | default(false)) | bool
+  retries: 36
+  delay: 5
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - item.ansible_job_id is defined
+
+- name: Start instances after snapshot
+  ansible.builtin.command:
+    cmd: virsh start "{{ item.instance_name }}"
+  loop: "{{ instances_to_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: 90
+  poll: 0
+  register: post_snapshot_start_jobs
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_start_instances_after_snapshot | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
+- name: Wait for post-snapshot start operations
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ post_snapshot_start_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: post_snapshot_start_status
+  until: (post_snapshot_start_status.finished | default(false)) | bool
+  retries: 18
+  delay: 5
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_start_instances_after_snapshot | default(true) | bool
+    - item.ansible_job_id is defined
+
+- name: Wait for SSH after snapshot restart
+  ansible.builtin.wait_for:
+    host: "{{ item.instance_ipv4_address }}"
+    port: "{{ item.ssh_port | int }}"
+    delay: 5
+    timeout: 180
+    state: started
+  loop: "{{ instances_to_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
+  async: 240
+  poll: 0
+  register: post_snapshot_ssh_jobs
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_start_instances_after_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
+- name: Confirm SSH after snapshot restart
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ post_snapshot_ssh_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: post_snapshot_ssh_status
+  until: (post_snapshot_ssh_status.finished | default(false)) | bool
+  retries: 40
+  delay: 5
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_start_instances_after_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - item.ansible_job_id is defined
+
+- name: Runtime stage summary
+  ansible.builtin.debug:
+    msg: >-
+      Runtime stage complete: started={{ (instances_to_start | default([])) | length }}
+      requested_targets={{ instance_runtime_targets | length }}.

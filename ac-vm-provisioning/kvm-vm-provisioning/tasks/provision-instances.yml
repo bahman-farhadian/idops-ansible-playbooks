@@ -1,0 +1,527 @@
+---
+# =========================================================================
+# STAGE: provision (create domains/disks from cached cloud images)
+# =========================================================================
+- name: Explain provision stage skip in check mode
+  ansible.builtin.debug:
+    msg: >-
+      Provision stage is skipped because mutation phases are disabled in check mode.
+      Run make provision to create disks, seed images, and domains.
+  when: not (kvm_run_mutation_phases | bool)
+
+- name: No new instances to provision
+  ansible.builtin.debug:
+    msg: "All requested instances already exist; no new instance provisioning required."
+  when: instances_to_create | length == 0
+
+- name: Stop provision stage when there are no instances to create
+  ansible.builtin.meta: end_host
+  when:
+    - kvm_selected_stage == 'provision'
+    - instances_to_create | length == 0
+
+- name: Build materialized instance path model
+  ansible.builtin.set_fact:
+    instances_to_create_materialized: []
+  when: instances_to_create | length > 0
+
+- name: Build materialized path entries per instance
+  ansible.builtin.set_fact:
+    instances_to_create_materialized: >-
+      {{
+        (instances_to_create_materialized | default([]))
+        + [
+          item
+          | combine(
+              {
+                'base_image_path': (kvm_image_cache_path ~ '/' ~ item.image_filename),
+                'instance_disk_path': (kvm_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '.' ~ item.instance_disk_extension),
+                'seed_iso_path': (kvm_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.iso'),
+                'cloud_init_user_data_path': (kvm_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-user-data.yaml'),
+                'cloud_init_meta_data_path': (kvm_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-meta-data.yaml'),
+                'cloud_init_network_path': (kvm_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-network-config.yaml')
+              },
+              recursive=True
+            )
+        ]
+      }}
+  loop: "{{ instances_to_create }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when: instances_to_create | length > 0
+
+- name: Validate required command availability for provision stage
+  ansible.builtin.command:
+    cmd: "which {{ item }}"
+  loop:
+    - virsh
+    - qemu-img
+    - cloud-localds
+    - virt-install
+  loop_control:
+    label: "{{ item }}"
+  register: provision_command_checks
+  changed_when: false
+  failed_when: false
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+
+- name: Fail when required provision commands are missing
+  ansible.builtin.fail:
+    msg: >-
+      Missing required commands for provision stage: {{
+      provision_command_checks.results
+      | rejectattr('rc', 'eq', 0)
+      | map(attribute='item')
+      | join(', ')
+      }}.
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - >-
+      (
+        provision_command_checks.results
+        | rejectattr('rc', 'eq', 0)
+        | list
+        | length
+      ) > 0
+
+- name: Validate base cloud images exist for instances to create
+  ansible.builtin.stat:
+    path: "{{ item.base_image_path }}"
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: base_image_stats
+  changed_when: false
+
+- name: Fail when base cloud images are missing
+  ansible.builtin.fail:
+    msg: >-
+      Base cloud image is missing for instance {{ item.item.instance_name }}:
+      {{ item.item.base_image_path }}.
+      Run make image-cache first, or fix kvm_cloud_image_catalog values.
+  loop: "{{ base_image_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when: not (item.stat.exists | default(false))
+
+- name: Ensure cloud-init workspace path exists
+  ansible.builtin.file:
+    path: "{{ kvm_cloud_init_workspace_path }}"
+    state: directory
+    mode: "0700"
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+
+- name: Validate runtime user access to instance disk pool path
+  ansible.builtin.command:
+    cmd: "stat {{ kvm_instance_disk_pool_path }}"
+  become: true
+  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+  register: runtime_pool_access_check
+  changed_when: false
+  failed_when: false
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Build unique base image paths for runtime access checks
+  ansible.builtin.set_fact:
+    provision_required_base_images: >-
+      {{
+        instances_to_create_materialized
+        | default([])
+        | map(attribute='base_image_path')
+        | unique
+        | list
+      }}
+  when:
+    - instances_to_create | length > 0
+    - kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Validate runtime user access to base cloud images
+  ansible.builtin.command:
+    cmd: "stat {{ item }}"
+  loop: "{{ provision_required_base_images | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  become: true
+  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+  register: runtime_base_image_access_check
+  changed_when: false
+  failed_when: false
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Build runtime access failure model for provision stage
+  ansible.builtin.set_fact:
+    runtime_pool_access_failed: "{{ (runtime_pool_access_check.rc | default(0) | int) != 0 }}"
+    runtime_base_access_failures: >-
+      {{
+        runtime_base_image_access_check.results
+        | default([])
+        | selectattr('rc', 'defined')
+        | rejectattr('rc', 'eq', 0)
+        | map(attribute='item')
+        | list
+      }}
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Build runtime ACL auto-fix target list for provision stage
+  ansible.builtin.set_fact:
+    runtime_acl_fix_targets: >-
+      {{
+        (
+          ([kvm_instance_disk_pool_path] if (runtime_pool_access_failed | default(false)) else [])
+          + (runtime_base_access_failures | default([]))
+        )
+        | unique
+      }}
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+    - kvm_auto_fix_runtime_pool_access | default(true) | bool
+
+- name: Auto-fix runtime ACLs for pool and base images
+  ansible.builtin.shell: |
+    set -euo pipefail
+    runtime_user={{ (kvm_libvirt_runtime_user | default('libvirt-qemu')) | quote }}
+    target={{ item | quote }}
+    if [ -d "$target" ]; then
+      parent="$target"
+      target_is_dir=1
+    else
+      parent="$(dirname "$target")"
+      target_is_dir=0
+    fi
+
+    current="$parent"
+    while [ "$current" != "/" ] && [ -n "$current" ]; do
+      setfacl -m "u:${runtime_user}:x" "$current"
+      current="$(dirname "$current")"
+    done
+
+    if [ "$target_is_dir" -eq 1 ]; then
+      setfacl -m "u:${runtime_user}:rwx" "$target"
+      setfacl -m "d:u:${runtime_user}:rwx" "$target"
+    else
+      setfacl -m "u:${runtime_user}:r" "$target"
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ runtime_acl_fix_targets | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  become: true
+  register: runtime_acl_fix_results
+  changed_when: true
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+    - kvm_auto_fix_runtime_pool_access | default(true) | bool
+    - (runtime_acl_fix_targets | default([])) | length > 0
+
+- name: Re-check runtime user access to instance disk pool path
+  ansible.builtin.command:
+    cmd: "stat {{ kvm_instance_disk_pool_path }}"
+  become: true
+  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+  register: runtime_pool_access_check_after_fix
+  changed_when: false
+  failed_when: false
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Re-check runtime user access to base cloud images
+  ansible.builtin.command:
+    cmd: "stat {{ item }}"
+  loop: "{{ provision_required_base_images | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  become: true
+  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+  register: runtime_base_image_access_check_after_fix
+  changed_when: false
+  failed_when: false
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Fail when runtime user cannot access instance disk pool path
+  ansible.builtin.fail:
+    msg: >-
+      Libvirt runtime user '{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}'
+      cannot access kvm_instance_disk_pool_path: {{ kvm_instance_disk_pool_path }}.
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+    - (runtime_pool_access_check_after_fix.rc | default(runtime_pool_access_check.rc | default(0)) | int) != 0
+
+- name: Fail when runtime user cannot access base cloud image files
+  ansible.builtin.fail:
+    msg: >-
+      Libvirt runtime user '{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}'
+      cannot access base cloud image file(s): {{
+      (
+        runtime_base_image_access_check_after_fix.results
+        | default(runtime_base_image_access_check.results | default([]))
+        | selectattr('rc', 'defined')
+        | rejectattr('rc', 'eq', 0)
+        | map(attribute='item')
+        | list
+      ) | join(', ')
+      }}.
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_validate_runtime_pool_access | default(true) | bool
+    - >-
+      (
+        runtime_base_image_access_check_after_fix.results
+        | default(runtime_base_image_access_check.results | default([]))
+        | selectattr('rc', 'defined')
+        | rejectattr('rc', 'eq', 0)
+        | list
+        | length
+      ) > 0
+
+- name: Check target instance disk files
+  ansible.builtin.stat:
+    path: "{{ item.instance_disk_path }}"
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: instance_disk_stats
+  changed_when: false
+
+- name: Fail when target instance disk files already exist and reuse is disabled
+  ansible.builtin.fail:
+    msg: >-
+      Disk file already exists for instance {{ item.item.instance_name }}:
+      {{ item.item.instance_disk_path }}.
+      Set kvm_allow_reuse_existing_instance_disks=true to reuse existing files.
+  loop: "{{ instance_disk_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when:
+    - item.stat.exists | default(false)
+    - not (kvm_allow_reuse_existing_instance_disks | default(false) | bool)
+
+- name: Build list of instances requiring fresh disk creation
+  ansible.builtin.set_fact:
+    instances_requiring_disk_create: >-
+      {{
+        instances_to_create_materialized
+        | zip(instance_disk_stats.results)
+        | rejectattr('1.stat.exists', 'equalto', true)
+        | map(attribute='0')
+        | list
+      }}
+  when: instances_to_create | length > 0
+
+- name: Remove stale seed iso files before regeneration
+  ansible.builtin.file:
+    path: "{{ item.seed_iso_path }}"
+    state: absent
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+
+- name: Create per-instance disk files from cached base image
+  ansible.builtin.command:
+    argv:
+      - qemu-img
+      - convert
+      - -O
+      - "{{ item.instance_disk_extension }}"
+      - "{{ item.base_image_path }}"
+      - "{{ item.instance_disk_path }}"
+  loop: "{{ instances_requiring_disk_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - (instances_requiring_disk_create | default([])) | length > 0
+
+- name: Resize newly created instance disks
+  ansible.builtin.command:
+    argv:
+      - qemu-img
+      - resize
+      - "{{ item.instance_disk_path }}"
+      - "{{ item.root_disk_size_gb }}G"
+  loop: "{{ instances_requiring_disk_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - (instances_requiring_disk_create | default([])) | length > 0
+
+- name: Generate cloud-init user-data files
+  ansible.builtin.copy:
+    dest: "{{ item.cloud_init_user_data_path }}"
+    mode: "0600"
+    content: |
+      #cloud-config
+      hostname: {{ item.instance_name }}
+      fqdn: {{ item.instance_name }}
+      manage_etc_hosts: true
+      ssh_pwauth: {{ (item.cloud_init_ssh_password_auth | bool) | ternary('true', 'false') }}
+      disable_root: {{ (item.cloud_init_disable_root | bool) | ternary('true', 'false') }}
+      users:
+        - default
+        - name: {{ item.cloud_init_user }}
+          shell: /bin/bash
+          groups: [sudo]
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          lock_passwd: {{ (item.cloud_init_password_hash | length == 0) | ternary('true', 'false') }}
+      {% if item.cloud_init_password_hash | length > 0 %}
+          passwd: "{{ item.cloud_init_password_hash }}"
+      {% endif %}
+      {% if (item.cloud_init_ssh_public_keys | default([])) | length > 0 %}
+          ssh_authorized_keys:
+      {% for pubkey in item.cloud_init_ssh_public_keys %}
+            - {{ pubkey }}
+      {% endfor %}
+      {% endif %}
+      growpart:
+        mode: auto
+        devices: ['/']
+        ignore_growroot_disabled: false
+      resize_rootfs: true
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Generate cloud-init meta-data files
+  ansible.builtin.copy:
+    dest: "{{ item.cloud_init_meta_data_path }}"
+    mode: "0600"
+    content: |
+      instance-id: {{ item.instance_name }}
+      local-hostname: {{ item.instance_name }}
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Generate cloud-init network-config files
+  ansible.builtin.copy:
+    dest: "{{ item.cloud_init_network_path }}"
+    mode: "0600"
+    content: |
+      version: 2
+      ethernets:
+        {{ item.guest_network_interface }}:
+          dhcp4: false
+          addresses:
+            - {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
+          routes:
+            - to: default
+              via: {{ item.guest_network_gateway }}
+          nameservers:
+            addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Build cloud-init seed iso files
+  ansible.builtin.command:
+    argv:
+      - cloud-localds
+      - --network-config
+      - "{{ item.cloud_init_network_path }}"
+      - "{{ item.seed_iso_path }}"
+      - "{{ item.cloud_init_user_data_path }}"
+      - "{{ item.cloud_init_meta_data_path }}"
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Define instances with virt-install import
+  ansible.builtin.command:
+    argv:
+      - virt-install
+      - --name
+      - "{{ item.instance_name }}"
+      - --memory
+      - "{{ item.memory_mb | int }}"
+      - --vcpus
+      - "{{ item.vcpu_count | int }}"
+      - --import
+      - --disk
+      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
+      - --disk
+      - "path={{ item.seed_iso_path }},device=cdrom"
+      - --os-variant
+      - "{{ item.virt_install_os_variant }}"
+      - --network
+      - "network={{ item.libvirt_network_name }},model=virtio"
+      - --graphics
+      - none
+      - --noautoconsole
+      - --noreboot
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Verify newly defined instances exist
+  ansible.builtin.command:
+    cmd: virsh dominfo "{{ item.instance_name }}"
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Remove cloud-init workspace artifacts when enabled
+  ansible.builtin.file:
+    path: "{{ kvm_cloud_init_workspace_path }}"
+    state: absent
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_cleanup_workspace_path_after_run | default(true) | bool
+
+- name: Provision stage summary
+  ansible.builtin.debug:
+    msg: >-
+      Provision stage complete: created={{ instances_to_create | length }} instance(s).
+      Disk pool={{ kvm_instance_disk_pool_path }}.

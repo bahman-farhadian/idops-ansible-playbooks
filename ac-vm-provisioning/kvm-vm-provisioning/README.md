@@ -1,39 +1,36 @@
 # kvm-vm-provisioning
 
-Production-oriented KVM VM provisioning for the `ac-vm-provisioning` domain.
+Production-oriented KVM provisioning for the `ac-vm-provisioning` domain.
 
-This project is the production migration target for `old_playbooks/kvm-clone-ansible/`.
+This project now uses **cloud-image provisioning** (Debian 12/13 cloud images + cloud-init), not template cloning.
 
-## What This Adds
+## What This Provides
 
-- Parallel VM cloning workflow using `virt-clone`
-- Explicit instance pool model (`kvm_instance_pool_path`)
-- Explicit template catalog with template disk file path lists
-- Per-instance template profile selection with OS variant support (`debian`, `ubuntu`)
-- Per-instance network mode support:
-  - `ifupdown` (Debian-style `/etc/network/interfaces`)
-  - `netplan` (Ubuntu-style `/etc/netplan/*.yaml`)
-- Snapshot support after provisioning
-- Cleanup workflow with safety confirmation flag
-- Stateful template validation markers (`always` or `once`)
-- Optional runtime ACL auto-fix for `libvirt-qemu` path access
-- Fast `provision-check` behavior by skipping mutation phases by default
-- `Makefile` workflow
-- Local environment folder named `venv/` (not `.venv`)
-- Single playbook entrypoint: `playbook.yml`
+- Image-cache workflow with checksum verification (`make image-cache`)
+- Explicit operator-controlled paths:
+  - `kvm_image_cache_path` for downloaded base images
+  - `kvm_instance_disk_pool_path` for per-instance VM disks
+- Per-instance provisioning from cached cloud images (no `virt-clone`)
+- Cloud-init seed generation per instance (user-data, meta-data, network-config)
+- VM domain definition via `virt-install --import`
+- Runtime workflow for start + SSH checks + optional snapshots
+- Strict cleanup scope to declared instance names only
 
 ## Directory Layout
 
 - `playbook.yml` (single playbook entrypoint)
-- `tasks/provision.yml`
+- `tasks/provision.yml` (stage orchestrator)
+- `tasks/provision-preflight.yml`
+- `tasks/provision-image-cache.yml`
+- `tasks/provision-instances.yml`
+- `tasks/provision-runtime.yml`
 - `tasks/cleanup.yml`
+- `tasks/ping.yml`
 - `vars/kvm-provisioning.yml`
 - `inventory.ini`
 - `ansible.cfg`
 - `requirements.txt`
 - `Makefile`
-- `venv/` (project-local Python environment path)
-- `wheelhouse/` (optional cached Python wheels)
 
 ## Quick Start
 
@@ -44,87 +41,73 @@ make check
 make ping
 ```
 
-Optional dependency cache workflow:
+Before first provisioning run, edit `vars/kvm-provisioning.yml`:
+
+1. Set `kvm_hypervisor_host`.
+2. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
+3. Set valid SHA256 checksums in `kvm_cloud_image_catalog[*].image_sha256`.
+4. Set SSH key/password defaults and instance definitions.
+
+Then run:
 
 ```bash
-make deps-bundle
-```
-
-When `wheelhouse/` contains wheel files, `make venv` installs from local cache first.
-`wheelhouse/` is a local cache for Python wheel packages to reduce repeated downloads.
-
-## Variable Model (Official)
-
-Edit `vars/kvm-provisioning.yml` and define:
-
-1. Hypervisor connection:
-   - `kvm_hypervisor_host`
-   - `kvm_hypervisor_python_interpreter`
-2. Instance pool and execution behavior:
-   - `kvm_instance_pool_path`
-   - `kvm_clone_workspace_path`
-   - `kvm_execute_mutation_phases_in_check_mode`
-3. Template catalog (`kvm_template_catalog`), including:
-   - `template_instance_name`
-   - `template_instance_disk_files` (list of full paths on the hypervisor)
-4. Instance definitions (`kvm_instance_definitions`) with:
-   - `instance_name`
-   - `template_profile_id`
-   - `instance_ipv4_address`
-   - `vcpu_count`
-   - `memory_mb`
-5. Runtime access behavior:
-   - `kvm_validate_runtime_pool_access`
-   - `kvm_auto_fix_runtime_pool_access`
-   - `kvm_libvirt_runtime_user`
-6. Template validation behavior:
-   - `kvm_template_validation_mode` (`always` or `once`)
-   - `kvm_template_validation_state_dir`
-7. Runtime reconciliation behavior:
-   - `kvm_ensure_requested_instances_running`
-   - `kvm_wait_for_instance_ssh`
-
-`template_profile_id` can be either:
-- a key from `kvm_template_catalog` (for example `debian-12-template`)
-- or a `template_instance_name` alias from that catalog (for example `debian-12-template`)
-
-`instance_name` must be different from `template_instance_name`.
-
-`kvm_clone_workspace_path` must be different from `kvm_instance_pool_path` when `kvm_cleanup_workspace_path_after_run=true`.
-
-Then run provisioning:
-
-```bash
-make provision-check
+make image-cache
 make provision
 ```
 
-`make provision-check` runs in Ansible check mode.
-By default, mutation phases are skipped in check mode (`kvm_execute_mutation_phases_in_check_mode=false`), so it performs fast preflight validation only.
+## Stage Model
 
-`make provision` can reconcile runtime state for requested instances (start + SSH wait) even when they were already present (`kvm_ensure_requested_instances_running=true`).
+`kvm_provision_stage` controls stage execution:
 
-Cleanup:
+- `full`: preflight -> image-cache -> provision -> runtime
+- `preflight`: validation only
+- `image-cache`: download/verify cache only
+- `provision`: create missing domains/disks only
+- `runtime`: start/wait/snapshot workflow only
+
+Important: stage mode is **selected-stage-only** when not `full`.
+
+## Make Targets
 
 ```bash
+make help
+make image-cache
+make provision
+make provision-stage STAGE=image-cache
+make provision-check
 make cleanup
 make cleanup-force
 make cleanup-force-disks
 ```
 
-`make cleanup-force` sets `kvm_cleanup_confirmed=true` and keeps disks by default.
-`make cleanup-force-disks` sets `kvm_cleanup_confirmed=true` and `kvm_cleanup_remove_instance_disks=true`.
-Cleanup is target-scoped: only `instance_name` entries in `kvm_instance_definitions` are affected.
-Cleanup does not use `virsh undefine --remove-all-storage`; it removes only expected instance disk paths under `kvm_instance_pool_path`.
+`make provision-check` runs `preflight` in Ansible check mode.
 
-The same `playbook.yml` handles all workflows using `kvm_action`:
+## Cleanup Safety Rules
 
-- `kvm_action=provision`
-- `kvm_action=cleanup`
-- `kvm_action=ping`
+Cleanup is strict by design:
 
-## Notes on venv/
+1. Scope is exact-name from `kvm_instance_definitions[*].instance_name` only.
+2. If a declared name does not exist in libvirt, it is skipped.
+3. Non-declared instances are never touched.
+4. Disk deletion is opt-in (`kvm_cleanup_remove_instance_disks=true` or `make cleanup-force-disks`).
+5. Base image cache files are not removed by cleanup.
 
-This project uses `venv/` as the local environment folder name by design.
-The folder is included in repo layout so teams use a consistent path.
-Contributor standards are defined at repository root in `CONTRIBUTOR-GUIDE.md`.
+## Variable Model Highlights
+
+All user-editable settings are in `vars/kvm-provisioning.yml`.
+
+Core interface keys:
+
+- `kvm_provision_stage`
+- `kvm_image_cache_path`
+- `kvm_instance_disk_pool_path`
+- `kvm_image_cache_verify_on_run`
+- `kvm_cloud_image_catalog`
+- `kvm_instance_definitions`
+- `kvm_cleanup_confirmed`
+- `kvm_cleanup_remove_instance_disks`
+
+## Notes
+
+- This project intentionally uses `venv/` (not `.venv`).
+- Contributor standards are defined in `CONTRIBUTOR-GUIDE.md`.
