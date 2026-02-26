@@ -140,6 +140,26 @@
       Update kvm_instance_pool_path in vars/kvm-provisioning.yml to a valid directory.
   when: not instance_pool_stat.stat.exists or not instance_pool_stat.stat.isdir
 
+- name: Check runtime user access to instance pool path
+  ansible.builtin.command:
+    cmd: "stat {{ kvm_instance_pool_path }}"
+  become: true
+  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+  register: runtime_pool_access_check
+  changed_when: false
+  failed_when: false
+  when: kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Fail when runtime user cannot access instance pool path
+  ansible.builtin.fail:
+    msg: |
+      Libvirt runtime user '{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}'
+      cannot access kvm_instance_pool_path: {{ kvm_instance_pool_path }}
+      Use a libvirt-managed path (for example /var/lib/libvirt/images) or fix path permissions/ACLs.
+  when:
+    - kvm_validate_runtime_pool_access | default(true) | bool
+    - runtime_pool_access_check.rc != 0
+
 - name: Build unique list of required templates
   ansible.builtin.set_fact:
     required_template_instances: "{{ normalized_instances | map(attribute='template_instance_name') | unique | list }}"
@@ -170,6 +190,39 @@
     (
       template_disk_file_stats.results
       | rejectattr('stat.exists')
+      | list
+      | length
+    ) > 0
+
+- name: Check runtime user access to template disk files
+  ansible.builtin.command:
+    cmd: "stat {{ item }}"
+  loop: "{{ required_template_disk_files }}"
+  loop_control:
+    label: "{{ item }}"
+  become: true
+  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+  register: runtime_template_disk_access_check
+  changed_when: false
+  failed_when: false
+  when: kvm_validate_runtime_pool_access | default(true) | bool
+
+- name: Fail when runtime user cannot access template disk files
+  ansible.builtin.fail:
+    msg: >-
+      Libvirt runtime user '{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}'
+      cannot access template disk file(s): {{
+      runtime_template_disk_access_check.results
+      | rejectattr('rc', 'eq', 0)
+      | map(attribute='item')
+      | join(', ')
+      }}.
+      Fix file and parent-directory permissions/ACLs before provisioning.
+  when: >-
+    (kvm_validate_runtime_pool_access | default(true) | bool)
+    and (
+      runtime_template_disk_access_check.results
+      | rejectattr('rc', 'eq', 0)
       | list
       | length
     ) > 0
@@ -301,7 +354,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: clone_results
-      until: clone_results.finished
+      until: (clone_results.finished | default(0) | int) == 1
       retries: "{{ kvm_clone_wait_retries | default(180) }}"
       delay: "{{ kvm_clone_wait_delay_seconds | default(10) }}"
       when: item.ansible_job_id is defined
@@ -334,7 +387,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: clone_results
-      until: clone_results.finished
+      until: (clone_results.finished | default(0) | int) == 1
       retries: "{{ kvm_clone_wait_retries | default(180) }}"
       delay: "{{ kvm_clone_wait_delay_seconds | default(10) }}"
       when: item.ansible_job_id is defined
@@ -465,7 +518,7 @@
   loop_control:
     label: "{{ item.item.instance_name }}"
   register: customize_ifupdown_results
-  until: customize_ifupdown_results.finished
+  until: (customize_ifupdown_results.finished | default(0) | int) == 1
   retries: 60
   delay: 5
   when:
@@ -498,7 +551,7 @@
   loop_control:
     label: "{{ item.item.instance_name }}"
   register: customize_netplan_results
-  until: customize_netplan_results.finished
+  until: (customize_netplan_results.finished | default(0) | int) == 1
   retries: 60
   delay: 5
   when:
@@ -532,7 +585,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: resource_results
-      until: resource_results.finished
+      until: (resource_results.finished | default(0) | int) == 1
       retries: 12
       delay: 5
       when: item.ansible_job_id is defined
@@ -561,7 +614,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: start_results
-      until: start_results.finished
+      until: (start_results.finished | default(0) | int) == 1
       retries: 12
       delay: 5
       when: item.ansible_job_id is defined
@@ -572,7 +625,7 @@
 - name: "PHASE 5: Wait for SSH"
   when:
     - instances_to_create | length > 0
-    - kvm_wait_for_instance_ssh | default(true)
+    - kvm_wait_for_instance_ssh | default(true) | bool
   block:
     - name: Wait for SSH on all instances (parallel)
       ansible.builtin.wait_for:
@@ -595,7 +648,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: ssh_results
-      until: ssh_results.finished
+      until: (ssh_results.finished | default(0) | int) == 1
       retries: 40
       delay: 5
       when: item.ansible_job_id is defined
@@ -606,7 +659,7 @@
 - name: "PHASE 6: Create snapshots"
   when:
     - instances_to_create | length > 0
-    - kvm_snapshot_enabled | default(true)
+    - kvm_snapshot_enabled | default(true) | bool
   block:
     - name: Shut down instances for snapshot (async)
       ansible.builtin.command:
@@ -626,7 +679,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: shutdown_cmd_results
-      until: shutdown_cmd_results.finished
+      until: (shutdown_cmd_results.finished | default(0) | int) == 1
       retries: 12
       delay: 5
       when: item.ansible_job_id is defined
@@ -664,7 +717,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: snapshot_results
-      until: snapshot_results.finished
+      until: (snapshot_results.finished | default(0) | int) == 1
       retries: 24
       delay: 5
       when: item.ansible_job_id is defined
@@ -678,7 +731,7 @@
       async: 60
       poll: 0
       register: final_start_jobs
-      when: kvm_start_instances_after_snapshot | default(true)
+      when: kvm_start_instances_after_snapshot | default(true) | bool
       changed_when: true
 
     - name: Wait for final instance starts
@@ -688,11 +741,11 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: final_start_results
-      until: final_start_results.finished
+      until: (final_start_results.finished | default(0) | int) == 1
       retries: 12
       delay: 5
       when:
-        - kvm_start_instances_after_snapshot | default(true)
+        - kvm_start_instances_after_snapshot | default(true) | bool
         - item.ansible_job_id is defined
 
 # =========================================================================
@@ -706,7 +759,7 @@
       loop: "{{ templates_running | default([]) }}"
       loop_control:
         label: "{{ item }}"
-      when: kvm_restart_template_instances_after_run | default(false)
+      when: kvm_restart_template_instances_after_run | default(false) | bool
       register: restart_result
       changed_when: restart_result.rc == 0
 
@@ -714,7 +767,7 @@
       ansible.builtin.file:
         path: "{{ kvm_clone_workspace_path }}"
         state: absent
-      when: kvm_cleanup_workspace_path_after_run | default(true)
+      when: kvm_cleanup_workspace_path_after_run | default(true) | bool
 
 - name: Summary
   ansible.builtin.debug:

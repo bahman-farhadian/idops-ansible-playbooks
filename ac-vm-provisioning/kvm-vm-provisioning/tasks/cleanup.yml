@@ -3,7 +3,7 @@
     msg: |
       DRY RUN MODE - No instances will be deleted.
       To actually delete instances, run with: -e kvm_cleanup_confirmed=true
-  when: not kvm_cleanup_confirmed
+  when: not (kvm_cleanup_confirmed | bool)
 
 - name: Check which instances exist
   ansible.builtin.command:
@@ -27,7 +27,7 @@
   ansible.builtin.debug:
     msg: "Would delete: {{ instances_to_delete | map(attribute='instance_name') | join(', ') }}"
   when:
-    - not kvm_cleanup_confirmed
+    - not (kvm_cleanup_confirmed | bool)
     - instances_to_delete | length > 0
 
 - name: No instances to delete
@@ -37,7 +37,7 @@
 
 - name: Delete instances
   when:
-    - kvm_cleanup_confirmed
+    - kvm_cleanup_confirmed | bool
     - instances_to_delete | length > 0
   block:
     - name: Get instance states
@@ -69,7 +69,7 @@
       loop_control:
         label: "{{ item.item.item.instance_name }}"
       register: destroy_results
-      until: destroy_results.finished
+      until: (destroy_results.finished | default(0) | int) == 1
       retries: 10
       delay: 3
       when: item.ansible_job_id is defined
@@ -94,7 +94,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: snapshot_delete_results
-      until: snapshot_delete_results.finished
+      until: (snapshot_delete_results.finished | default(0) | int) == 1
       retries: 12
       delay: 5
       when: item.ansible_job_id is defined
@@ -117,7 +117,7 @@
       loop_control:
         label: "{{ item.item.instance_name }}"
       register: undefine_results
-      until: undefine_results.finished
+      until: (undefine_results.finished | default(0) | int) == 1
       retries: 24
       delay: 5
       when: item.ansible_job_id is defined
