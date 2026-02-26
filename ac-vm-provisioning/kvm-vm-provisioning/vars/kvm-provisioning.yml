@@ -70,7 +70,7 @@ kvm_default_cloud_init_manage_etc_hosts: true           # Manage /etc/hosts entr
 kvm_default_cloud_init_timezone: "UTC"                  # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
 kvm_default_cloud_init_locale: "en_US.UTF-8"            # Guest locale.
 kvm_default_cloud_init_package_update: true             # Run apt update during first boot.
-kvm_default_cloud_init_package_upgrade: false           # Run apt upgrade during first boot.
+kvm_default_cloud_init_package_upgrade: true            # Run apt upgrade during first boot.
 kvm_default_cloud_init_package_reboot_if_required: false # Reboot automatically if upgrades require it.
 kvm_default_cloud_init_apt_config: {}                   # Cloud-init apt map (proxy/mirror/sources) for apt cache use-cases.
 kvm_default_cloud_init_packages: []                     # Package list to install on first boot.
@@ -82,44 +82,37 @@ kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" 
 # -----------------------------------------------------------------------------
 # Cloud-init storage layout controls (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_growpart_devices:                # Devices to auto-grow. Use [] to disable.
-  - "/"
-kvm_default_cloud_init_resize_rootfs: true             # Resize root filesystem after growpart.
-kvm_default_cloud_init_storage_layout_enabled: false    # Enable custom storage map injection.
-kvm_default_cloud_init_storage_config: {}               # Custom cloud-init top-level storage keys (disk_setup/fs_setup/mounts).
-#
-# EXAMPLE ONLY (TEST IN LAB BEFORE PRODUCTION):
-# Target layout:
-# - /boot/efi = 1GiB
-# - /boot     = 2GiB
-# - /         = 32-48GiB
-# - /var      = remaining space
-#
-# kvm_default_cloud_init_storage_layout_enabled: true
-# kvm_default_cloud_init_storage_config:
-#   disk_setup:
-#     /dev/vda:
-#       table_type: gpt
-#       overwrite: true
-#       layout: true
-#   fs_setup:
-#     - label: efi
-#       filesystem: vfat
-#       device: /dev/vda1
-#     - label: boot
-#       filesystem: ext4
-#       device: /dev/vda2
-#     - label: root
-#       filesystem: ext4
-#       device: /dev/vda3
-#     - label: var
-#       filesystem: ext4
-#       device: /dev/vda4
-#   mounts:
-#     - ["/dev/vda1", "/boot/efi", "vfat", "defaults", "0", "2"]
-#     - ["/dev/vda2", "/boot", "ext4", "defaults", "0", "2"]
-#     - ["/dev/vda3", "/", "ext4", "defaults", "0", "1"]
-#     - ["/dev/vda4", "/var", "ext4", "defaults", "0", "2"]
+kvm_default_cloud_init_growpart_devices: []             # Keep root fixed at 10GiB for split-root layout.
+kvm_default_cloud_init_resize_rootfs: false             # Do not auto-expand root when split-root layout is enabled.
+kvm_default_cloud_init_storage_layout_enabled: true     # Enable custom storage map injection.
+kvm_default_cloud_init_storage_config:                  # 1GiB /boot/efi, 2GiB /boot, 10GiB /, remainder /var.
+  disk_setup:
+    /dev/vda:
+      table_type: gpt
+      overwrite: true
+      layout:
+        - 3
+        - 5
+        - 25
+        - 67
+  fs_setup:
+    - label: efi
+      filesystem: vfat
+      device: /dev/vda1
+    - label: boot
+      filesystem: ext4
+      device: /dev/vda2
+    - label: root
+      filesystem: ext4
+      device: /dev/vda3
+    - label: var
+      filesystem: ext4
+      device: /dev/vda4
+  mounts:
+    - ["/dev/vda1", "/boot/efi", "vfat", "defaults", "0", "2"]
+    - ["/dev/vda2", "/boot", "ext4", "defaults", "0", "2"]
+    - ["/dev/vda3", "/", "ext4", "defaults", "0", "1"]
+    - ["/dev/vda4", "/var", "ext4", "defaults", "0", "2"]
 
 # -----------------------------------------------------------------------------
 # Runtime behavior
