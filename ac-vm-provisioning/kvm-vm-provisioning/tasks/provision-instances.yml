@@ -46,7 +46,7 @@
                   | default(normalized_image_cache_path ~ '/' ~ item.image_filename)
                 ),
                 'instance_disk_path': (normalized_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '.' ~ item.instance_disk_extension),
-                'seed_iso_path': (normalized_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.iso'),
+                'seed_disk_path': (normalized_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.img'),
                 'cloud_init_user_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-user-data.yaml'),
                 'cloud_init_meta_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-meta-data.yaml'),
                 'cloud_init_network_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-network-config.yaml'),
@@ -373,8 +373,8 @@
 
 - name: Remove stale seed iso files before regeneration
   ansible.builtin.file:
-    path: "{{ item.seed_iso_path }}"
-    state: absent
+    path: "{{ item.seed_disk_path }}"
+  state: absent
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"
@@ -501,9 +501,11 @@
   ansible.builtin.command:
     argv:
       - cloud-localds
+      - --dsmode
+      - local
       - --network-config
       - "{{ item.cloud_init_network_path }}"
-      - "{{ item.seed_iso_path }}"
+      - "{{ item.seed_disk_path }}"
       - "{{ item.cloud_init_user_data_path }}"
       - "{{ item.cloud_init_meta_data_path }}"
   loop: "{{ instances_to_create_materialized | default([]) }}"
@@ -528,7 +530,7 @@
       - --disk
       - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
       - --disk
-      - "path={{ item.seed_iso_path }},device=cdrom"
+      - "path={{ item.seed_disk_path }},device=disk,bus=virtio,format=raw,readonly=on"
       - --os-variant
       - "{{ item.virt_install_os_variant }}"
       - --network
