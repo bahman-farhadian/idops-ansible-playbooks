@@ -196,24 +196,6 @@
           | length
         ) > 0
 
-    - name: Remove declared instance disk files when enabled
-      ansible.builtin.file:
-        path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}.{{ item.instance_disk_extension }}"
-        state: absent
-      loop: "{{ instances_to_delete }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      when: kvm_cleanup_remove_instance_disks | default(false) | bool
-
-    - name: Remove declared cloud-init seed ISO files when disk removal is enabled
-      ansible.builtin.file:
-        path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-seed.iso"
-        state: absent
-      loop: "{{ instances_to_delete }}"
-      loop_control:
-        label: "{{ item.instance_name }}"
-      when: kvm_cleanup_remove_instance_disks | default(false) | bool
-
     - name: Cleanup complete summary
       ansible.builtin.debug:
         msg: |
@@ -222,3 +204,25 @@
             - {{ instance.instance_name }}
           {% endfor %}
           Non-declared instances were not touched.
+
+- name: Remove declared instance disk files when enabled
+  ansible.builtin.file:
+    path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}.{{ item.instance_disk_extension }}"
+    state: absent
+  loop: "{{ cleanup_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+
+- name: Remove declared cloud-init seed ISO files when disk removal is enabled
+  ansible.builtin.file:
+    path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-seed.iso"
+    state: absent
+  loop: "{{ cleanup_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool

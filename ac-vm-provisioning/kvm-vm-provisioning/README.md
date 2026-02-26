@@ -137,6 +137,10 @@ Cleanup is strict by design:
 4. Disk deletion is opt-in (`kvm_cleanup_remove_instance_disks=true` or `make cleanup-force-disks`).
 5. Base image cache files are not removed by cleanup.
 
+`make cleanup-force-disks` also removes declared instance disk/seed files when a
+domain does not exist (stale disk cleanup), while still never touching
+non-declared names.
+
 ## Variable Model Highlights
 
 All user-editable settings are in `vars/kvm-provisioning.yml`.

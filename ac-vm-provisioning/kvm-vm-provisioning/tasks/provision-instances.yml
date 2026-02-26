@@ -317,7 +317,9 @@
     msg: >-
       Disk file already exists for instance {{ item.item.instance_name }}:
       {{ item.item.instance_disk_path }}.
-      Set kvm_allow_reuse_existing_instance_disks=true to reuse existing files.
+      Set kvm_allow_reuse_existing_instance_disks=true to reuse existing files,
+      or run: make cleanup-force-disks
+      (cleanup is exact-name scoped to declared instances only).
   loop: "{{ instance_disk_stats.results | default([]) }}"
   loop_control:
     label: "{{ item.item.instance_name }}"
