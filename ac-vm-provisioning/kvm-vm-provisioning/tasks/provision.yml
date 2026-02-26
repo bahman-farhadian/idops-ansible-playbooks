@@ -139,7 +139,9 @@
       - item.cloud_init_ssh_public_keys is sequence
       - item.cloud_init_ssh_public_keys is not string
       - (item.cloud_init_password_hash | length > 0) or not (item.cloud_init_ssh_password_auth | bool)
-    fail_msg: "Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields."
+    fail_msg: >-
+      Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields.
+      If kvm_image_cache_verify_on_run=true, image_sha256 must be a 64-character SHA256 hash.
   loop: "{{ normalized_instances }}"
   loop_control:
     label: "{{ item.instance_name }}"
