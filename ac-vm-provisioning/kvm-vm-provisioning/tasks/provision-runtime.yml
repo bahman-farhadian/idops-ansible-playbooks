@@ -127,34 +127,34 @@
 
 - name: Build list of SSH timeout failures for runtime targets
   ansible.builtin.set_fact:
-    runtime_ssh_timeout_instances: >-
-      {{
-        (
-          ssh_wait_status.results
-          | default([])
-          | selectattr('finished', 'defined')
-          | selectattr('finished', 'equalto', 1)
-          | selectattr('failed', 'defined')
-          | selectattr('failed')
-          | map(attribute='item.item.instance_name')
-          | list
-        )
-        +
-        (
-          ssh_wait_status.results
-          | default([])
-          | selectattr('finished', 'defined')
-          | selectattr('finished', 'equalto', 1)
-          | selectattr('msg', 'defined')
-          | selectattr('msg', 'search', 'Timeout when waiting')
-          | map(attribute='item.item.instance_name')
-          | list
-        )
-        | unique
-      }}
+    runtime_ssh_timeout_instances: []
   when:
     - kvm_run_mutation_phases | bool
     - kvm_wait_for_instance_ssh | default(true) | bool
+
+- name: Collect SSH timeout failures for runtime targets
+  ansible.builtin.set_fact:
+    runtime_ssh_timeout_instances: >-
+      {{ (runtime_ssh_timeout_instances + [item.item.instance_name]) | unique }}
+  loop: "{{ ssh_wait_status.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name | default('unknown') }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (item.finished | default(0) | int) == 1
+    - >-
+      (
+        item.failed | default(false) | bool
+      )
+      or
+      (
+        (item.rc | default(0) | int) != 0
+      )
+      or
+      (
+        (item.state | default('')) != 'started'
+      )
 
 - name: Collect domiflist diagnostics for SSH timeout instances
   ansible.builtin.command:
