@@ -13,6 +13,7 @@ Scope: this playbook supports **Debian images only**.
   - `kvm_instance_disk_pool_path` for per-instance VM disks
 - Per-instance provisioning from cached cloud images (no `virt-clone`)
 - Cloud-init seed generation per instance (user-data, meta-data, network-config)
+- Seed content configuration via `vars/kvm-provisioning.yml` (timezone, apt, packages, bootcmd/runcmd, storage map)
 - Deterministic per-instance MAC assignment (or optional explicit `instance_mac_address`)
   for reliable cloud-init network matching
 - Configurable firmware mode per profile/instance (`bios` or `uefi`)
@@ -187,6 +188,37 @@ Core interface keys:
 - `kvm_instance_definitions`
 - `kvm_cleanup_confirmed`
 - `kvm_cleanup_remove_instance_disks`
+
+## Seed Configuration
+
+Seed/user-data defaults are centralized in `vars/kvm-provisioning.yml`:
+
+- `kvm_default_cloud_init_timezone`
+- `kvm_default_cloud_init_locale`
+- `kvm_default_cloud_init_apt_config`
+- `kvm_default_cloud_init_packages`
+- `kvm_default_cloud_init_bootcmd`
+- `kvm_default_cloud_init_runcmd`
+- `kvm_default_cloud_init_write_files`
+- `kvm_default_cloud_init_storage_layout_enabled`
+- `kvm_default_cloud_init_storage_config`
+
+Nexus/local apt cache example:
+
+```yaml
+kvm_default_cloud_init_apt_config:
+  preserve_sources_list: true
+  primary:
+    - arches: [default]
+      uri: "http://nexus.internal/repository/debian-proxy/"
+  security:
+    - arches: [default]
+      uri: "http://nexus.internal/repository/debian-security-proxy/"
+```
+
+Per-instance overrides are supported by setting equivalent keys inside each
+`kvm_instance_definitions[]` item (for example `cloud_init_timezone`,
+`cloud_init_apt_config`, `cloud_init_storage_config`).
 
 ## Notes
 

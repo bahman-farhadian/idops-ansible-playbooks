@@ -422,7 +422,12 @@
       #cloud-config
       hostname: {{ item.instance_name }}
       fqdn: {{ item.instance_name }}
-      manage_etc_hosts: true
+      manage_etc_hosts: {{ (item.cloud_init_manage_etc_hosts | bool) | ternary('true', 'false') }}
+      timezone: {{ item.cloud_init_timezone }}
+      locale: {{ item.cloud_init_locale }}
+      package_update: {{ (item.cloud_init_package_update | bool) | ternary('true', 'false') }}
+      package_upgrade: {{ (item.cloud_init_package_upgrade | bool) | ternary('true', 'false') }}
+      package_reboot_if_required: {{ (item.cloud_init_package_reboot_if_required | bool) | ternary('true', 'false') }}
       ssh_pwauth: {{ (item.cloud_init_ssh_password_auth | bool) | ternary('true', 'false') }}
       disable_root: {{ (item.cloud_init_disable_root | bool) | ternary('true', 'false') }}
       users:
@@ -444,11 +449,43 @@
           {{ item.cloud_init_user }}:{{ item.cloud_init_plain_password }}
         expire: false
       {% endif %}
+      {% if (item.cloud_init_apt_config | default({})) | length > 0 %}
+      apt:
+      {{ item.cloud_init_apt_config | to_nice_yaml(indent=2) | indent(2, true) }}
+      {% endif %}
+      {% if (item.cloud_init_packages | default([])) | length > 0 %}
+      packages:
+      {% for package_name in item.cloud_init_packages %}
+        - {{ package_name | to_json }}
+      {% endfor %}
+      {% endif %}
+      {% if (item.cloud_init_write_files | default([])) | length > 0 %}
+      write_files:
+      {{ item.cloud_init_write_files | to_nice_yaml(indent=2) | indent(2, true) }}
+      {% endif %}
+      {% if (item.cloud_init_bootcmd | default([])) | length > 0 %}
+      bootcmd:
+      {% for boot_command in item.cloud_init_bootcmd %}
+        - {{ boot_command | to_json }}
+      {% endfor %}
+      {% endif %}
+      {% if (item.cloud_init_runcmd | default([])) | length > 0 %}
+      runcmd:
+      {% for run_command in item.cloud_init_runcmd %}
+        - {{ run_command | to_json }}
+      {% endfor %}
+      {% endif %}
+      {% if item.cloud_init_storage_layout_enabled | bool %}
+      {{ item.cloud_init_storage_config | to_nice_yaml(indent=2) | trim }}
+      {% endif %}
+      {% if (item.cloud_init_growpart_devices | default([])) | length > 0 %}
       growpart:
         mode: auto
-        devices: ['/']
+        devices: {{ item.cloud_init_growpart_devices | to_json }}
         ignore_growroot_disabled: false
-      resize_rootfs: true
+      {% endif %}
+      resize_rootfs: {{ (item.cloud_init_resize_rootfs | bool) | ternary('true', 'false') }}
+      final_message: {{ item.cloud_init_final_message | to_json }}
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"

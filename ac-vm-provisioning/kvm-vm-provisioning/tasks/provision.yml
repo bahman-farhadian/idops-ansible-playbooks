@@ -87,6 +87,22 @@
       cloud_init_plain_password: "{{ kvm_default_cloud_init_plain_password }}"
       cloud_init_ssh_password_auth: "{{ kvm_default_cloud_init_ssh_password_auth }}"
       cloud_init_disable_root: "{{ kvm_default_cloud_init_disable_root }}"
+      cloud_init_manage_etc_hosts: "{{ kvm_default_cloud_init_manage_etc_hosts }}"
+      cloud_init_timezone: "{{ kvm_default_cloud_init_timezone }}"
+      cloud_init_locale: "{{ kvm_default_cloud_init_locale }}"
+      cloud_init_package_update: "{{ kvm_default_cloud_init_package_update }}"
+      cloud_init_package_upgrade: "{{ kvm_default_cloud_init_package_upgrade }}"
+      cloud_init_package_reboot_if_required: "{{ kvm_default_cloud_init_package_reboot_if_required }}"
+      cloud_init_apt_config: "{{ kvm_default_cloud_init_apt_config }}"
+      cloud_init_packages: "{{ kvm_default_cloud_init_packages }}"
+      cloud_init_bootcmd: "{{ kvm_default_cloud_init_bootcmd }}"
+      cloud_init_runcmd: "{{ kvm_default_cloud_init_runcmd }}"
+      cloud_init_write_files: "{{ kvm_default_cloud_init_write_files }}"
+      cloud_init_final_message: "{{ kvm_default_cloud_init_final_message }}"
+      cloud_init_growpart_devices: "{{ kvm_default_cloud_init_growpart_devices }}"
+      cloud_init_resize_rootfs: "{{ kvm_default_cloud_init_resize_rootfs }}"
+      cloud_init_storage_layout_enabled: "{{ kvm_default_cloud_init_storage_layout_enabled }}"
+      cloud_init_storage_config: "{{ kvm_default_cloud_init_storage_config }}"
 
 - name: Build normalized instance definitions
   ansible.builtin.set_fact:
@@ -134,8 +150,39 @@
       - item.libvirt_network_name | length > 0
       - item.cloud_init_user is defined
       - item.cloud_init_user | length > 0
+      - item.cloud_init_manage_etc_hosts is boolean
+      - item.cloud_init_timezone is string
+      - item.cloud_init_timezone | length > 0
+      - item.cloud_init_locale is string
+      - item.cloud_init_locale | length > 0
       - item.cloud_init_ssh_public_keys is sequence
       - item.cloud_init_ssh_public_keys is not string
+      - item.cloud_init_package_update is boolean
+      - item.cloud_init_package_upgrade is boolean
+      - item.cloud_init_package_reboot_if_required is boolean
+      - item.cloud_init_apt_config is mapping
+      - item.cloud_init_packages is sequence
+      - item.cloud_init_packages is not string
+      - item.cloud_init_bootcmd is sequence
+      - item.cloud_init_bootcmd is not string
+      - item.cloud_init_runcmd is sequence
+      - item.cloud_init_runcmd is not string
+      - item.cloud_init_write_files is sequence
+      - item.cloud_init_write_files is not string
+      - item.cloud_init_final_message is string
+      - item.cloud_init_growpart_devices is sequence
+      - item.cloud_init_growpart_devices is not string
+      - item.cloud_init_resize_rootfs is boolean
+      - item.cloud_init_storage_layout_enabled is boolean
+      - item.cloud_init_storage_config is mapping
+      - >-
+        (
+          not (item.cloud_init_storage_layout_enabled | bool)
+        )
+        or
+        (
+          (item.cloud_init_storage_config | default({}) | length) > 0
+        )
       - (item.cloud_init_plain_password | length > 0) or not (item.cloud_init_ssh_password_auth | bool)
       - >-
         (
