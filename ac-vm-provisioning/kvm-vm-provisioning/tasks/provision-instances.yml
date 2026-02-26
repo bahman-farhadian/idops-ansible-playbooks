@@ -477,7 +477,7 @@
     content: |
       version: 2
       ethernets:
-{% for iface in item.guest_network_interface_candidates %}
+      {% for iface in item.guest_network_interface_candidates %}
         "{{ iface }}":
           dhcp4: false
           dhcp6: false
@@ -489,7 +489,7 @@
               via: {{ item.guest_network_gateway }}
           nameservers:
             addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
-{% endfor %}
+      {% endfor %}
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"
