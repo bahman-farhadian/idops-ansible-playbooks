@@ -137,3 +137,132 @@
     - kvm_validate_runtime_pool_access | default(true) | bool
     - kvm_auto_fix_runtime_pool_access | default(true) | bool
     - (preflight_setfacl_check.rc | default(1) | int) != 0
+
+- name: Build required libvirt network list from requested instances
+  ansible.builtin.set_fact:
+    required_libvirt_networks: >-
+      {{
+        normalized_instances
+        | map(attribute='libvirt_network_name')
+        | map('string')
+        | unique
+        | list
+      }}
+
+- name: Get all libvirt networks
+  ansible.builtin.command:
+    cmd: virsh net-list --all --name
+  register: libvirt_all_networks_cmd
+  changed_when: false
+
+- name: Normalize all libvirt network names
+  ansible.builtin.set_fact:
+    libvirt_all_networks: >-
+      {{
+        libvirt_all_networks_cmd.stdout_lines
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+
+- name: Build missing required libvirt network list
+  ansible.builtin.set_fact:
+    missing_required_libvirt_networks: >-
+      {{
+        required_libvirt_networks
+        | difference(libvirt_all_networks)
+      }}
+
+- name: Fail when required libvirt networks are missing
+  ansible.builtin.fail:
+    msg: >-
+      Missing required libvirt network(s): {{
+      missing_required_libvirt_networks | join(', ')
+      }}.
+      Requested networks come from kvm_default_libvirt_network_name or
+      per-instance libvirt_network_name.
+      Available networks on hypervisor: {{
+      (libvirt_all_networks | length > 0) | ternary(libvirt_all_networks | join(', '), 'none')
+      }}.
+      Update vars/kvm-provisioning.yml to a valid network name.
+  when: (missing_required_libvirt_networks | default([])) | length > 0
+
+- name: Get active libvirt networks
+  ansible.builtin.command:
+    cmd: virsh net-list --name
+  register: libvirt_active_networks_cmd
+  changed_when: false
+
+- name: Normalize active libvirt network names
+  ansible.builtin.set_fact:
+    libvirt_active_networks: >-
+      {{
+        libvirt_active_networks_cmd.stdout_lines
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+
+- name: Build inactive required libvirt network list
+  ansible.builtin.set_fact:
+    inactive_required_libvirt_networks: >-
+      {{
+        required_libvirt_networks
+        | difference(libvirt_active_networks)
+      }}
+
+- name: Start inactive required libvirt networks when enabled
+  ansible.builtin.command:
+    cmd: virsh net-start "{{ item }}"
+  loop: "{{ inactive_required_libvirt_networks | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  register: libvirt_network_start_results
+  failed_when: false
+  changed_when: true
+  when:
+    - (inactive_required_libvirt_networks | default([])) | length > 0
+    - kvm_auto_start_required_libvirt_networks | default(false) | bool
+
+- name: Re-check active libvirt networks after auto-start attempts
+  ansible.builtin.command:
+    cmd: virsh net-list --name
+  register: libvirt_active_networks_after_start_cmd
+  changed_when: false
+  when:
+    - (inactive_required_libvirt_networks | default([])) | length > 0
+    - kvm_auto_start_required_libvirt_networks | default(false) | bool
+
+- name: Normalize active libvirt networks after auto-start attempts
+  ansible.builtin.set_fact:
+    libvirt_active_networks_after_start: >-
+      {{
+        libvirt_active_networks_after_start_cmd.stdout_lines
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+  when:
+    - (inactive_required_libvirt_networks | default([])) | length > 0
+    - kvm_auto_start_required_libvirt_networks | default(false) | bool
+
+- name: Build unresolved inactive required libvirt network list
+  ansible.builtin.set_fact:
+    unresolved_inactive_required_libvirt_networks: >-
+      {{
+        required_libvirt_networks
+        | difference(
+            libvirt_active_networks_after_start
+            | default(libvirt_active_networks)
+          )
+      }}
+
+- name: Fail when required libvirt networks are not active
+  ansible.builtin.fail:
+    msg: >-
+      Required libvirt network(s) are not active: {{
+      unresolved_inactive_required_libvirt_networks | join(', ')
+      }}.
+      Start them manually (for example: virsh net-start <name>) or enable
+      auto-start with: -e kvm_auto_start_required_libvirt_networks=true
+  when: (unresolved_inactive_required_libvirt_networks | default([])) | length > 0
