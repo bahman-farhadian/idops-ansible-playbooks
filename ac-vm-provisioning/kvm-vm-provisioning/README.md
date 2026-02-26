@@ -76,6 +76,8 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
 5. Confirm official checksum manifest URLs under `kvm_cloud_image_catalog[*].image_checksum_manifest_url`.
 6. Set cloud-init access defaults (including plain password) and instance definitions.
+7. Optional: set `kvm_guest_network_interface_fallbacks` to expand NIC-name fallbacks
+   (defaults to `['ens3', 'enp1s0', 'eth0']`).
 
 Then run:
 

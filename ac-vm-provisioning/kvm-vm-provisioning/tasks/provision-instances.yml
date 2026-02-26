@@ -50,6 +50,19 @@
                 'cloud_init_user_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-user-data.yaml'),
                 'cloud_init_meta_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-meta-data.yaml'),
                 'cloud_init_network_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-network-config.yaml'),
+                'guest_network_interface_candidates': (
+                  (
+                    [item.guest_network_interface]
+                    + (
+                      kvm_guest_network_interface_fallbacks
+                      | default(['ens3', 'enp1s0', 'eth0'])
+                    )
+                  )
+                  | map('trim')
+                  | reject('equalto', '')
+                  | unique
+                  | list
+                ),
                 'instance_mac_address': (
                   item.instance_mac_address
                   if (item.instance_mac_address is defined and (item.instance_mac_address | length > 0))
@@ -464,8 +477,11 @@
     content: |
       version: 2
       ethernets:
-        "{{ item.guest_network_interface }}":
+{% for iface in item.guest_network_interface_candidates %}
+        "{{ iface }}":
           dhcp4: false
+          dhcp6: false
+          optional: true
           addresses:
             - {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
           routes:
@@ -473,6 +489,7 @@
               via: {{ item.guest_network_gateway }}
           nameservers:
             addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
+{% endfor %}
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"
