@@ -39,7 +39,10 @@ $(VENV)/.deps.installed: requirements.txt $(VENV)/bin/activate
 	$(PIP) install --upgrade pip
 	@if find $(WHEELHOUSE) -maxdepth 1 -type f ! -name '.gitkeep' | grep -q .; then \
 		echo "Installing dependencies from local wheelhouse/ cache"; \
-		$(PIP) install --no-index --find-links $(WHEELHOUSE) -r requirements.txt; \
+		if ! $(PIP) install --no-index --find-links $(WHEELHOUSE) -r requirements.txt; then \
+			echo "Wheelhouse cache is incomplete; falling back to remote package index"; \
+			$(PIP) install -r requirements.txt; \
+		fi; \
 	else \
 		echo "Installing dependencies from remote package index"; \
 		$(PIP) install -r requirements.txt; \

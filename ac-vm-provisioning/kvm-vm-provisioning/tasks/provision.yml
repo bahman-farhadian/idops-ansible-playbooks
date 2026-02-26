@@ -113,10 +113,13 @@
       - item.image_url | length > 0
       - item.image_filename is defined
       - item.image_filename | length > 0
+      - item.image_filename is match('^debian-.+\\.qcow2$')
+      - item.image_url is search('/debian-.+\\.qcow2$')
       - item.image_checksum_algorithm is defined
       - item.image_checksum_algorithm in ['sha256', 'sha512']
       - item.virt_install_os_variant is defined
       - item.virt_install_os_variant | length > 0
+      - item.virt_install_os_variant is match('^debian')
       - item.instance_ipv4_address is defined
       - item.vcpu_count is defined
       - (item.vcpu_count | int) > 0
@@ -156,7 +159,23 @@
 
 - name: Build unique image profile list from requested instances
   ansible.builtin.set_fact:
-    required_image_profiles: "{{ normalized_instances | map(attribute='image_profile_id') | unique | list }}"
+    requested_instance_image_profiles: "{{ normalized_instances | map(attribute='image_profile_id') | unique | list }}"
+
+- name: Build unique image profile list from cloud image catalog
+  ansible.builtin.set_fact:
+    catalog_image_profiles: "{{ kvm_cloud_image_catalog | dict2items | map(attribute='key') | unique | list }}"
+
+- name: Build effective required image profile list
+  ansible.builtin.set_fact:
+    required_image_profiles: >-
+      {{
+        (
+          requested_instance_image_profiles
+          + ((kvm_run_stage_image_cache | bool) | ternary(catalog_image_profiles, []))
+        )
+        | unique
+        | list
+      }}
 
 - name: Build required cloud image metadata list
   ansible.builtin.set_fact:

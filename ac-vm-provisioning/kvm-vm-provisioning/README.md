@@ -3,6 +3,7 @@
 Production-oriented KVM provisioning for the `ac-vm-provisioning` domain.
 
 This project now uses **cloud-image provisioning** (Debian 12/13 genericcloud images + cloud-init), not template cloning.
+Scope: this playbook supports **Debian images only**.
 
 ## What This Provides
 
@@ -81,6 +82,9 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 8. Use `*-genericcloud-amd64.qcow2` images for this workflow.
    `nocloud` is blocked by default; override only if intentional with
    `kvm_allow_nocloud_images=true`.
+9. Add or remove Debian variants in `kvm_cloud_image_catalog`.
+   `make image-cache` processes all catalog profiles, while instance creation
+   still follows `kvm_instance_definitions`.
 
 Then run:
 
@@ -119,6 +123,11 @@ make cleanup-force-disks
 `make image-cache` resolves checksums from official Debian manifests and stores
 images using checksum-versioned filenames. When Debian `latest` changes, a new
 versioned file is downloaded and old cached files are preserved.
+By design, it caches all profiles defined in `kvm_cloud_image_catalog`.
+
+Developer note: Debian `nocloud` artifacts were rejected for this workflow after
+testing because they did not provide reliable cloud-init behavior in this stack.
+Use Debian `genericcloud` artifacts.
 
 If provisioning fails with `Network not found`, run on hypervisor:
 
