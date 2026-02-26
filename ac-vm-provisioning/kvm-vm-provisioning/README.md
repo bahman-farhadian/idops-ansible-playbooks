@@ -15,6 +15,9 @@ This project is the production migration target for `old_playbooks/kvm-clone-ans
   - `netplan` (Ubuntu-style `/etc/netplan/*.yaml`)
 - Snapshot support after provisioning
 - Cleanup workflow with safety confirmation flag
+- Stateful template validation markers (`always` or `once`)
+- Optional runtime ACL auto-fix for `libvirt-qemu` path access
+- Fast `provision-check` behavior by skipping mutation phases by default
 - `Makefile` workflow
 - Local environment folder named `venv/` (not `.venv`)
 - Single playbook entrypoint: `playbook.yml`
@@ -60,6 +63,7 @@ Edit `vars/kvm-provisioning.yml` and define:
 2. Instance pool and execution behavior:
    - `kvm_instance_pool_path`
    - `kvm_clone_workspace_path`
+   - `kvm_execute_mutation_phases_in_check_mode`
 3. Template catalog (`kvm_template_catalog`), including:
    - `template_instance_name`
    - `template_instance_disk_files` (list of full paths on the hypervisor)
@@ -69,6 +73,13 @@ Edit `vars/kvm-provisioning.yml` and define:
    - `instance_ipv4_address`
    - `vcpu_count`
    - `memory_mb`
+5. Runtime access behavior:
+   - `kvm_validate_runtime_pool_access`
+   - `kvm_auto_fix_runtime_pool_access`
+   - `kvm_libvirt_runtime_user`
+6. Template validation behavior:
+   - `kvm_template_validation_mode` (`always` or `once`)
+   - `kvm_template_validation_state_dir`
 
 `template_profile_id` can be either:
 - a key from `kvm_template_catalog` (for example `debian-trixie`)
@@ -76,12 +87,17 @@ Edit `vars/kvm-provisioning.yml` and define:
 
 `instance_name` must be different from `template_instance_name`.
 
+`kvm_clone_workspace_path` must be different from `kvm_instance_pool_path` when `kvm_cleanup_workspace_path_after_run=true`.
+
 Then run provisioning:
 
 ```bash
 make provision-check
 make provision
 ```
+
+`make provision-check` runs in Ansible check mode.
+By default, mutation phases are skipped in check mode (`kvm_execute_mutation_phases_in_check_mode=false`), so it performs fast preflight validation only.
 
 Cleanup:
 
