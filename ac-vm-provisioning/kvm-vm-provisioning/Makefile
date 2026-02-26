@@ -19,10 +19,14 @@ help:
 	@echo "  make lint          - run ansible-lint"
 	@echo "  make check         - syntax-check playbook entrypoint"
 	@echo "  make ping          - test connectivity to hypervisor"
-	@echo "  make provision-check - dry-run provisioning workflow"
+	@echo "  make provision-check - preflight provisioning check (--check, no mutation by default)"
 	@echo "  make provision     - execute provisioning workflow"
 	@echo "  make cleanup       - preview cleanup workflow (kvm_cleanup_confirmed default is false)"
 	@echo "  make cleanup-force - execute cleanup with kvm_cleanup_confirmed=true"
+	@echo ""
+	@echo "Runtime options:"
+	@echo "  LIMIT=<host_pattern>         - limit inventory scope"
+	@echo "  EXTRA_ARGS=\"-e key=value\"   - pass extra ansible arguments"
 
 $(VENV)/bin/activate:
 	$(PYTHON) -m venv $(VENV)

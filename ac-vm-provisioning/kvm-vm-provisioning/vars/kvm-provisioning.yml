@@ -7,15 +7,15 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "change-me-hypervisor"
+kvm_hypervisor_host: "Selene"
 kvm_hypervisor_python_interpreter: "/usr/bin/python3"
 
 # -----------------------------------------------------------------------------
 # Instance pool and execution behavior
 # -----------------------------------------------------------------------------
-kvm_instance_pool_path: "/var/lib/libvirt/images"
+kvm_instance_pool_path: "/home/bahman/b/QEMUKVM/stgPool/"
 kvm_default_clone_disk_extension: "qcow2"
-kvm_clone_workspace_path: "/tmp/idops-kvm-vm-provisioning"
+kvm_clone_workspace_path: "/tmp/idops-kvm-workspace/"
 kvm_cleanup_workspace_path_after_run: true
 
 # -----------------------------------------------------------------------------
@@ -37,11 +37,30 @@ kvm_snapshot_description: "initial configuration"
 kvm_start_instances_after_snapshot: true
 kvm_restart_template_instances_after_run: false
 kvm_wait_for_instance_ssh: true
+kvm_execute_mutation_phases_in_check_mode: false
 kvm_cleanup_confirmed: false
-kvm_clone_mode: "auto"  # auto | sequential | parallel
+kvm_clone_mode: "parallel"  # auto | sequential | parallel
 kvm_clone_async_timeout_seconds: 1800
 kvm_clone_wait_retries: 180
 kvm_clone_wait_delay_seconds: 10
+
+# -----------------------------------------------------------------------------
+# Runtime access behavior (libvirt/qemu user)
+# -----------------------------------------------------------------------------
+# Enable preflight check to ensure libvirt runtime user can traverse/read paths.
+kvm_validate_runtime_pool_access: true
+# When enabled, automatically apply ACLs for runtime user on pool path and
+# template disk files if preflight access fails.
+kvm_auto_fix_runtime_pool_access: true
+kvm_libvirt_runtime_user: "libvirt-qemu"
+
+# -----------------------------------------------------------------------------
+# Template validation behavior
+# -----------------------------------------------------------------------------
+# always: validate template instance existence/state every run
+# once: validate once and create marker files, later runs skip repeated checks
+kvm_template_validation_mode: "once"  # always | once
+kvm_template_validation_state_dir: "/var/tmp/idops-kvm-template-validation"
 
 # -----------------------------------------------------------------------------
 # Template catalog
@@ -57,10 +76,10 @@ kvm_clone_wait_delay_seconds: 10
 # This enables explicit operator control over template disk file sources.
 
 kvm_template_catalog:
-  debian-trixie:
-    template_instance_name: "debian-trixie-template"
+  debian-bookworm:
+    template_instance_name: "debian-bookworm"
     template_instance_disk_files:
-      - "/var/lib/libvirt/images/debian-trixie-template.qcow2"
+      - "/home/bahman/b/QEMUKVM/stgPool/debian-bookworm.qcow2"
     guest_os_variant: "debian"
     guest_network_mode: "ifupdown"
     guest_network_interface: "enp1s0"
@@ -97,14 +116,8 @@ kvm_template_catalog:
 # - clone_disk_extension
 
 kvm_instance_definitions:
-  - instance_name: "debian-app-01"
-    template_profile_id: "debian-trixie"
-    instance_ipv4_address: "192.168.24.110"
+  - instance_name: "debian-bookworm-01"
+    template_profile_id: "debian-bookworm"
+    instance_ipv4_address: "192.168.24.100"
     vcpu_count: 2
     memory_mb: 2048
-
-  - instance_name: "ubuntu-ci-01"
-    template_profile_id: "ubuntu-noble"
-    instance_ipv4_address: "192.168.24.120"
-    vcpu_count: 2
-    memory_mb: 4096
