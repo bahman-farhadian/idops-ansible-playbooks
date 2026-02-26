@@ -112,6 +112,8 @@ make cleanup-force
 ```
 
 `make cleanup-force` sets `kvm_cleanup_confirmed=true`.
+Cleanup is target-scoped: only `instance_name` entries in `kvm_instance_definitions` are affected.
+Cleanup does not use `virsh undefine --remove-all-storage`; it removes only expected instance disk paths under `kvm_instance_pool_path`.
 
 The same `playbook.yml` handles all workflows using `kvm_action`:
 

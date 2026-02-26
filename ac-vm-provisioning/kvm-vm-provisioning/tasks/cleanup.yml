@@ -1,3 +1,60 @@
+# =========================================================================
+# CLEANUP: Validate targets and remove only declared instances
+# =========================================================================
+- name: Validate cleanup instance definition list is provided
+  ansible.builtin.assert:
+    that:
+      - kvm_instance_definitions is defined
+      - kvm_instance_definitions | length > 0
+    fail_msg: "Define at least one instance in vars/kvm-provisioning.yml under kvm_instance_definitions."
+
+- name: Initialize template instance name list for cleanup safety
+  ansible.builtin.set_fact:
+    cleanup_template_instance_names: []
+
+- name: Build template instance name list for cleanup safety
+  ansible.builtin.set_fact:
+    cleanup_template_instance_names: "{{ (cleanup_template_instance_names | default([])) + [item.value.template_instance_name] }}"
+  loop: "{{ (kvm_template_catalog | default({})) | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - item.value.template_instance_name is defined
+    - item.value.template_instance_name | length > 0
+
+- name: Set cleanup instance defaults
+  ansible.builtin.set_fact:
+    cleanup_instance_defaults:
+      clone_disk_extension: "{{ kvm_default_clone_disk_extension }}"
+
+- name: Build normalized cleanup instance definitions
+  ansible.builtin.set_fact:
+    cleanup_instance_definitions: >-
+      {{
+        (cleanup_instance_definitions | default([]))
+        + [cleanup_instance_defaults | combine(item, recursive=True)]
+      }}
+  loop: "{{ kvm_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name | default('unknown') }}"
+
+- name: Validate cleanup targets
+  ansible.builtin.assert:
+    that:
+      - item.instance_name is defined
+      - item.instance_name | length > 0
+      - >-
+        (kvm_cleanup_allow_template_instance_deletion | default(false) | bool)
+        or item.instance_name not in (cleanup_template_instance_names | default([]))
+      - item.clone_disk_extension is match('^[A-Za-z0-9]+$')
+    fail_msg: >-
+      Unsafe cleanup target '{{ item.instance_name | default('unknown') }}'.
+      Ensure instance_name is valid and does not reference a template instance.
+      To override template protection, set kvm_cleanup_allow_template_instance_deletion=true.
+  loop: "{{ cleanup_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name | default('unknown') }}"
+
 - name: WARNING - Dry run mode
   ansible.builtin.debug:
     msg: |
@@ -8,7 +65,7 @@
 - name: Check which instances exist
   ansible.builtin.command:
     cmd: virsh dominfo "{{ item.instance_name }}"
-  loop: "{{ kvm_instance_definitions }}"
+  loop: "{{ cleanup_instance_definitions }}"
   loop_control:
     label: "{{ item.instance_name }}"
   register: instance_exists_check
@@ -18,7 +75,7 @@
 - name: Build list of instances to delete
   ansible.builtin.set_fact:
     instances_to_delete: >-
-      {{ kvm_instance_definitions | zip(instance_exists_check.results)
+      {{ cleanup_instance_definitions | zip(instance_exists_check.results)
          | selectattr('1.rc', 'eq', 0)
          | map(attribute='0')
          | list }}
@@ -99,9 +156,9 @@
       delay: 5
       when: item.ansible_job_id is defined
 
-    - name: Undefine instances and remove storage (async)
+    - name: Undefine instances (async)
       ansible.builtin.command:
-        cmd: virsh undefine "{{ item.instance_name }}" --remove-all-storage --snapshots-metadata
+        cmd: virsh undefine "{{ item.instance_name }}" --snapshots-metadata
       loop: "{{ instances_to_delete }}"
       loop_control:
         label: "{{ item.instance_name }}"
@@ -109,8 +166,9 @@
       poll: 0
       register: undefine_jobs
       changed_when: true
+      failed_when: false
 
-    - name: Wait for instance deletions
+    - name: Wait for instance undefines
       ansible.builtin.async_status:
         jid: "{{ item.ansible_job_id }}"
       loop: "{{ undefine_jobs.results }}"
@@ -122,10 +180,38 @@
       delay: 5
       when: item.ansible_job_id is defined
 
+    - name: Fail when any instance undefine fails
+      ansible.builtin.fail:
+        msg: >-
+          Undefine failed for: {{
+          undefine_results.results
+          | selectattr('rc', 'defined')
+          | rejectattr('rc', 'eq', 0)
+          | map(attribute='item.item.instance_name')
+          | join(', ')
+          }}.
+      when: >-
+        (
+          undefine_results.results
+          | selectattr('rc', 'defined')
+          | rejectattr('rc', 'eq', 0)
+          | list
+          | length
+        ) > 0
+
+    - name: Remove expected instance disk files
+      ansible.builtin.file:
+        path: "{{ kvm_instance_pool_path }}/{{ item.instance_name }}.{{ item.clone_disk_extension }}"
+        state: absent
+      loop: "{{ instances_to_delete }}"
+      loop_control:
+        label: "{{ item.instance_name }}"
+      when: kvm_cleanup_remove_instance_disks | default(true) | bool
+
     - name: Cleanup complete
       ansible.builtin.debug:
         msg: |
-          Deleted {{ instances_to_delete | length }} instances:
+          Deleted {{ instances_to_delete | length }} instance(s):
           {% for instance in instances_to_delete %}
             - {{ instance.instance_name }}
           {% endfor %}

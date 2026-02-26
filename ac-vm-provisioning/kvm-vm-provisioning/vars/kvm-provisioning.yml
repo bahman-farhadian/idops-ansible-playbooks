@@ -41,6 +41,8 @@ kvm_restart_template_instances_after_run: false
 kvm_wait_for_instance_ssh: true
 kvm_execute_mutation_phases_in_check_mode: false
 kvm_cleanup_confirmed: false
+kvm_cleanup_remove_instance_disks: true
+kvm_cleanup_allow_template_instance_deletion: false
 kvm_clone_mode: "parallel"  # auto | sequential | parallel
 kvm_clone_async_timeout_seconds: 1800
 kvm_clone_wait_retries: 180
