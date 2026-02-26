@@ -132,6 +132,14 @@
       - item.cloud_init_ssh_public_keys is sequence
       - item.cloud_init_ssh_public_keys is not string
       - (item.cloud_init_plain_password | length > 0) or not (item.cloud_init_ssh_password_auth | bool)
+      - >-
+        (
+          item.instance_mac_address is not defined
+        )
+        or
+        (
+          item.instance_mac_address is match('^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$')
+        )
     fail_msg: >-
       Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields.
   loop: "{{ normalized_instances }}"

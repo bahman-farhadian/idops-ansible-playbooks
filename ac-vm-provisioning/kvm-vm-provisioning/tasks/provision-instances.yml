@@ -25,6 +25,13 @@
     instances_to_create_materialized: []
   when: instances_to_create | length > 0
 
+- name: Build normalized path variables for materialized instances
+  ansible.builtin.set_fact:
+    normalized_image_cache_path: "{{ kvm_image_cache_path | regex_replace('/+$', '') }}"
+    normalized_instance_disk_pool_path: "{{ kvm_instance_disk_pool_path | regex_replace('/+$', '') }}"
+    normalized_cloud_init_workspace_path: "{{ kvm_cloud_init_workspace_path | regex_replace('/+$', '') }}"
+  when: instances_to_create | length > 0
+
 - name: Build materialized path entries per instance
   ansible.builtin.set_fact:
     instances_to_create_materialized: >-
@@ -36,13 +43,25 @@
               {
                 'base_image_path': (
                   resolved_cloud_image_path_by_profile[item.image_profile_id]
-                  | default(kvm_image_cache_path ~ '/' ~ item.image_filename)
+                  | default(normalized_image_cache_path ~ '/' ~ item.image_filename)
                 ),
-                'instance_disk_path': (kvm_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '.' ~ item.instance_disk_extension),
-                'seed_iso_path': (kvm_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.iso'),
-                'cloud_init_user_data_path': (kvm_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-user-data.yaml'),
-                'cloud_init_meta_data_path': (kvm_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-meta-data.yaml'),
-                'cloud_init_network_path': (kvm_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-network-config.yaml')
+                'instance_disk_path': (normalized_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '.' ~ item.instance_disk_extension),
+                'seed_iso_path': (normalized_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.iso'),
+                'cloud_init_user_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-user-data.yaml'),
+                'cloud_init_meta_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-meta-data.yaml'),
+                'cloud_init_network_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-network-config.yaml'),
+                'instance_mac_address': (
+                  item.instance_mac_address
+                  if (item.instance_mac_address is defined and (item.instance_mac_address | length > 0))
+                  else (
+                    '52:54:00:'
+                    ~ (item.instance_name | hash('sha1'))[0:2]
+                    ~ ':'
+                    ~ (item.instance_name | hash('sha1'))[2:4]
+                    ~ ':'
+                    ~ (item.instance_name | hash('sha1'))[4:6]
+                  )
+                )
               },
               recursive=True
             )
@@ -400,17 +419,17 @@
           groups: [sudo]
           sudo: ALL=(ALL) NOPASSWD:ALL
           lock_passwd: {{ (item.cloud_init_plain_password | length == 0) | ternary('true', 'false') }}
-      {% if item.cloud_init_plain_password | length > 0 %}
-      chpasswd:
-        list: |
-          {{ item.cloud_init_user }}:{{ item.cloud_init_plain_password }}
-        expire: false
-      {% endif %}
       {% if (item.cloud_init_ssh_public_keys | default([])) | length > 0 %}
           ssh_authorized_keys:
       {% for pubkey in item.cloud_init_ssh_public_keys %}
             - {{ pubkey }}
       {% endfor %}
+      {% endif %}
+      {% if item.cloud_init_plain_password | length > 0 %}
+      chpasswd:
+        list: |
+          {{ item.cloud_init_user }}:{{ item.cloud_init_plain_password }}
+        expire: false
       {% endif %}
       growpart:
         mode: auto
@@ -445,7 +464,10 @@
     content: |
       version: 2
       ethernets:
-        {{ item.guest_network_interface }}:
+        idops0:
+          match:
+            macaddress: "{{ item.instance_mac_address }}"
+          set-name: "{{ item.guest_network_interface }}"
           dhcp4: false
           addresses:
             - {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
@@ -496,7 +518,7 @@
       - --os-variant
       - "{{ item.virt_install_os_variant }}"
       - --network
-      - "network={{ item.libvirt_network_name }},model=virtio"
+      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
       - --graphics
       - none
       - --noautoconsole

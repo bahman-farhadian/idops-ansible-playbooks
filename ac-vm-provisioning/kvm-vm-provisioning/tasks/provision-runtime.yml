@@ -96,12 +96,12 @@
     host: "{{ item.instance_ipv4_address }}"
     port: "{{ item.ssh_port | int }}"
     delay: 5
-    timeout: 180
+    timeout: "{{ kvm_wait_for_ssh_timeout_seconds | default(180) | int }}"
     state: started
   loop: "{{ instance_runtime_targets }}"
   loop_control:
     label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
-  async: 240
+  async: "{{ (kvm_wait_for_ssh_timeout_seconds | default(180) | int) + 30 }}"
   poll: 0
   register: ssh_wait_jobs
   when:
@@ -117,12 +117,79 @@
     label: "{{ item.item.instance_name }}"
   register: ssh_wait_status
   until: (ssh_wait_status.finished | default(false)) | bool
-  retries: 40
-  delay: 5
+  retries: "{{ kvm_wait_for_ssh_poll_retries | default(40) | int }}"
+  delay: "{{ kvm_wait_for_ssh_poll_delay_seconds | default(5) | int }}"
+  failed_when: false
   when:
     - kvm_run_mutation_phases | bool
     - kvm_wait_for_instance_ssh | default(true) | bool
     - item.ansible_job_id is defined
+
+- name: Build list of SSH timeout failures for runtime targets
+  ansible.builtin.set_fact:
+    runtime_ssh_timeout_instances: >-
+      {{
+        (
+          ssh_wait_status.results
+          | default([])
+          | selectattr('failed', 'defined')
+          | selectattr('failed')
+          | map(attribute='item.item.instance_name')
+          | list
+        )
+        +
+        (
+          ssh_wait_status.results
+          | default([])
+          | selectattr('msg', 'defined')
+          | selectattr('msg', 'search', 'Timeout when waiting')
+          | map(attribute='item.item.instance_name')
+          | list
+        )
+        | unique
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+
+- name: Collect domiflist diagnostics for SSH timeout instances
+  ansible.builtin.command:
+    cmd: virsh domiflist "{{ item }}"
+  loop: "{{ runtime_ssh_timeout_instances | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  register: runtime_ssh_timeout_domiflist
+  changed_when: false
+  failed_when: false
+  when:
+    - (runtime_ssh_timeout_instances | default([])) | length > 0
+
+- name: Collect domifaddr diagnostics for SSH timeout instances
+  ansible.builtin.command:
+    cmd: virsh domifaddr "{{ item }}"
+  loop: "{{ runtime_ssh_timeout_instances | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  register: runtime_ssh_timeout_domifaddr
+  changed_when: false
+  failed_when: false
+  when:
+    - (runtime_ssh_timeout_instances | default([])) | length > 0
+
+- name: Fail with actionable diagnostics when SSH wait fails
+  ansible.builtin.fail:
+    msg: >-
+      SSH wait timed out for instance(s): {{
+      runtime_ssh_timeout_instances | join(', ')
+      }}.
+      Verify guest network, cloud-init, and credentials.
+      Suggested recovery:
+      1) make cleanup-force-disks
+      2) make provision
+      domiflist={{ runtime_ssh_timeout_domiflist.results | default([]) | map(attribute='stdout') | join(' || ') }}
+      domifaddr={{ runtime_ssh_timeout_domifaddr.results | default([]) | map(attribute='stdout') | join(' || ') }}
+  when:
+    - (runtime_ssh_timeout_instances | default([])) | length > 0
 
 - name: Shut down newly created instances for snapshot
   ansible.builtin.command:
@@ -240,12 +307,12 @@
     host: "{{ item.instance_ipv4_address }}"
     port: "{{ item.ssh_port | int }}"
     delay: 5
-    timeout: 180
+    timeout: "{{ kvm_wait_for_ssh_timeout_seconds | default(180) | int }}"
     state: started
   loop: "{{ instances_to_create | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
-  async: 240
+  async: "{{ (kvm_wait_for_ssh_timeout_seconds | default(180) | int) + 30 }}"
   poll: 0
   register: post_snapshot_ssh_jobs
   when:
@@ -263,8 +330,8 @@
     label: "{{ item.item.instance_name }}"
   register: post_snapshot_ssh_status
   until: (post_snapshot_ssh_status.finished | default(false)) | bool
-  retries: 40
-  delay: 5
+  retries: "{{ kvm_wait_for_ssh_poll_retries | default(40) | int }}"
+  delay: "{{ kvm_wait_for_ssh_poll_delay_seconds | default(5) | int }}"
   when:
     - kvm_run_mutation_phases | bool
     - kvm_snapshot_enabled | default(true) | bool

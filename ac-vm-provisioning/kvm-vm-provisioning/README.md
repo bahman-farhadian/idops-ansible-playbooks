@@ -12,6 +12,8 @@ This project now uses **cloud-image provisioning** (Debian 12/13 cloud images + 
   - `kvm_instance_disk_pool_path` for per-instance VM disks
 - Per-instance provisioning from cached cloud images (no `virt-clone`)
 - Cloud-init seed generation per instance (user-data, meta-data, network-config)
+- Deterministic per-instance MAC assignment (or optional explicit `instance_mac_address`)
+  for reliable cloud-init network matching
 - VM domain definition via `virt-install --import`
 - Runtime workflow for start + SSH checks + optional snapshots
 - Strict cleanup scope to declared instance names only
@@ -126,6 +128,9 @@ Optional runtime flag to auto-start inactive required networks:
 ```bash
 make provision EXTRA_ARGS="-e kvm_auto_start_required_libvirt_networks=true"
 ```
+
+If SSH wait times out, pre-collected `virsh domiflist/domifaddr` diagnostics are
+shown in the failure message to speed up root-cause analysis.
 
 ## Cleanup Safety Rules
 
