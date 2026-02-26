@@ -188,30 +188,30 @@
   loop_control:
     label: "{{ item }}"
 
-- name: Build list of profiles using genericcloud image artifacts
+- name: Build list of profiles using nocloud image artifacts
   ansible.builtin.set_fact:
-    genericcloud_image_profiles: >-
+    nocloud_image_profiles: >-
       {{
         required_cloud_images
-        | selectattr('image_filename', 'search', 'genericcloud')
+        | selectattr('image_filename', 'search', 'nocloud')
         | map(attribute='profile_id')
         | list
       }}
 
-- name: Fail fast when genericcloud images are used for NoCloud seed workflow
+- name: Fail fast when nocloud images are used for cloud-init workflow
   ansible.builtin.fail:
     msg: >-
-      Profile(s) configured with genericcloud images: {{
-      genericcloud_image_profiles | join(', ')
+      Profile(s) configured with nocloud images: {{
+      nocloud_image_profiles | join(', ')
       }}.
-      This project uses local NoCloud seed ISO provisioning and requires Debian
-      nocloud images for predictable cloud-init behavior.
-      Switch image_url/image_filename to *-nocloud-amd64.qcow2, then run:
+      This project requires images that include cloud-init and are tested with
+      Debian genericcloud artifacts.
+      Switch image_url/image_filename to *-genericcloud-amd64.qcow2, then run:
       make image-cache && make cleanup-force-disks && make provision.
-      Override only if intentional by setting kvm_allow_genericcloud_images=true.
+      Override only if intentional by setting kvm_allow_nocloud_images=true.
   when:
-    - (genericcloud_image_profiles | default([])) | length > 0
-    - not (kvm_allow_genericcloud_images | default(false) | bool)
+    - (nocloud_image_profiles | default([])) | length > 0
+    - not (kvm_allow_nocloud_images | default(false) | bool)
 
 - name: Resolve official image checksums and cache paths
   ansible.builtin.include_tasks: tasks/provision-resolve-image-metadata.yml

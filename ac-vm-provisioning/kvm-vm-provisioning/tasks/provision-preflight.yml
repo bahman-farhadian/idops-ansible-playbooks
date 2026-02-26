@@ -92,6 +92,7 @@
   register: preflight_command_checks
   changed_when: false
   failed_when: false
+  check_mode: false
 
 - name: Fail when required commands are missing
   ansible.builtin.fail:
@@ -124,6 +125,7 @@
   register: preflight_setfacl_check
   changed_when: false
   failed_when: false
+  check_mode: false
   when:
     - kvm_validate_runtime_pool_access | default(true) | bool
     - kvm_auto_fix_runtime_pool_access | default(true) | bool
@@ -160,12 +162,52 @@
       - --name
   register: libvirt_all_networks_cmd
   changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Retry get all libvirt networks with become when none are discovered
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - -c
+      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - net-list
+      - --all
+      - --name
+  register: libvirt_all_networks_cmd_become
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: true
+  when:
+    - >-
+      (
+        libvirt_all_networks_cmd.stdout_lines
+        | map('trim')
+        | reject('equalto', '')
+        | list
+        | length
+      ) == 0
 
 - name: Normalize all libvirt network names
   ansible.builtin.set_fact:
     libvirt_all_networks: >-
       {{
-        libvirt_all_networks_cmd.stdout_lines
+        (
+          (
+            (libvirt_all_networks_cmd_become | default({})).get('stdout_lines', [])
+            if (
+              (
+                (libvirt_all_networks_cmd_become | default({})).get('stdout_lines', [])
+                | map('trim')
+                | reject('equalto', '')
+                | list
+                | length
+              ) > 0
+            )
+            else (libvirt_all_networks_cmd | default({})).get('stdout_lines', [])
+          )
+        )
         | map('trim')
         | reject('equalto', '')
         | list
@@ -203,12 +245,51 @@
       - --name
   register: libvirt_active_networks_cmd
   changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Retry get active libvirt networks with become when none are discovered
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - -c
+      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - net-list
+      - --name
+  register: libvirt_active_networks_cmd_become
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: true
+  when:
+    - >-
+      (
+        libvirt_active_networks_cmd.stdout_lines
+        | map('trim')
+        | reject('equalto', '')
+        | list
+        | length
+      ) == 0
 
 - name: Normalize active libvirt network names
   ansible.builtin.set_fact:
     libvirt_active_networks: >-
       {{
-        libvirt_active_networks_cmd.stdout_lines
+        (
+          (
+            (libvirt_active_networks_cmd_become | default({})).get('stdout_lines', [])
+            if (
+              (
+                (libvirt_active_networks_cmd_become | default({})).get('stdout_lines', [])
+                | map('trim')
+                | reject('equalto', '')
+                | list
+                | length
+              ) > 0
+            )
+            else (libvirt_active_networks_cmd | default({})).get('stdout_lines', [])
+          )
+        )
         | map('trim')
         | reject('equalto', '')
         | list
@@ -250,15 +331,56 @@
       - --name
   register: libvirt_active_networks_after_start_cmd
   changed_when: false
+  failed_when: false
+  check_mode: false
   when:
     - (inactive_required_libvirt_networks | default([])) | length > 0
     - kvm_auto_start_required_libvirt_networks | default(false) | bool
+
+- name: Retry post-start active libvirt network query with become when none are discovered
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - -c
+      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - net-list
+      - --name
+  register: libvirt_active_networks_after_start_cmd_become
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: true
+  when:
+    - (inactive_required_libvirt_networks | default([])) | length > 0
+    - kvm_auto_start_required_libvirt_networks | default(false) | bool
+    - >-
+      (
+        libvirt_active_networks_after_start_cmd.stdout_lines
+        | map('trim')
+        | reject('equalto', '')
+        | list
+        | length
+      ) == 0
 
 - name: Normalize active libvirt networks after auto-start attempts
   ansible.builtin.set_fact:
     libvirt_active_networks_after_start: >-
       {{
-        libvirt_active_networks_after_start_cmd.stdout_lines
+        (
+          (
+            (libvirt_active_networks_after_start_cmd_become | default({})).get('stdout_lines', [])
+            if (
+              (
+                (libvirt_active_networks_after_start_cmd_become | default({})).get('stdout_lines', [])
+                | map('trim')
+                | reject('equalto', '')
+                | list
+                | length
+              ) > 0
+            )
+            else (libvirt_active_networks_after_start_cmd | default({})).get('stdout_lines', [])
+          )
+        )
         | map('trim')
         | reject('equalto', '')
         | list

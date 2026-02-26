@@ -55,7 +55,7 @@ lint: venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
 check: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) -i "hypervisor," $(PLAYBOOK_FILE) --syntax-check
 
 ping: venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=ping $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)

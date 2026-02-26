@@ -463,6 +463,7 @@
     content: |
       instance-id: {{ item.instance_name }}
       local-hostname: {{ item.instance_name }}
+      dsmode: local
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"
@@ -501,8 +502,6 @@
   ansible.builtin.command:
     argv:
       - cloud-localds
-      - --dsmode
-      - local
       - --network-config
       - "{{ item.cloud_init_network_path }}"
       - "{{ item.seed_disk_path }}"
