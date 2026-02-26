@@ -41,6 +41,31 @@ make check
 make ping
 ```
 
+## Hypervisor Prerequisites
+
+Required commands on the KVM host:
+
+- `virsh`
+- `qemu-img`
+- `cloud-localds`
+- `virt-install`
+- `setfacl` (required when `kvm_auto_fix_runtime_pool_access=true`)
+
+Debian/Ubuntu install command:
+
+```bash
+sudo apt update
+sudo apt install -y libvirt-clients qemu-utils cloud-image-utils virtinst acl
+```
+
+Package mapping:
+
+- `virsh` -> `libvirt-clients`
+- `qemu-img` -> `qemu-utils`
+- `cloud-localds` -> `cloud-image-utils`
+- `virt-install` -> `virtinst`
+- `setfacl` -> `acl`
+
 Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 
 1. Set `kvm_hypervisor_host`.

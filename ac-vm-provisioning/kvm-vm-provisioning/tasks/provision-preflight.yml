@@ -84,7 +84,6 @@
     cmd: "which {{ item }}"
   loop:
     - virsh
-    - sha256sum
     - qemu-img
     - cloud-localds
     - virt-install
@@ -104,6 +103,13 @@
       | join(', ')
       }}.
       Install required packages before provisioning.
+      Debian/Ubuntu package mapping:
+      virsh -> libvirt-clients,
+      qemu-img -> qemu-utils,
+      cloud-localds -> cloud-image-utils,
+      virt-install -> virtinst.
+      Example:
+      sudo apt update && sudo apt install -y libvirt-clients qemu-utils cloud-image-utils virtinst acl
   when: >-
     (
       preflight_command_checks.results
