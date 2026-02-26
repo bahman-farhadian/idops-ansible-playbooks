@@ -5,9 +5,9 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "kvm-hypervisor.example.internal"      # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
-kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hypervisor. Values: absolute path.
-kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
+kvm_hypervisor_host: "kvm-hypervisor.example.internal" # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_python_interpreter: "/usr/bin/python3"  # Python path on hypervisor. Values: absolute path.
+kvm_libvirt_connection_uri: "qemu:///system"           # Libvirt URI. Values: qemu:///system | qemu:///session.
 
 # -----------------------------------------------------------------------------
 # Provision workflow stage control
@@ -18,11 +18,11 @@ kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --ch
 # -----------------------------------------------------------------------------
 # Storage paths
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/idops/kvm/image-cache/"        # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                         # Auto-create kvm_image_cache_path when missing.
+kvm_image_cache_path: "/var/lib/idops/kvm/image-cache/"           # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: true                            # Auto-create kvm_image_cache_path when missing.
 kvm_instance_disk_pool_path: "/var/lib/idops/kvm/instance-disks/" # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"     # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                     # Remove cloud-init workspace at end of provision stage.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"        # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: true                        # Remove cloud-init workspace at end of provision stage.
 
 # -----------------------------------------------------------------------------
 # Image cache behavior
@@ -41,7 +41,7 @@ kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance dis
 # -----------------------------------------------------------------------------
 # Network defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "default"              # Libvirt network name for guest NIC attach.
+kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
 kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
 kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
 kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
@@ -59,20 +59,20 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
 kvm_default_cloud_init_user: "debian"                   # Initial guest username created by cloud-init.
 kvm_default_cloud_init_ssh_public_keys:                 # Initial SSH authorized keys for cloud-init user.
   - "ssh-ed25519 REPLACE_ME_WITH_YOUR_PUBLIC_KEY"
-kvm_default_cloud_init_plain_password: "changeme" # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+kvm_default_cloud_init_plain_password: "idops_password" # CHANGE THIS PASSWORD BEFORE PRODUCTION.
 kvm_default_cloud_init_ssh_password_auth: true          # Enable SSH password auth in guest.
 kvm_default_cloud_init_disable_root: true               # Disable direct root login via cloud-init.
 
 # -----------------------------------------------------------------------------
 # Cloud-init seed content defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_manage_etc_hosts: true           # Manage /etc/hosts entries. Values: true | false.
-kvm_default_cloud_init_timezone: "UTC"                  # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
-kvm_default_cloud_init_locale: "en_US.UTF-8"            # Guest locale.
-kvm_default_cloud_init_package_update: true             # Run apt update during first boot.
-kvm_default_cloud_init_package_upgrade: true            # Run apt upgrade during first boot.
+kvm_default_cloud_init_manage_etc_hosts: true            # Manage /etc/hosts entries. Values: true | false.
+kvm_default_cloud_init_timezone: "UTC"                   # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
+kvm_default_cloud_init_locale: "en_US.UTF-8"             # Guest locale.
+kvm_default_cloud_init_package_update: true              # Run apt update during first boot.
+kvm_default_cloud_init_package_upgrade: true             # Run apt upgrade during first boot.
 kvm_default_cloud_init_package_reboot_if_required: false # Reboot automatically if upgrades require it.
-kvm_default_cloud_init_apt_config:                      # Default Debian APT mirrors (cloud-init apt map).
+kvm_default_cloud_init_apt_config:                       # Default Debian APT mirrors (cloud-init apt map).
   preserve_sources_list: true
   primary:
     - arches: [default]
@@ -80,42 +80,42 @@ kvm_default_cloud_init_apt_config:                      # Default Debian APT mir
   security:
     - arches: [default]
       uri: "http://deb.debian.org/debian-security"
-kvm_default_cloud_init_packages: []                     # Package list to install on first boot.
-kvm_default_cloud_init_bootcmd: []                      # cloud-init bootcmd list.
-kvm_default_cloud_init_runcmd: []                       # cloud-init runcmd list.
-kvm_default_cloud_init_write_files: []                  # cloud-init write_files list.
+kvm_default_cloud_init_packages: []                                             # Package list to install on first boot.
+kvm_default_cloud_init_bootcmd: []                                              # cloud-init bootcmd list.
+kvm_default_cloud_init_runcmd: []                                               # cloud-init runcmd list.
+kvm_default_cloud_init_write_files: []                                          # cloud-init write_files list.
 kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" # Final cloud-init completion message.
 
 # -----------------------------------------------------------------------------
 # Cloud-init storage layout controls (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_growpart_devices: []             # Devices for cloud-init growpart. Values: [] | list (for example: ['/']).
-kvm_default_cloud_init_resize_rootfs: false             # Expand root filesystem automatically. Values: true | false.
-kvm_default_cloud_init_storage_layout_enabled: true     # Enable custom storage map injection. Values: true | false.
-kvm_default_cloud_init_storage_config:                  # Storage map. Values: mapping with disk_setup, fs_setup, mounts.
-  disk_setup:                                            # Partition layout definitions. Values: mapping keyed by block device.
+kvm_default_cloud_init_growpart_devices: []                    # Devices for cloud-init growpart. Values: [] | list (for example: ['/']).
+kvm_default_cloud_init_resize_rootfs: false                    # Expand root filesystem automatically. Values: true | false.
+kvm_default_cloud_init_storage_layout_enabled: true            # Enable custom storage map injection. Values: true | false.
+kvm_default_cloud_init_storage_config:                         # Storage map. Values: mapping with disk_setup, fs_setup, mounts.
+  disk_setup:                                                  # Partition layout definitions. Values: mapping keyed by block device.
     /dev/vda:
-      table_type: gpt                                   # Partition table type. Values: gpt | mbr.
-      overwrite: true                                   # Repartition target disk on first boot. Values: true | false.
-      layout:                                           # Partition percentages; sum should be 100.
-        - 5   # /boot/efi = 1GiB
-        - 10  # /boot = 2GiB
-        - 50  # / = 10GiB
-        - 35  # /var = 7GiB
-  fs_setup:                                              # Filesystem definitions for created partitions.
-    - label: efi                                         # Filesystem label.
-      filesystem: vfat                                   # Filesystem type. Values: vfat | ext4 | xfs.
-      device: /dev/vda1                                  # Target block device path.
-    - label: boot                                        # Filesystem label.
-      filesystem: ext4                                   # Filesystem type. Values: ext4 | xfs.
-      device: /dev/vda2                                  # Target block device path.
-    - label: root                                        # Filesystem label.
-      filesystem: ext4                                   # Filesystem type. Values: ext4 | xfs.
-      device: /dev/vda3                                  # Target block device path.
-    - label: var                                         # Filesystem label.
-      filesystem: ext4                                   # Filesystem type. Values: ext4 | xfs.
-      device: /dev/vda4                                  # Target block device path.
-  mounts:                                                # Mount table entries. Format: [device, mountpoint, fstype, options, dump, pass].
+      table_type: gpt                                          # Partition table type. Values: gpt | mbr.
+      overwrite: true                                          # Repartition target disk on first boot. Values: true | false.
+      layout:                                                  # Partition percentages; sum should be 100.
+        - 5                                                    # /boot/efi = 1GiB
+        - 10                                                   # /boot = 2GiB
+        - 50                                                   # / = 10GiB
+        - 35                                                   # /var = 7GiB
+  fs_setup:                                                    # Filesystem definitions for created partitions.
+    - label: efi                                               # Filesystem label.
+      filesystem: vfat                                         # Filesystem type. Values: vfat | ext4 | xfs.
+      device: /dev/vda1                                        # Target block device path.
+    - label: boot                                              # Filesystem label.
+      filesystem: ext4                                         # Filesystem type. Values: ext4 | xfs.
+      device: /dev/vda2                                        # Target block device path.
+    - label: root                                              # Filesystem label.
+      filesystem: ext4                                         # Filesystem type. Values: ext4 | xfs.
+      device: /dev/vda3                                        # Target block device path.
+    - label: var                                               # Filesystem label.
+      filesystem: ext4                                         # Filesystem type. Values: ext4 | xfs.
+      device: /dev/vda4                                        # Target block device path.
+  mounts:                                                      # Mount table entries. Format: [device, mountpoint, fstype, options, dump, pass].
     - ["/dev/vda1", "/boot/efi", "vfat", "defaults", "0", "2"] # EFI system partition mount entry.
     - ["/dev/vda2", "/boot", "ext4", "defaults", "0", "2"]     # Boot partition mount entry.
     - ["/dev/vda3", "/", "ext4", "defaults", "0", "1"]         # Root partition mount entry.
