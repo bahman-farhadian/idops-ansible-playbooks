@@ -308,7 +308,8 @@
     label: "{{ item }}"
   register: template_disk_file_stats
   changed_when: false
-  when: kvm_run_template_validation | bool
+  when:
+    - kvm_run_template_validation | bool or kvm_run_mutation_phases | bool
 
 - name: Fail if any template disk files are missing
   ansible.builtin.fail:
@@ -320,7 +321,7 @@
       | join(', ')
       }}
   when:
-    - kvm_run_template_validation | bool
+    - kvm_run_template_validation | bool or kvm_run_mutation_phases | bool
     - >-
       (
         template_disk_file_stats.results
@@ -354,7 +355,6 @@
   failed_when: false
   when:
     - kvm_run_mutation_phases | bool
-    - kvm_run_template_validation | bool
     - kvm_validate_runtime_pool_access | default(true) | bool
 
 - name: Build runtime access failure state
@@ -452,7 +452,6 @@
   failed_when: false
   when:
     - kvm_run_mutation_phases | bool
-    - kvm_run_template_validation | bool
     - kvm_validate_runtime_pool_access | default(true) | bool
 
 - name: Fail when runtime user cannot access instance pool path
@@ -484,7 +483,6 @@
       Fix file and parent-directory permissions/ACLs before provisioning.
   when:
     - kvm_run_mutation_phases | bool
-    - kvm_run_template_validation | bool
     - kvm_validate_runtime_pool_access | default(true) | bool
     - >-
       (
@@ -506,7 +504,7 @@
   changed_when: false
   failed_when: template_check.rc != 0
   check_mode: false
-  when: kvm_run_template_validation | bool
+  when: kvm_run_template_validation | bool or kvm_run_mutation_phases | bool
 
 - name: Mark template validation as complete
   ansible.builtin.file:
@@ -541,6 +539,12 @@
   ansible.builtin.set_fact:
     instances_ifupdown: "{{ instances_to_create | selectattr('guest_network_mode', 'equalto', 'ifupdown') | list }}"
     instances_netplan: "{{ instances_to_create | selectattr('guest_network_mode', 'equalto', 'netplan') | list }}"
+    instance_runtime_targets: >-
+      {{
+        normalized_instances
+        if (kvm_ensure_requested_instances_running | default(true) | bool)
+        else instances_to_create
+      }}
 
 - name: Display instances to be created
   ansible.builtin.debug:
@@ -945,18 +949,67 @@
       delay: 5
       when: item.ansible_job_id is defined
 
+- name: Check runtime target instance states before start phase
+  ansible.builtin.command:
+    cmd: virsh domstate "{{ item.instance_name }}"
+  loop: "{{ instance_runtime_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_target_state_results
+  changed_when: false
+  failed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
+
+- name: Fail when any runtime target instance does not exist
+  ansible.builtin.fail:
+    msg: >-
+      Runtime target instance state check failed for: {{
+      runtime_target_state_results.results
+      | rejectattr('rc', 'eq', 0)
+      | map(attribute='item.instance_name')
+      | join(', ')
+      }}.
+      Ensure those instances exist or keep defaults so missing ones are created in this run.
+  when:
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
+    - >-
+      (
+        runtime_target_state_results.results
+        | rejectattr('rc', 'eq', 0)
+        | list
+        | length
+      ) > 0
+
+- name: Build list of instances that need start
+  ansible.builtin.set_fact:
+    instances_to_start: >-
+      {{
+        instance_runtime_targets
+        | zip(runtime_target_state_results.results)
+        | rejectattr('1.stdout', 'equalto', 'running')
+        | map(attribute='0')
+        | list
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
+
 # =========================================================================
 # PHASE 4: Start instances (parallel)
 # =========================================================================
 - name: "PHASE 4: Start instances"
   when:
     - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
+    - instance_runtime_targets | length > 0
+    - instances_to_start | default([]) | length > 0
   block:
     - name: Start instances (async)
       ansible.builtin.command:
         cmd: virsh start "{{ item.instance_name }}"
-      loop: "{{ instances_to_create }}"
+      loop: "{{ instances_to_start }}"
       loop_control:
         label: "{{ item.instance_name }}"
       async: 60
@@ -982,7 +1035,7 @@
 - name: "PHASE 5: Wait for SSH"
   when:
     - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
+    - instance_runtime_targets | length > 0
     - kvm_wait_for_instance_ssh | default(true) | bool
   block:
     - name: Wait for SSH on all instances (parallel)
@@ -992,7 +1045,7 @@
         delay: 5
         timeout: 180
         state: started
-      loop: "{{ instances_to_create }}"
+      loop: "{{ instance_runtime_targets }}"
       loop_control:
         label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
       async: 180
@@ -1107,6 +1160,38 @@
         - kvm_start_instances_after_snapshot | default(true) | bool
         - item.ansible_job_id is defined
 
+    - name: Wait for SSH after snapshot restarts
+      ansible.builtin.wait_for:
+        host: "{{ item.instance_ipv4_address }}"
+        port: "{{ item.ssh_port | int }}"
+        delay: 5
+        timeout: 180
+        state: started
+      loop: "{{ instances_to_create }}"
+      loop_control:
+        label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
+      async: 180
+      poll: 0
+      register: post_snapshot_ssh_wait_jobs
+      when:
+        - kvm_start_instances_after_snapshot | default(true) | bool
+        - kvm_wait_for_instance_ssh | default(true) | bool
+
+    - name: Confirm SSH after snapshot restarts
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ post_snapshot_ssh_wait_jobs.results }}"
+      loop_control:
+        label: "{{ item.item.instance_name }}"
+      register: post_snapshot_ssh_results
+      until: (post_snapshot_ssh_results.finished | default(0) | int) == 1
+      retries: 40
+      delay: 5
+      when:
+        - kvm_start_instances_after_snapshot | default(true) | bool
+        - kvm_wait_for_instance_ssh | default(true) | bool
+        - item.ansible_job_id is defined
+
 # =========================================================================
 # PHASE 7: Cleanup and summary
 # =========================================================================
@@ -1146,3 +1231,4 @@
           template={{ instance.template_instance_name }} | ip={{ instance.instance_ipv4_address }}
           vcpu={{ instance.vcpu_count }} | memory_mb={{ instance.memory_mb }}
       {% endfor %}
+      Started {{ instances_to_start | default([]) | length }} instance(s) in this run.

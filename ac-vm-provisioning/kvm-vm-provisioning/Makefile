@@ -13,20 +13,19 @@ LIMIT ?=
 EXTRA_ARGS ?=
 
 help:
-	@echo "Available targets:"
-	@echo "  make venv          - create venv/ and install dependencies"
-	@echo "  make deps-bundle   - download wheel artifacts into wheelhouse/"
-	@echo "  make lint          - run ansible-lint"
-	@echo "  make check         - syntax-check playbook entrypoint"
-	@echo "  make ping          - test connectivity to hypervisor"
-	@echo "  make provision-check - preflight provisioning check (--check, no mutation by default)"
-	@echo "  make provision     - execute provisioning workflow"
-	@echo "  make cleanup       - preview cleanup workflow (kvm_cleanup_confirmed default is false)"
-	@echo "  make cleanup-force - execute cleanup with kvm_cleanup_confirmed=true"
-	@echo ""
-	@echo "Runtime options:"
-	@echo "  LIMIT=<host_pattern>         - limit inventory scope"
-	@echo "  EXTRA_ARGS=\"-e key=value\"   - pass extra ansible arguments"
+	@printf "Available targets:\n"
+	@printf "  %-20s %s\n" "make venv" "create venv/ and install dependencies"
+	@printf "  %-20s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
+	@printf "  %-20s %s\n" "make lint" "run ansible-lint"
+	@printf "  %-20s %s\n" "make check" "syntax-check playbook entrypoint"
+	@printf "  %-20s %s\n" "make ping" "test connectivity to hypervisor"
+	@printf "  %-20s %s\n" "make provision-check" "preflight provisioning check (--check, no mutation by default)"
+	@printf "  %-20s %s\n" "make provision" "execute provisioning workflow"
+	@printf "  %-20s %s\n" "make cleanup" "preview cleanup workflow (kvm_cleanup_confirmed default is false)"
+	@printf "  %-20s %s\n" "make cleanup-force" "execute cleanup with kvm_cleanup_confirmed=true"
+	@printf "\nRuntime options:\n"
+	@printf "  %-26s %s\n" "LIMIT=<host_pattern>" "limit inventory scope"
+	@printf "  %-26s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
 $(VENV)/bin/activate:
 	$(PYTHON) -m venv $(VENV)

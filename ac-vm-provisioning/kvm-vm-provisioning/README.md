@@ -80,6 +80,9 @@ Edit `vars/kvm-provisioning.yml` and define:
 6. Template validation behavior:
    - `kvm_template_validation_mode` (`always` or `once`)
    - `kvm_template_validation_state_dir`
+7. Runtime reconciliation behavior:
+   - `kvm_ensure_requested_instances_running`
+   - `kvm_wait_for_instance_ssh`
 
 `template_profile_id` can be either:
 - a key from `kvm_template_catalog` (for example `debian-trixie`)
@@ -98,6 +101,8 @@ make provision
 
 `make provision-check` runs in Ansible check mode.
 By default, mutation phases are skipped in check mode (`kvm_execute_mutation_phases_in_check_mode=false`), so it performs fast preflight validation only.
+
+`make provision` can reconcile runtime state for requested instances (start + SSH wait) even when they were already present (`kvm_ensure_requested_instances_running=true`).
 
 Cleanup:
 

@@ -35,6 +35,8 @@ kvm_snapshot_enabled: true
 kvm_snapshot_name: "snapshot-a"
 kvm_snapshot_description: "initial configuration"
 kvm_start_instances_after_snapshot: true
+# Ensure all requested instances are running during provision, not only newly created ones.
+kvm_ensure_requested_instances_running: true
 kvm_restart_template_instances_after_run: false
 kvm_wait_for_instance_ssh: true
 kvm_execute_mutation_phases_in_check_mode: false
