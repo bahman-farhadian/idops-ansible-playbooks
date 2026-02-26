@@ -83,7 +83,7 @@
       ssh_port: 22
       cloud_init_user: "{{ kvm_default_cloud_init_user }}"
       cloud_init_ssh_public_keys: "{{ kvm_default_cloud_init_ssh_public_keys }}"
-      cloud_init_password_hash: "{{ kvm_default_cloud_init_password_hash }}"
+      cloud_init_plain_password: "{{ kvm_default_cloud_init_plain_password }}"
       cloud_init_ssh_password_auth: "{{ kvm_default_cloud_init_ssh_password_auth }}"
       cloud_init_disable_root: "{{ kvm_default_cloud_init_disable_root }}"
 
@@ -113,15 +113,8 @@
       - item.image_url | length > 0
       - item.image_filename is defined
       - item.image_filename | length > 0
-      - item.image_sha256 is defined
-      - >-
-        (
-          not (kvm_image_cache_verify_on_run | default(true) | bool)
-        )
-        or
-        (
-          item.image_sha256 is match('^[A-Fa-f0-9]{64}$')
-        )
+      - item.image_checksum_algorithm is defined
+      - item.image_checksum_algorithm in ['sha256', 'sha512']
       - item.virt_install_os_variant is defined
       - item.virt_install_os_variant | length > 0
       - item.instance_ipv4_address is defined
@@ -138,10 +131,9 @@
       - item.cloud_init_user | length > 0
       - item.cloud_init_ssh_public_keys is sequence
       - item.cloud_init_ssh_public_keys is not string
-      - (item.cloud_init_password_hash | length > 0) or not (item.cloud_init_ssh_password_auth | bool)
+      - (item.cloud_init_plain_password | length > 0) or not (item.cloud_init_ssh_password_auth | bool)
     fail_msg: >-
       Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields.
-      If kvm_image_cache_verify_on_run=true, image_sha256 must be a 64-character SHA256 hash.
   loop: "{{ normalized_instances }}"
   loop_control:
     label: "{{ item.instance_name }}"
@@ -168,14 +160,30 @@
             'profile_id': item,
             'image_url': kvm_cloud_image_catalog[item].image_url,
             'image_filename': kvm_cloud_image_catalog[item].image_filename,
-            'image_sha256': kvm_cloud_image_catalog[item].image_sha256,
-            'cached_image_path': (kvm_image_cache_path ~ '/' ~ kvm_cloud_image_catalog[item].image_filename)
+            'image_checksum_manifest_url': (
+              kvm_cloud_image_catalog[item].image_checksum_manifest_url
+              | default(
+                  (
+                    kvm_cloud_image_catalog[item].image_url
+                    | regex_replace('/[^/]+$', '')
+                  ) ~ '/SHA512SUMS'
+                )
+            ),
+            'image_checksum_algorithm': (
+              kvm_cloud_image_catalog[item].image_checksum_algorithm
+              | default('sha512')
+            )
           }
         ]
       }}
   loop: "{{ required_image_profiles }}"
   loop_control:
     label: "{{ item }}"
+
+- name: Resolve official image checksums and cache paths
+  ansible.builtin.include_tasks: tasks/provision-resolve-image-metadata.yml
+  when:
+    - kvm_run_stage_image_cache | bool or kvm_run_stage_provision | bool
 
 - name: Check which requested instances already exist
   ansible.builtin.command:

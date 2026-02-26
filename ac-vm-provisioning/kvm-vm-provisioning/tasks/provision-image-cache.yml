@@ -2,12 +2,12 @@
 # =========================================================================
 # STAGE: image-cache
 # =========================================================================
-- name: Validate required cloud image list is available
+- name: Validate resolved cloud image list is available
   ansible.builtin.assert:
     that:
-      - required_cloud_images is defined
-      - required_cloud_images | length > 0
-    fail_msg: "No required cloud images resolved from kvm_instance_definitions."
+      - required_cloud_images_resolved is defined
+      - required_cloud_images_resolved | length > 0
+    fail_msg: "No resolved cloud images available for image-cache stage."
 
 - name: Ensure image cache path exists when auto-create is enabled
   ansible.builtin.file:
@@ -18,18 +18,18 @@
     - kvm_run_mutation_phases | bool
     - kvm_auto_create_image_cache_path | default(true) | bool
 
-- name: Check cached images and checksum state
+- name: Check versioned cached images and checksum state
   ansible.builtin.stat:
     path: "{{ item.cached_image_path }}"
     get_checksum: "{{ kvm_image_cache_verify_on_run | default(true) | bool }}"
-    checksum_algorithm: sha256
-  loop: "{{ required_cloud_images }}"
+    checksum_algorithm: "{{ item.image_checksum_algorithm }}"
+  loop: "{{ required_cloud_images_resolved }}"
   loop_control:
     label: "{{ item.profile_id }}"
   register: image_cache_stats
   changed_when: false
 
-- name: Report cached and valid image entries
+- name: Report cached and valid versioned image entries
   ansible.builtin.debug:
     msg: >-
       Cached image is valid: profile={{ item.item.profile_id }} path={{ item.item.cached_image_path }}
@@ -40,36 +40,22 @@
     - item.stat.exists | default(false)
     - >-
       not (kvm_image_cache_verify_on_run | default(true) | bool)
-      or ((item.stat.checksum | default('') | lower) == (item.item.image_sha256 | lower))
+      or ((item.stat.checksum | default('') | lower) == (item.item.official_checksum | lower))
 
 - name: Fail on checksum mismatch when repair mode is disabled
   ansible.builtin.fail:
     msg: >-
       Cached image checksum mismatch for profile={{ item.item.profile_id }} file={{ item.item.cached_image_path }}.
-      expected={{ item.item.image_sha256 }} got={{ item.stat.checksum | default('missing') }}.
-      By default this fails safely. To repair automatically, set kvm_image_cache_repair_on_checksum_mismatch=true.
+      expected={{ item.item.official_checksum }} got={{ item.stat.checksum | default('missing') }}.
+      By default this fails safely. To repair in place, set kvm_image_cache_repair_on_checksum_mismatch=true.
   loop: "{{ image_cache_stats.results }}"
   loop_control:
     label: "{{ item.item.profile_id }}"
   when:
     - item.stat.exists | default(false)
     - kvm_image_cache_verify_on_run | default(true) | bool
-    - (item.stat.checksum | default('') | lower) != (item.item.image_sha256 | lower)
+    - (item.stat.checksum | default('') | lower) != (item.item.official_checksum | lower)
     - not (kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool)
-
-- name: Remove checksum-mismatched cached image when repair mode is enabled
-  ansible.builtin.file:
-    path: "{{ item.item.cached_image_path }}"
-    state: absent
-  loop: "{{ image_cache_stats.results }}"
-  loop_control:
-    label: "{{ item.item.profile_id }}"
-  when:
-    - kvm_run_mutation_phases | bool
-    - item.stat.exists | default(false)
-    - kvm_image_cache_verify_on_run | default(true) | bool
-    - (item.stat.checksum | default('') | lower) != (item.item.image_sha256 | lower)
-    - kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool
 
 - name: Initialize image download list
   ansible.builtin.set_fact:
@@ -86,7 +72,7 @@
       not (item.stat.exists | default(false))
       or (
         (kvm_image_cache_verify_on_run | default(true) | bool)
-        and ((item.stat.checksum | default('') | lower) != (item.item.image_sha256 | lower))
+        and ((item.stat.checksum | default('') | lower) != (item.item.official_checksum | lower))
         and (kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool)
       )
 
@@ -99,13 +85,13 @@
     - not (kvm_run_mutation_phases | bool)
     - (images_to_download | default([])) | length > 0
 
-- name: Download missing or repaired cloud images
+- name: Download missing or repaired versioned cloud images
   ansible.builtin.get_url:
     url: "{{ item.image_url }}"
     dest: "{{ item.cached_image_path }}"
     mode: "0644"
-    checksum: "{{ ('sha256:' ~ item.image_sha256) if (item.image_sha256 | length > 0) else omit }}"
-    force: false
+    checksum: "{{ item.image_checksum_algorithm }}:{{ item.official_checksum }}"
+    force: "{{ kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool }}"
   loop: "{{ images_to_download | default([]) }}"
   loop_control:
     label: "{{ item.profile_id }}"
@@ -114,12 +100,23 @@
     - kvm_run_mutation_phases | bool
     - (images_to_download | default([])) | length > 0
 
+- name: Ensure alias path points to current versioned image
+  ansible.builtin.file:
+    src: "{{ item.cached_image_path }}"
+    dest: "{{ item.cached_image_alias_path }}"
+    state: link
+    force: true
+  loop: "{{ required_cloud_images_resolved }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  when: kvm_run_mutation_phases | bool
+
 - name: Verify cached image checksums after image-cache stage
   ansible.builtin.stat:
     path: "{{ item.cached_image_path }}"
     get_checksum: "{{ kvm_image_cache_verify_on_run | default(true) | bool }}"
-    checksum_algorithm: sha256
-  loop: "{{ required_cloud_images }}"
+    checksum_algorithm: "{{ item.image_checksum_algorithm }}"
+  loop: "{{ required_cloud_images_resolved }}"
   loop_control:
     label: "{{ item.profile_id }}"
   register: image_cache_verify_results
@@ -129,7 +126,7 @@
   ansible.builtin.fail:
     msg: >-
       Cached image verification failed for profile={{ item.item.profile_id }} path={{ item.item.cached_image_path }}.
-      expected={{ item.item.image_sha256 }} got={{ item.stat.checksum | default('missing') }}.
+      expected={{ item.item.official_checksum }} got={{ item.stat.checksum | default('missing') }}.
   loop: "{{ image_cache_verify_results.results }}"
   loop_control:
     label: "{{ item.item.profile_id }}"
@@ -139,11 +136,12 @@
       or
       (
         (kvm_image_cache_verify_on_run | default(true) | bool)
-        and ((item.stat.checksum | default('') | lower) != (item.item.image_sha256 | lower))
+        and ((item.stat.checksum | default('') | lower) != (item.item.official_checksum | lower))
       )
 
 - name: Image cache summary
   ansible.builtin.debug:
     msg: >-
-      Image cache stage complete: managed_profiles={{ required_cloud_images | length }}
+      Image cache stage complete: managed_profiles={{ required_cloud_images_resolved | length }}
       downloaded={{ (images_to_download | default([])) | length }}.
+      Versioned cache keeps historical images; old files are not deleted on latest updates.

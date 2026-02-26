@@ -1,0 +1,112 @@
+---
+# =========================================================================
+# SHARED: resolve official checksums from Debian manifests
+# =========================================================================
+- name: Validate checksum algorithm values for required images
+  ansible.builtin.assert:
+    that:
+      - item.image_checksum_algorithm in ['sha256', 'sha512']
+      - item.image_checksum_manifest_url is defined
+      - item.image_checksum_manifest_url | length > 0
+    fail_msg: >-
+      Invalid checksum metadata for profile {{ item.profile_id }}.
+      image_checksum_algorithm must be sha256 or sha512,
+      and image_checksum_manifest_url must be set.
+  loop: "{{ required_cloud_images }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+
+- name: Fetch official checksum manifests
+  ansible.builtin.uri:
+    url: "{{ item.image_checksum_manifest_url }}"
+    return_content: true
+    method: GET
+  loop: "{{ required_cloud_images }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  register: checksum_manifest_fetch_results
+  changed_when: false
+
+- name: Initialize resolved cloud image metadata list
+  ansible.builtin.set_fact:
+    required_cloud_images_resolved: []
+
+- name: Resolve official checksum and versioned cache path per profile
+  ansible.builtin.set_fact:
+    required_cloud_images_resolved: >-
+      {{
+        (required_cloud_images_resolved | default([]))
+        + [
+          item.item
+          | combine(
+              {
+                'official_checksum': official_checksum,
+                'checksum_expected_length': checksum_expected_length,
+                'cached_image_versioned_filename': versioned_filename,
+                'cached_image_path': (kvm_image_cache_path ~ '/' ~ versioned_filename),
+                'cached_image_alias_path': (kvm_image_cache_path ~ '/' ~ item.item.image_filename)
+              },
+              recursive=True
+            )
+        ]
+      }}
+  vars:
+    checksum_candidates: >-
+      {{
+        item.content
+        | regex_findall(
+            '(?im)^([A-Fa-f0-9]+)\\s+\\*?'
+            ~ (item.item.image_filename | regex_escape)
+            ~ '$'
+          )
+      }}
+    official_checksum: "{{ (checksum_candidates | first | default('')) | lower }}"
+    checksum_expected_length: "{{ 64 if item.item.image_checksum_algorithm == 'sha256' else 128 }}"
+    filename_base: "{{ item.item.image_filename | regex_replace('\\.[^./]+$', '') }}"
+    filename_ext: "{{ (item.item.image_filename | regex_search('\\.[^./]+$')) | default('') }}"
+    versioned_filename: >-
+      {{
+        filename_base
+        ~ '-'
+        ~ (
+          (official_checksum[0:16])
+          if (official_checksum | length > 0)
+          else 'unresolved'
+        )
+        ~ filename_ext
+      }}
+  loop: "{{ checksum_manifest_fetch_results.results }}"
+  loop_control:
+    label: "{{ item.item.profile_id }}"
+
+- name: Fail when official checksum cannot be resolved from manifest
+  ansible.builtin.fail:
+    msg: >-
+      Could not resolve checksum for profile {{ item.profile_id }} ({{ item.image_filename }})
+      from manifest {{ item.image_checksum_manifest_url }}.
+  loop: "{{ required_cloud_images_resolved | default([]) }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  when: (item.official_checksum | default('') | length) == 0
+
+- name: Fail when checksum length does not match checksum algorithm
+  ansible.builtin.fail:
+    msg: >-
+      Resolved checksum length mismatch for profile {{ item.profile_id }}.
+      Algorithm={{ item.image_checksum_algorithm }} expected_len={{ item.checksum_expected_length }}
+      actual_len={{ item.official_checksum | length }}.
+  loop: "{{ required_cloud_images_resolved | default([]) }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  when: (item.official_checksum | length) != (item.checksum_expected_length | int)
+
+- name: Build resolved cache path map by image profile
+  ansible.builtin.set_fact:
+    resolved_cloud_image_path_by_profile: >-
+      {{
+        (resolved_cloud_image_path_by_profile | default({}))
+        | combine({item.profile_id: item.cached_image_path})
+      }}
+  loop: "{{ required_cloud_images_resolved | default([]) }}"
+  loop_control:
+    label: "{{ item.profile_id }}"

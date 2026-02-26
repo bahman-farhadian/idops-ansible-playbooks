@@ -45,8 +45,8 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 
 1. Set `kvm_hypervisor_host`.
 2. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
-3. Set valid SHA256 checksums in `kvm_cloud_image_catalog[*].image_sha256`.
-4. Set SSH key/password defaults and instance definitions.
+3. Confirm official checksum manifest URLs under `kvm_cloud_image_catalog[*].image_checksum_manifest_url`.
+4. Set cloud-init access defaults (including plain password) and instance definitions.
 
 Then run:
 
@@ -81,6 +81,10 @@ make cleanup-force-disks
 ```
 
 `make provision-check` runs `preflight` in Ansible check mode.
+
+`make image-cache` resolves checksums from official Debian manifests and stores
+images using checksum-versioned filenames. When Debian `latest` changes, a new
+versioned file is downloaded and old cached files are preserved.
 
 ## Cleanup Safety Rules
 

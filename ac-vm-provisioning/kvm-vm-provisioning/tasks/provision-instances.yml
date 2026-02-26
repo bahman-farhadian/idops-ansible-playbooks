@@ -34,7 +34,10 @@
           item
           | combine(
               {
-                'base_image_path': (kvm_image_cache_path ~ '/' ~ item.image_filename),
+                'base_image_path': (
+                  resolved_cloud_image_path_by_profile[item.image_profile_id]
+                  | default(kvm_image_cache_path ~ '/' ~ item.image_filename)
+                ),
                 'instance_disk_path': (kvm_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '.' ~ item.instance_disk_extension),
                 'seed_iso_path': (kvm_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.iso'),
                 'cloud_init_user_data_path': (kvm_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-user-data.yaml'),
@@ -394,9 +397,12 @@
           shell: /bin/bash
           groups: [sudo]
           sudo: ALL=(ALL) NOPASSWD:ALL
-          lock_passwd: {{ (item.cloud_init_password_hash | length == 0) | ternary('true', 'false') }}
-      {% if item.cloud_init_password_hash | length > 0 %}
-          passwd: "{{ item.cloud_init_password_hash }}"
+          lock_passwd: {{ (item.cloud_init_plain_password | length == 0) | ternary('true', 'false') }}
+      {% if item.cloud_init_plain_password | length > 0 %}
+      chpasswd:
+        list: |
+          {{ item.cloud_init_user }}:{{ item.cloud_init_plain_password }}
+        expire: false
       {% endif %}
       {% if (item.cloud_init_ssh_public_keys | default([])) | length > 0 %}
           ssh_authorized_keys:
