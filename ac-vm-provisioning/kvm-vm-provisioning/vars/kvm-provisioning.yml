@@ -5,93 +5,93 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "kvm-host.example.internal"       # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
-kvm_hypervisor_python_interpreter: "/usr/bin/python3"  # Python path on hypervisor. Values: absolute path.
-kvm_libvirt_connection_uri: "qemu:///system"           # Libvirt URI. Values: qemu:///system | qemu:///session.
+kvm_hypervisor_host: "kvm-host.example.internal"      # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hypervisor. Values: absolute path.
+kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
 
 # -----------------------------------------------------------------------------
 # Provision workflow stage control
 # -----------------------------------------------------------------------------
-kvm_provision_stage: "full"                         # Stage selector. Values: full | preflight | image-cache | provision | runtime.
-kvm_execute_mutation_phases_in_check_mode: false    # Allow mutating stages in --check mode. Values: true | false.
+kvm_provision_stage: "full"                      # Stage selector. Values: full | preflight | image-cache | provision | runtime.
+kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --check mode. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Storage paths
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/libvirt/images/idops-cloud-cache"   # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                               # Auto-create kvm_image_cache_path when missing.
-kvm_instance_disk_pool_path: "/var/lib/libvirt/images/idops-instances"  # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"           # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                           # Remove cloud-init workspace at end of provision stage.
+kvm_image_cache_path: "/var/lib/libvirt/images/idops-cloud-cache"      # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: true                                 # Auto-create kvm_image_cache_path when missing.
+kvm_instance_disk_pool_path: "/var/lib/libvirt/images/idops-instances" # Per-instance VM disk directory.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"             # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: true                             # Remove cloud-init workspace at end of provision stage.
 
 # -----------------------------------------------------------------------------
 # Image cache behavior
 # -----------------------------------------------------------------------------
-kvm_image_cache_verify_on_run: true                 # Verify cached image checksums on image-cache stage.
-kvm_image_cache_repair_on_checksum_mismatch: false  # Re-download corrupted cached image file when checksum fails.
-kvm_allow_nocloud_images: false                     # Allow nocloud images. Values: false (recommended) | true (override).
+kvm_image_cache_verify_on_run: true                # Verify cached image checksums on image-cache stage.
+kvm_image_cache_repair_on_checksum_mismatch: false # Re-download corrupted cached image file when checksum fails.
+kvm_allow_nocloud_images: false                    # Allow nocloud images. Values: false (recommended) | true (override).
 
 # -----------------------------------------------------------------------------
 # Instance defaults
 # -----------------------------------------------------------------------------
-kvm_default_instance_disk_extension: "qcow2"      # Default disk file extension/format.
-kvm_default_root_disk_size_gb: 20                 # Default target root disk size in GiB for new instances.
-kvm_allow_reuse_existing_instance_disks: false    # Reuse pre-existing instance disk files when domain is missing.
+kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
+kvm_default_root_disk_size_gb: 20              # Default target root disk size in GiB for new instances.
+kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance disk files when domain is missing.
 
 # -----------------------------------------------------------------------------
 # Network defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "default"       # Libvirt network name for guest NIC attach.
-kvm_auto_start_required_libvirt_networks: false   # Auto-start inactive required networks during preflight.
-kvm_default_guest_network_interface: "ens3"       # Guest NIC name for cloud-init network config.
-kvm_guest_network_interface_fallbacks:            # Additional interface candidates for cloud-init static config.
+kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
+kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
+kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
+kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
   - "enp1s0"
   - "eth0"
-kvm_default_guest_network_prefix: "24"            # Default IPv4 prefix length.
-kvm_default_guest_network_gateway: "192.168.122.1"  # Default IPv4 gateway.
-kvm_default_guest_dns_servers:                    # Default DNS resolvers for guest cloud-init config.
+kvm_default_guest_network_prefix: "24"             # Default IPv4 prefix length.
+kvm_default_guest_network_gateway: "192.168.122.1" # Default IPv4 gateway.
+kvm_default_guest_dns_servers:                     # Default DNS resolvers for guest cloud-init config.
   - "1.1.1.1"
   - "8.8.8.8"
 
 # -----------------------------------------------------------------------------
 # Cloud-init guest access defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_user: "debian"             # Initial guest username created by cloud-init.
-kvm_default_cloud_init_ssh_public_keys:           # Initial SSH authorized keys for cloud-init user.
+kvm_default_cloud_init_user: "debian"                   # Initial guest username created by cloud-init.
+kvm_default_cloud_init_ssh_public_keys:                 # Initial SSH authorized keys for cloud-init user.
   - "ssh-ed25519 CHANGE_ME_WITH_YOUR_PUBLIC_KEY"
-kvm_default_cloud_init_plain_password: "changeme"  # CHANGE THIS PASSWORD BEFORE PRODUCTION.
-kvm_default_cloud_init_ssh_password_auth: true    # Enable SSH password auth in guest.
-kvm_default_cloud_init_disable_root: true         # Disable direct root login via cloud-init.
+kvm_default_cloud_init_plain_password: "idops_password" # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+kvm_default_cloud_init_ssh_password_auth: true          # Enable SSH password auth in guest.
+kvm_default_cloud_init_disable_root: true               # Disable direct root login via cloud-init.
 
 # -----------------------------------------------------------------------------
 # Runtime behavior
 # -----------------------------------------------------------------------------
-kvm_ensure_requested_instances_running: true      # Ensure requested instances are running in runtime stage.
-kvm_wait_for_instance_ssh: true                   # Wait for SSH reachability after start phases.
-kvm_wait_for_ssh_timeout_seconds: 180             # SSH wait timeout per instance in seconds.
-kvm_wait_for_ssh_poll_retries: 40                # Async-status retries while waiting for SSH jobs.
-kvm_wait_for_ssh_poll_delay_seconds: 5           # Delay between SSH async-status polls in seconds.
+kvm_ensure_requested_instances_running: true # Ensure requested instances are running in runtime stage.
+kvm_wait_for_instance_ssh: true              # Wait for SSH reachability after start phases.
+kvm_wait_for_ssh_timeout_seconds: 180        # SSH wait timeout per instance in seconds.
+kvm_wait_for_ssh_poll_retries: 40            # Async-status retries while waiting for SSH jobs.
+kvm_wait_for_ssh_poll_delay_seconds: 5       # Delay between SSH async-status polls in seconds.
 
 # -----------------------------------------------------------------------------
 # Snapshot behavior
 # -----------------------------------------------------------------------------
-kvm_snapshot_enabled: true                         # Create snapshots after provisioning for newly created instances.
-kvm_snapshot_name: "snapshot-a"                    # Snapshot name label.
-kvm_snapshot_description: "initial configuration"  # Snapshot description.
-kvm_start_instances_after_snapshot: true           # Start newly created instances after snapshot phase.
+kvm_snapshot_enabled: true                        # Create snapshots after provisioning for newly created instances.
+kvm_snapshot_name: "snapshot-a"                   # Snapshot name label.
+kvm_snapshot_description: "initial configuration" # Snapshot description.
+kvm_start_instances_after_snapshot: true          # Start newly created instances after snapshot phase.
 
 # -----------------------------------------------------------------------------
 # Cleanup safeguards
 # -----------------------------------------------------------------------------
-kvm_cleanup_confirmed: false              # Safety flag for cleanup action.
-kvm_cleanup_remove_instance_disks: false  # Remove declared instance disks + seed disks during cleanup.
+kvm_cleanup_confirmed: false             # Safety flag for cleanup action.
+kvm_cleanup_remove_instance_disks: false # Remove declared instance disks + seed disks during cleanup.
 
 # -----------------------------------------------------------------------------
 # Runtime access behavior (libvirt/qemu user)
 # -----------------------------------------------------------------------------
-kvm_validate_runtime_pool_access: true  # Validate runtime user path access before mutation.
-kvm_auto_fix_runtime_pool_access: true  # Auto-apply ACL fixes when runtime access checks fail.
-kvm_libvirt_runtime_user: "libvirt-qemu"  # Runtime disk-access user for libvirt/qemu.
+kvm_validate_runtime_pool_access: true   # Validate runtime user path access before mutation.
+kvm_auto_fix_runtime_pool_access: true   # Auto-apply ACL fixes when runtime access checks fail.
+kvm_libvirt_runtime_user: "libvirt-qemu" # Runtime disk-access user for libvirt/qemu.
 
 # -----------------------------------------------------------------------------
 # Cloud image catalog
@@ -106,20 +106,20 @@ kvm_libvirt_runtime_user: "libvirt-qemu"  # Runtime disk-access user for libvirt
 # -----------------------------------------------------------------------------
 kvm_cloud_image_catalog:
   debian-12:
-    image_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"  # Source URL for base image.
-    image_filename: "debian-12-genericcloud-amd64.qcow2"                                                         # Canonical image filename.
-    image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"         # Official checksum manifest.
-    image_checksum_algorithm: "sha512"                                                                           # Checksum algorithm used by the manifest.
-    virt_install_os_variant: "debian12"                                                                          # OS variant for virt-install.
-    cloud_init_user: "debian"                                                                                    # Default cloud-init username for this profile.
+    image_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2" # Source URL for base image.
+    image_filename: "debian-12-genericcloud-amd64.qcow2"                                                     # Canonical image filename.
+    image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"       # Official checksum manifest.
+    image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
+    virt_install_os_variant: "debian12"                                                                      # OS variant for virt-install.
+    cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
 
   debian-13:
-    image_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"  # Source URL for base image.
-    image_filename: "debian-13-genericcloud-amd64.qcow2"                                                      # Canonical image filename.
-    image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/SHA512SUMS"        # Official checksum manifest.
-    image_checksum_algorithm: "sha512"                                                                        # Checksum algorithm used by the manifest.
-    virt_install_os_variant: "debian13"                                                                       # OS variant for virt-install.
-    cloud_init_user: "debian"                                                                                 # Default cloud-init username for this profile.
+    image_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"   # Source URL for base image.
+    image_filename: "debian-13-genericcloud-amd64.qcow2"                                                     # Canonical image filename.
+    image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/SHA512SUMS"         # Official checksum manifest.
+    image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
+    virt_install_os_variant: "debian13"                                                                      # OS variant for virt-install.
+    cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
 
 # -----------------------------------------------------------------------------
 # Instance definitions (managed scope for provision + cleanup)
