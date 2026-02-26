@@ -5,6 +5,7 @@ This is the single contributor standard for the entire repository.
 ## Purpose
 
 Use one consistent Ansible project pattern across all domain directories (`aa-*`, `ab-*`, ...).
+Use `playbook-template/` as the default scaffold for new implementation projects.
 
 ## Scope
 

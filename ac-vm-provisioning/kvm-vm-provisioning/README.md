@@ -85,6 +85,7 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 9. Add or remove Debian variants in `kvm_cloud_image_catalog`.
    `make image-cache` processes all catalog profiles, while instance creation
    still follows `kvm_instance_definitions`.
+10. Default demo password is `changeme`; CHANGE THIS PASSWORD BEFORE PRODUCTION.
 
 Then run:
 

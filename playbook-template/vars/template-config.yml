@@ -1,0 +1,23 @@
+---
+# Template project configuration
+# Use this file as the single source of user-editable settings.
+
+# -----------------------------------------------------------------------------
+# Target connection
+# -----------------------------------------------------------------------------
+template_target_host: "target.example.internal"    # SSH target host for this template project.
+template_target_python_interpreter: "/usr/bin/python3"  # Python path on target host.
+
+# -----------------------------------------------------------------------------
+# Example credentials (replace with project-specific keys)
+# -----------------------------------------------------------------------------
+template_operator_user: "debian"                   # Initial operator username.
+template_operator_password: "changeme"             # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+template_operator_ssh_public_keys:                 # CHANGE THIS KEY BEFORE PRODUCTION.
+  - "ssh-ed25519 CHANGE_ME_WITH_YOUR_PUBLIC_KEY"
+
+# -----------------------------------------------------------------------------
+# Example project metadata
+# -----------------------------------------------------------------------------
+template_project_name: "new-playbook-project"      # Human-readable project label.
+template_environment_name: "staging"               # Environment marker. Values: dev | staging | production.

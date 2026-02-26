@@ -1,0 +1,7 @@
+---
+- name: Check Ansible connectivity to target
+  ansible.builtin.ping:
+
+- name: Display connectivity summary
+  ansible.builtin.debug:
+    msg: "Target {{ inventory_hostname }} is reachable."

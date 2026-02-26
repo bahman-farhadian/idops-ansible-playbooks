@@ -1,0 +1,42 @@
+---
+- name: Prepare template target inventory
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/template-config.yml
+  vars:
+    template_action: "{{ template_action | default('provision') }}"
+
+  tasks:
+    - name: Validate requested action
+      ansible.builtin.assert:
+        that:
+          - template_action in ['provision', 'cleanup', 'ping']
+        fail_msg: "template_action must be 'provision', 'cleanup', or 'ping'."
+
+    - name: Add managed target to in-memory inventory
+      ansible.builtin.add_host:
+        name: "{{ template_target_host }}"
+        groups: managed_target
+        ansible_python_interpreter: "{{ template_target_python_interpreter }}"
+
+- name: Run template action on target
+  hosts: managed_target
+  gather_facts: false
+  vars_files:
+    - vars/template-config.yml
+  vars:
+    template_action: "{{ template_action | default('provision') }}"
+
+  tasks:
+    - name: Run template provision workflow
+      ansible.builtin.include_tasks: tasks/provision.yml
+      when: template_action == 'provision'
+
+    - name: Run template cleanup workflow
+      ansible.builtin.include_tasks: tasks/cleanup.yml
+      when: template_action == 'cleanup'
+
+    - name: Run template ping workflow
+      ansible.builtin.include_tasks: tasks/ping.yml
+      when: template_action == 'ping'

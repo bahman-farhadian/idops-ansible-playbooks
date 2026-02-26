@@ -1,0 +1,6 @@
+---
+- name: Provision workflow placeholder
+  ansible.builtin.debug:
+    msg: >-
+      TODO: implement provisioning workflow for {{ inventory_hostname }}.
+      Keep tasks idempotent and parameterized via vars/template-config.yml.

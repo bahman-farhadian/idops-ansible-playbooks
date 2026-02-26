@@ -1,0 +1,6 @@
+---
+- name: Cleanup workflow placeholder
+  ansible.builtin.debug:
+    msg: >-
+      TODO: implement cleanup workflow for {{ inventory_hostname }}.
+      Keep cleanup scope explicit and safe by default.

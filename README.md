@@ -11,6 +11,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - Legacy content stays in `old_playbooks/` and is not modified during layout migration.
 - Every top-level domain directory must contain its own `README.md` with scope, dependencies, variables, and runbook.
 - Implementation projects use one playbook entrypoint (`playbook.yml`) and organize workflows via `tasks/`.
+- Reusable starter template is available in `playbook-template/` for new playbooks/projects.
 
 ## Root Stack Layout (Bottom -> Top)
 
@@ -87,5 +88,6 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - `old_playbooks/` is kept as reference material while the new idops layout is built incrementally.
 - Guest provisioning legacy `old_playbooks/kvm-clone-ansible/` is migrated into `ac-vm-provisioning/kvm-vm-provisioning/`.
 - `ab-hypervisor-host-platform/` is intentionally empty until host-platform automation is implemented.
+- `playbook-template/` is the baseline scaffold for new implementation projects.
 - Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
 - Makefile standard: every project must provide `make ping`, and all user commands must appear in `make help`.

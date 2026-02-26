@@ -1,0 +1,2 @@
+ansible-core>=2.17,<2.19
+ansible-lint>=26.2,<27.0
