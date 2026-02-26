@@ -464,9 +464,7 @@
     content: |
       version: 2
       ethernets:
-        idops0:
-          match:
-            macaddress: "{{ item.instance_mac_address }}"
+        "{{ item.guest_network_interface }}":
           dhcp4: false
           addresses:
             - {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}

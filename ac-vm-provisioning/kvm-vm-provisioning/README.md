@@ -133,6 +133,8 @@ make provision EXTRA_ARGS="-e kvm_auto_start_required_libvirt_networks=true"
 If SSH wait times out, pre-collected `virsh domiflist/domifaddr` diagnostics are
 shown in the failure message to speed up root-cause analysis.
 Use the same URI configured in `kvm_libvirt_connection_uri` when checking manually.
+For static-IP guests, `virsh domifaddr` can be empty with default source; also check:
+`virsh -c qemu:///system domifaddr <instance> --source arp` and `--source agent`.
 
 ## Cleanup Safety Rules
 
