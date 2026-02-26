@@ -219,7 +219,7 @@
 - name: Remove declared cloud-init seed disk files when disk removal is enabled
   ansible.builtin.file:
     path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-seed.img"
-  state: absent
+    state: absent
   loop: "{{ cleanup_instance_definitions }}"
   loop_control:
     label: "{{ item.instance_name }}"
