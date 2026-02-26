@@ -85,8 +85,8 @@ Edit `vars/kvm-provisioning.yml` and define:
    - `kvm_wait_for_instance_ssh`
 
 `template_profile_id` can be either:
-- a key from `kvm_template_catalog` (for example `debian-trixie`)
-- or a `template_instance_name` alias from that catalog (for example `debian-bookworm`)
+- a key from `kvm_template_catalog` (for example `debian-12-template`)
+- or a `template_instance_name` alias from that catalog (for example `debian-12-template`)
 
 `instance_name` must be different from `template_instance_name`.
 

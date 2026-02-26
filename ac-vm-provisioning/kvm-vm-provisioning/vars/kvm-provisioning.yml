@@ -5,13 +5,13 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "Selene"  # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_host: "kvm-hypervisor"  # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
 kvm_hypervisor_python_interpreter: "/usr/bin/python3"  # Python path on hypervisor. Values: absolute path.
 
 # -----------------------------------------------------------------------------
 # Instance pool and execution behavior
 # -----------------------------------------------------------------------------
-kvm_instance_pool_path: "/home/bahman/b/QEMUKVM/stgPool/"  # Storage path for cloned instance disks. Values: existing absolute directory.
+kvm_instance_pool_path: "/var/lib/libvirt/images/"  # Storage path for cloned instance disks. Values: existing absolute directory.
 kvm_default_clone_disk_extension: "qcow2"  # Default clone disk extension. Values: alphanumeric (for example qcow2, img).
 kvm_clone_workspace_path: "/tmp/idops-kvm-workspace/"  # Temporary workspace for generated files. Values: absolute directory (must differ from pool path when workspace cleanup=true).
 kvm_cleanup_workspace_path_after_run: true  # Remove workspace at end of run. Values: true | false.
@@ -62,10 +62,10 @@ kvm_template_validation_state_dir: "/var/tmp/idops-kvm-template-validation"  # M
 # Template catalog
 # -----------------------------------------------------------------------------
 kvm_template_catalog:  # Template profile map. Keys: profile IDs.
-  debian-bookworm:
-    template_instance_name: "debian-bookworm"  # Source template domain name. Values: existing libvirt domain.
+  debian-12-template:
+    template_instance_name: "debian-12-template"  # Source template domain name. Values: existing libvirt domain.
     template_instance_disk_files:  # Source template disk file list. Values: absolute file paths on hypervisor.
-      - "/home/bahman/b/QEMUKVM/stgPool/debian-bookworm.qcow2"
+      - "/var/lib/libvirt/images/debian-12-template.qcow2"
     guest_os_variant: "debian"  # Guest OS variant. Values: debian | ubuntu.
     guest_network_mode: "ifupdown"  # Guest network writer mode. Values: ifupdown | netplan.
     guest_network_interface: "enp1s0"  # Guest NIC for network config. Values: interface name string.
@@ -83,8 +83,8 @@ kvm_template_catalog:  # Template profile map. Keys: profile IDs.
 # Instance definitions
 # -----------------------------------------------------------------------------
 kvm_instance_definitions:  # Target instance list for provision/cleanup actions.
-  - instance_name: "debian-bookworm-01"  # Target libvirt domain name. Values: unique string.
-    template_profile_id: "debian-bookworm"  # Template reference. Values: catalog key or template alias.
-    instance_ipv4_address: "192.168.24.100"  # Instance static IPv4. Values: IPv4 string.
+  - instance_name: "debian-12-app-01"  # Target libvirt domain name. Values: unique string.
+    template_profile_id: "debian-12-template"  # Template reference. Values: catalog key or template alias.
+    instance_ipv4_address: "192.168.122.100"  # Instance static IPv4. Values: IPv4 string.
     vcpu_count: 2  # vCPU allocation. Values: positive integer.
     memory_mb: 2048  # Memory allocation in MB. Values: positive integer.
