@@ -2,7 +2,7 @@
 
 Production-oriented KVM provisioning for the `ac-vm-provisioning` domain.
 
-This project now uses **cloud-image provisioning** (Debian 12/13 cloud images + cloud-init), not template cloning.
+This project now uses **cloud-image provisioning** (Debian 12/13 NoCloud images + cloud-init), not template cloning.
 
 ## What This Provides
 
@@ -78,6 +78,8 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 6. Set cloud-init access defaults (including plain password) and instance definitions.
 7. Optional: set `kvm_guest_network_interface_fallbacks` to expand NIC-name fallbacks
    (defaults to `['ens3', 'enp1s0', 'eth0']`).
+8. Use `*-nocloud-amd64.qcow2` images for this workflow. `genericcloud` is blocked by
+   default; override only if intentional with `kvm_allow_genericcloud_images=true`.
 
 Then run:
 
