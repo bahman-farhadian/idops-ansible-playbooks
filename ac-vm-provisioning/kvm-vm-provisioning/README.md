@@ -15,6 +15,7 @@ Scope: this playbook supports **Debian images only**.
 - Cloud-init seed generation per instance (user-data, meta-data, network-config)
 - Deterministic per-instance MAC assignment (or optional explicit `instance_mac_address`)
   for reliable cloud-init network matching
+- Configurable firmware mode per profile/instance (`bios` or `uefi`)
 - VM domain definition via `virt-install --import`
 - Runtime workflow for start + SSH checks + optional snapshots
 - Strict cleanup scope to declared instance names only
@@ -82,10 +83,13 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 8. Use `*-genericcloud-amd64.qcow2` images for this workflow.
    `nocloud` is blocked by default; override only if intentional with
    `kvm_allow_nocloud_images=true`.
-9. Add or remove Debian variants in `kvm_cloud_image_catalog`.
+9. Set firmware mode with `kvm_default_firmware_boot_mode` (global default) and/or
+   per-profile `firmware_boot_mode` in `kvm_cloud_image_catalog`.
+   On this stack, Debian 13 `genericcloud` requires `uefi`.
+10. Add or remove Debian variants in `kvm_cloud_image_catalog`.
    `make image-cache` processes all catalog profiles, while instance creation
    still follows `kvm_instance_definitions`.
-10. Default demo password is `changeme`; CHANGE THIS PASSWORD BEFORE PRODUCTION.
+11. Default demo password is `changeme`; CHANGE THIS PASSWORD BEFORE PRODUCTION.
 
 Then run:
 
@@ -129,6 +133,9 @@ By design, it caches all profiles defined in `kvm_cloud_image_catalog`.
 Developer note: Debian `nocloud` artifacts were rejected for this workflow after
 testing because they did not provide reliable cloud-init behavior in this stack.
 Use Debian `genericcloud` artifacts.
+
+Developer note: Debian 13 `genericcloud` booted reliably only with UEFI firmware
+(`firmware_boot_mode: uefi`) on this hypervisor.
 
 If provisioning fails with `Network not found`, run on hypervisor:
 

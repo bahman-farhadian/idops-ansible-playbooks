@@ -515,7 +515,7 @@
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
 
-- name: Define instances with virt-install import
+- name: Define BIOS instances with virt-install import
   ansible.builtin.command:
     argv:
       - virt-install
@@ -545,6 +545,41 @@
   when:
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
+    - (item.firmware_boot_mode | default('bios') | lower) == 'bios'
+
+- name: Define UEFI instances with virt-install import
+  ansible.builtin.command:
+    argv:
+      - virt-install
+      - --name
+      - "{{ item.instance_name }}"
+      - --memory
+      - "{{ item.memory_mb | int }}"
+      - --vcpus
+      - "{{ item.vcpu_count | int }}"
+      - --import
+      - --boot
+      - uefi
+      - --disk
+      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
+      - --disk
+      - "path={{ item.seed_disk_path }},device=disk,bus=virtio,format=raw,readonly=on"
+      - --os-variant
+      - "{{ item.virt_install_os_variant }}"
+      - --network
+      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
+      - --graphics
+      - none
+      - --noautoconsole
+      - --noreboot
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+    - (item.firmware_boot_mode | default('bios') | lower) == 'uefi'
 
 - name: Verify newly defined instances exist
   ansible.builtin.command:
