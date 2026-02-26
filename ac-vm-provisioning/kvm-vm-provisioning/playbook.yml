@@ -25,6 +25,8 @@
   gather_facts: false
   vars_files:
     - vars/kvm-provisioning.yml
+  environment:
+    LIBVIRT_DEFAULT_URI: "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
 

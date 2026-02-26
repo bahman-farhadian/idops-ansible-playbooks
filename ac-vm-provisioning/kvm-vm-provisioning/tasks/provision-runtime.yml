@@ -132,6 +132,8 @@
         (
           ssh_wait_status.results
           | default([])
+          | selectattr('finished', 'defined')
+          | selectattr('finished', 'equalto', 1)
           | selectattr('failed', 'defined')
           | selectattr('failed')
           | map(attribute='item.item.instance_name')
@@ -141,6 +143,8 @@
         (
           ssh_wait_status.results
           | default([])
+          | selectattr('finished', 'defined')
+          | selectattr('finished', 'equalto', 1)
           | selectattr('msg', 'defined')
           | selectattr('msg', 'search', 'Timeout when waiting')
           | map(attribute='item.item.instance_name')
@@ -183,6 +187,10 @@
       runtime_ssh_timeout_instances | join(', ')
       }}.
       Verify guest network, cloud-init, and credentials.
+      Note: this project uses libvirt URI '{{ kvm_libvirt_connection_uri | default('qemu:///system') }}'.
+      If plain 'virsh' shows "domain not found", check using the same URI:
+      virsh -c {{ kvm_libvirt_connection_uri | default('qemu:///system') }} domiflist <instance>
+      virsh -c {{ kvm_libvirt_connection_uri | default('qemu:///system') }} domifaddr <instance>
       Suggested recovery:
       1) make cleanup-force-disks
       2) make provision

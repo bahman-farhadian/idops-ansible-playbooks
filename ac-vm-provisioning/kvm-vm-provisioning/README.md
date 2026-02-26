@@ -71,10 +71,11 @@ Package mapping:
 Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 
 1. Set `kvm_hypervisor_host`.
-2. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
-3. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
-4. Confirm official checksum manifest URLs under `kvm_cloud_image_catalog[*].image_checksum_manifest_url`.
-5. Set cloud-init access defaults (including plain password) and instance definitions.
+2. Set `kvm_libvirt_connection_uri` (`qemu:///system` is the default and recommended value).
+3. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
+4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
+5. Confirm official checksum manifest URLs under `kvm_cloud_image_catalog[*].image_checksum_manifest_url`.
+6. Set cloud-init access defaults (including plain password) and instance definitions.
 
 Then run:
 
@@ -117,7 +118,7 @@ versioned file is downloaded and old cached files are preserved.
 If provisioning fails with `Network not found`, run on hypervisor:
 
 ```bash
-virsh net-list --all
+virsh -c qemu:///system net-list --all
 ```
 
 Then set `kvm_default_libvirt_network_name` (or per-instance `libvirt_network_name`)
@@ -131,6 +132,7 @@ make provision EXTRA_ARGS="-e kvm_auto_start_required_libvirt_networks=true"
 
 If SSH wait times out, pre-collected `virsh domiflist/domifaddr` diagnostics are
 shown in the failure message to speed up root-cause analysis.
+Use the same URI configured in `kvm_libvirt_connection_uri` when checking manually.
 
 ## Cleanup Safety Rules
 
