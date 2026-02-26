@@ -43,24 +43,24 @@
                 'official_checksum': official_checksum,
                 'checksum_expected_length': checksum_expected_length,
                 'cached_image_versioned_filename': versioned_filename,
-                'cached_image_path': (kvm_image_cache_path ~ '/' ~ versioned_filename),
-                'cached_image_alias_path': (kvm_image_cache_path ~ '/' ~ item.item.image_filename)
+                'cached_image_path': (normalized_image_cache_path ~ '/' ~ versioned_filename),
+                'cached_image_alias_path': (normalized_image_cache_path ~ '/' ~ item.item.image_filename)
               },
               recursive=True
             )
         ]
       }}
   vars:
-    checksum_candidates: >-
+    normalized_image_cache_path: >-
+      {{ kvm_image_cache_path | regex_replace('/+$', '') }}
+    checksum_lines: >-
       {{
-        item.content
-        | regex_findall(
-            '(?im)^([A-Fa-f0-9]+)\\s+\\*?'
-            ~ (item.item.image_filename | regex_escape)
-            ~ '$'
-          )
+        item.content.splitlines()
+        | select('search', '\\*?' ~ (item.item.image_filename | regex_escape) ~ '$')
+        | list
       }}
-    official_checksum: "{{ (checksum_candidates | first | default('')) | lower }}"
+    checksum_line: "{{ checksum_lines | first | default('') }}"
+    official_checksum: "{{ (checksum_line.split() | first | default('')) | lower }}"
     checksum_expected_length: "{{ 64 if item.item.image_checksum_algorithm == 'sha256' else 128 }}"
     filename_base: "{{ item.item.image_filename | regex_replace('\\.[^./]+$', '') }}"
     filename_ext: "{{ (item.item.image_filename | regex_search('\\.[^./]+$')) | default('') }}"
