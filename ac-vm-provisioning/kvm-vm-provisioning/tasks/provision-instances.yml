@@ -545,7 +545,7 @@
   when:
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
-    - (item.firmware_boot_mode | default('bios') | lower) == 'bios'
+    - (item.firmware_boot_mode | default('uefi') | lower) == 'bios'
 
 - name: Define UEFI instances with virt-install import
   ansible.builtin.command:
@@ -579,7 +579,7 @@
   when:
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
-    - (item.firmware_boot_mode | default('bios') | lower) == 'uefi'
+    - (item.firmware_boot_mode | default('uefi') | lower) == 'uefi'
 
 - name: Verify newly defined instances exist
   ansible.builtin.command:

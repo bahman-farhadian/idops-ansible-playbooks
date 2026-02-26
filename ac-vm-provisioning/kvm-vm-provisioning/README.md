@@ -85,7 +85,8 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
    `kvm_allow_nocloud_images=true`.
 9. Set firmware mode with `kvm_default_firmware_boot_mode` (global default) and/or
    per-profile `firmware_boot_mode` in `kvm_cloud_image_catalog`.
-   On this stack, Debian 13 `genericcloud` requires `uefi`.
+   If unset, playbook fallback is `uefi`. On this stack, Debian 13 `genericcloud`
+   requires `uefi`.
 10. Add or remove Debian variants in `kvm_cloud_image_catalog`.
    `make image-cache` processes all catalog profiles, while instance creation
    still follows `kvm_instance_definitions`.
