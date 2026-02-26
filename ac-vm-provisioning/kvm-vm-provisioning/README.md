@@ -125,6 +125,15 @@ make cleanup-force
 make cleanup-force-disks
 ```
 
+Difference between `make provision-stage` and `make provision`:
+
+- `make provision` always runs the full workflow (`kvm_provision_stage=full`):
+  preflight -> image-cache -> provision -> runtime.
+- `make provision-stage STAGE=<stage>` runs only one selected stage
+  (`preflight` | `image-cache` | `provision` | `runtime` | `full`).
+- Use `make provision-stage` for targeted debugging or partial operations,
+  and `make provision` for normal end-to-end provisioning.
+
 `make provision-check` runs `preflight` in Ansible check mode.
 
 `make image-cache` resolves checksums from official Debian manifests and stores
