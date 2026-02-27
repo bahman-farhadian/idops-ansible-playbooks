@@ -43,6 +43,27 @@ make harden
 
 Edit `host.yml` and place targets under `hardening_targets`.
 
+## Primary User Rename (Cloud Images)
+
+Cloud images often start with a default user (for example `debian`) that is actively used by the SSH session.
+Renaming that same active account in one pass can fail with:
+`usermod: user <name> is currently used by process ...`.
+
+Recommended two-pass flow:
+
+1. First pass (bootstrap with default user):
+   - Keep `prep_primary_user_desired_name` empty (or equal to current cloud user).
+   - Run `make harden` using the default cloud user in `host.yml`.
+2. Second pass (rename from root session):
+   - Set `prep_primary_user_desired_name` to the final username (for example `idops`).
+   - Connect Ansible as `root` in `host.yml` on the hardened SSH port (default `2222`).
+   - Run `make harden` again.
+
+Notes:
+
+- If you plan to use root SSH for pass two, ensure root SSH is allowed and root has an authorized key (`prep_root_authorized_keys`).
+- If root login shows `Please login as the user "debian" rather than the user "root".`, your image/provider still enforces default-user-only SSH. Complete pass one first, then enable root SSH access through this playbook settings and rerun.
+
 ## Main Commands
 
 ```bash

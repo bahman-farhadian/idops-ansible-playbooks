@@ -3,16 +3,6 @@
   ansible.builtin.set_fact:
     network_identity_effective_fqdn: >-
       {{
-        network_identity_fqdn
-        if network_identity_fqdn | length > 0
-        else (
-          inventory_hostname
-          if '.' in inventory_hostname
-          else ansible_hostname
-        )
-      }}
-    network_identity_effective_short_hostname: >-
-      {{
         (
           network_identity_fqdn
           if network_identity_fqdn | length > 0
@@ -21,32 +11,34 @@
             if '.' in inventory_hostname
             else ansible_hostname
           )
-        ).split('.')[0]
+        ) | trim
       }}
+
+- name: Build effective short hostname and search domains
+  ansible.builtin.set_fact:
+    network_identity_effective_short_hostname: "{{ (network_identity_effective_fqdn.split('.')[0]) | trim }}"
     network_identity_effective_search_domains: >-
       {{
         network_identity_search_domains
         if network_identity_search_domains | length > 0
         else (
-          [(
-            (
-              network_identity_fqdn
-              if network_identity_fqdn | length > 0
-              else (
-                inventory_hostname
-                if '.' in inventory_hostname
-                else ''
-              )
-            ).split('.', 1)[1]
-          )]
-          if '.' in (
-            network_identity_fqdn
-            if network_identity_fqdn | length > 0
-            else inventory_hostname
-          )
+          [network_identity_effective_fqdn.split('.', 1)[1]]
+          if '.' in network_identity_effective_fqdn
           else []
         )
       }}
+
+- name: Normalize effective search domains
+  ansible.builtin.set_fact:
+    network_identity_effective_search_domains: >-
+      {{
+        network_identity_effective_search_domains
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
+  when:
+    - network_identity_effective_search_domains is defined
 
 - name: Build effective primary IPv4 value
   ansible.builtin.set_fact:
@@ -67,6 +59,7 @@
             )
           )
         )
+        | trim
       }}
 
 - name: Build effective extra hosts entries
@@ -117,7 +110,7 @@
   ansible.builtin.lineinfile:
     path: /etc/hosts
     regexp: '^127\.0\.1\.1\s+'
-    line: "127.0.1.1 {{ network_identity_effective_fqdn }} {{ network_identity_effective_short_hostname }}"
+    line: "127.0.1.1 {{ network_identity_effective_fqdn | trim }} {{ network_identity_effective_short_hostname | trim }}"
     state: present
   when:
     - network_identity_manage_hosts | bool
@@ -131,10 +124,10 @@
     regexp: '^{{ network_identity_effective_ipv4 | regex_escape }}\s+'
     line: >-
       {{
-        network_identity_effective_ipv4 ~ ' ' ~
-        network_identity_effective_fqdn ~
+        (network_identity_effective_ipv4 | trim) ~ ' ' ~
+        (network_identity_effective_fqdn | trim) ~
         ' ' ~
-        network_identity_effective_short_hostname
+        (network_identity_effective_short_hostname | trim)
       }}
     state: present
     insertafter: EOF

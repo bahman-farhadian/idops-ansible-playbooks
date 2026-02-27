@@ -1,10 +1,10 @@
 # Managed by Ansible - network identity hardening
 127.0.0.1 localhost
 {% if network_identity_manage_loopback_fqdn | bool and network_identity_effective_fqdn | length > 0 %}
-127.0.1.1 {{ network_identity_effective_fqdn }} {{ network_identity_effective_short_hostname }}
+127.0.1.1 {{ network_identity_effective_fqdn | trim }} {{ network_identity_effective_short_hostname | trim }}
 {% endif %}
 {% if network_identity_effective_ipv4 | length > 0 and network_identity_effective_fqdn | length > 0 %}
-{{ network_identity_effective_ipv4 }} {{ network_identity_effective_fqdn }} {{ network_identity_effective_short_hostname }}
+{{ network_identity_effective_ipv4 | trim }} {{ network_identity_effective_fqdn | trim }} {{ network_identity_effective_short_hostname | trim }}
 {% endif %}
 
 # The following lines are desirable for IPv6 capable hosts
