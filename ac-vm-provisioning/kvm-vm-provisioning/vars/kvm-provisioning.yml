@@ -58,10 +58,10 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
 # -----------------------------------------------------------------------------
 # Cloud-init guest access defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_user: "debian"                  # Initial guest username created by cloud-init.
+kvm_default_cloud_init_user: "idops"                   # Initial guest username created by cloud-init.
 kvm_default_cloud_init_ssh_public_keys:                # Initial SSH authorized keys for cloud-init user.
   - "ssh-ed25519 REPLACE_ME_WITH_YOUR_PUBLIC_KEY"
-kvm_default_cloud_init_plain_password: "changeme"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+kvm_default_cloud_init_plain_password: "idopspassword" # CHANGE THIS PASSWORD BEFORE PRODUCTION.
 kvm_default_cloud_init_root_plain_password: ""         # Optional root password (leave empty to keep root password locked).
 kvm_default_cloud_init_user_sudo_rule: "ALL=(ALL) ALL" # Sudo policy for cloud-init user. Example: ALL=(ALL) ALL | ALL=(ALL) NOPASSWD:ALL.
 kvm_default_cloud_init_ssh_password_auth: true         # Enable SSH password auth in guest.
@@ -152,7 +152,7 @@ kvm_cloud_image_catalog:
     virt_install_os_variant: "debian12"                                                                      # OS variant for virt-install.
     virt_install_machine_type: "q35"                                                                         # Keep aligned with Debian 13 profile.
     seed_device_bus: "scsi"                                                                                  # Keep aligned with Debian 13 profile.
-    cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
+    cloud_init_user: "idops"                                                                                 # Default cloud-init username for this profile.
     firmware_boot_mode: "uefi"                                                                               # Keep aligned with Debian 13 profile.
 
   debian-13:
@@ -163,7 +163,7 @@ kvm_cloud_image_catalog:
     virt_install_os_variant: "debian13"                                                                      # OS variant for virt-install.
     virt_install_machine_type: "q35"                                                                         # Debian 13 profile uses q35 machine.
     seed_device_bus: "scsi"                                                                                  # Keep aligned with Debian 12 profile.
-    cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
+    cloud_init_user: "idops"                                                                                 # Default cloud-init username for this profile.
     firmware_boot_mode: "uefi"                                                                               # Keep aligned with Debian 12 profile.
 
 # -----------------------------------------------------------------------------

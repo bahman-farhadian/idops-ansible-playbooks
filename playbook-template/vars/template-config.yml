@@ -11,8 +11,8 @@ template_target_python_interpreter: "/usr/bin/python3"  # Python path on target 
 # -----------------------------------------------------------------------------
 # Example credentials (replace with project-specific keys)
 # -----------------------------------------------------------------------------
-template_operator_user: "debian"                   # Initial operator username.
-template_operator_password: "changeme"             # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+template_operator_user: "idops"                    # Initial operator username.
+template_operator_password: "idopspassword"        # CHANGE THIS PASSWORD BEFORE PRODUCTION.
 template_operator_ssh_public_keys:                 # CHANGE THIS KEY BEFORE PRODUCTION.
   - "ssh-ed25519 CHANGE_ME_WITH_YOUR_PUBLIC_KEY"
 

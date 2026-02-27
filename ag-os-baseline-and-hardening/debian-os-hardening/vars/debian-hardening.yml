@@ -39,7 +39,7 @@ prep_enabled: true                        # Enable preparation baseline role.
 prep_root_authorized_keys: []             # Root authorized keys.
 prep_manage_primary_user: true            # Manage primary UID user baseline.
 prep_primary_user_uid: "1000"             # UID used to identify primary template user.
-prep_primary_user_desired_name: "adminops" # Desired primary user name (empty keeps detected name).
+prep_primary_user_desired_name: "idops"   # Desired primary user name (empty keeps detected name).
 prep_replace_primary_user: false          # Replace detected UID user with desired name.
 prep_enforce_single_login_user: false     # Remove other human login users when true.
 prep_primary_user_authorized_keys: []     # Primary user authorized keys.
@@ -64,7 +64,7 @@ network_identity_nameservers:                     # Resolver list for resolv.con
   - "1.1.1.1"
 network_identity_search_domains: []               # Search domain list.
 network_identity_set_hostname: true               # Enforce hostname on target.
-network_identity_hostname: >-
+network_identity_hostname: >-                 # Computed short hostname (left-most label of FQDN).
   {{
     (
       network_identity_fqdn
@@ -72,7 +72,7 @@ network_identity_hostname: >-
       else inventory_hostname
     ).split('.')[0]
   }}
-network_identity_fqdn: >-
+network_identity_fqdn: >-                     # Computed FQDN fallback (<inventory_hostname>.localdomain when needed).
   {{
     inventory_hostname
     if '.' in inventory_hostname
@@ -127,7 +127,7 @@ ssh_disable_motd_news: true     # Disable motd-news on Debian/Ubuntu.
 # -----------------------------------------------------------------------------
 # Login banners
 # -----------------------------------------------------------------------------
-banner_issue_text: |
+banner_issue_text: |                        # Local login banner text (/etc/issue).
   +------------------------------------------------------------------+
   | IDOPS SECURITY NOTICE                                             |
   | AUTHORIZED USE ONLY - MONITORED SYSTEM                           |
@@ -139,7 +139,7 @@ banner_issue_text: |
   | Unauthorized access is prohibited and may be prosecuted.          |
   | Disconnect now if you are not authorized.                        |
   +------------------------------------------------------------------+
-banner_issue_net_text: |
+banner_issue_net_text: |                    # Remote login banner text (/etc/issue.net).
   +------------------------------------------------------------------+
   | IDOPS SSH SECURITY NOTICE                                         |
   | AUTHORIZED ACCESS ONLY - SESSION RECORDING ENABLED               |
