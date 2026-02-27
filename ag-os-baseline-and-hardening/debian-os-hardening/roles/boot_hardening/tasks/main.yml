@@ -100,3 +100,62 @@
     - ansible_distribution == 'Debian'
     - ansible_distribution_major_version == '13'
     - boot_runlevel_check_post.stdout is search('unknown')
+
+- name: Capture running kernel release
+  ansible.builtin.command: uname -r
+  register: boot_running_kernel_release
+  changed_when: false
+  when:
+    - boot_hardening_enabled | bool
+    - boot_manage_kernel_symlink_compat | bool
+
+- name: Check for versioned kernel image path
+  ansible.builtin.stat:
+    path: "/boot/vmlinuz-{{ boot_running_kernel_release.stdout | trim }}"
+  register: boot_versioned_kernel_image
+  when:
+    - boot_hardening_enabled | bool
+    - boot_manage_kernel_symlink_compat | bool
+    - boot_running_kernel_release is defined
+
+- name: Check for /vmlinuz compatibility symlink
+  ansible.builtin.stat:
+    path: /vmlinuz
+  register: boot_vmlinuz_symlink
+  when:
+    - boot_hardening_enabled | bool
+    - boot_manage_kernel_symlink_compat | bool
+
+- name: Check for /boot/vmlinuz compatibility symlink
+  ansible.builtin.stat:
+    path: /boot/vmlinuz
+  register: boot_boot_vmlinuz_symlink
+  when:
+    - boot_hardening_enabled | bool
+    - boot_manage_kernel_symlink_compat | bool
+
+- name: Create /vmlinuz compatibility symlink when missing
+  ansible.builtin.file:
+    src: "/boot/vmlinuz-{{ boot_running_kernel_release.stdout | trim }}"
+    dest: /vmlinuz
+    state: link
+    force: true
+  when:
+    - boot_hardening_enabled | bool
+    - boot_manage_kernel_symlink_compat | bool
+    - boot_versioned_kernel_image is defined
+    - boot_versioned_kernel_image.stat.exists
+    - not (boot_vmlinuz_symlink.stat.exists | default(false))
+
+- name: Create /boot/vmlinuz compatibility symlink when missing
+  ansible.builtin.file:
+    src: "vmlinuz-{{ boot_running_kernel_release.stdout | trim }}"
+    dest: /boot/vmlinuz
+    state: link
+    force: true
+  when:
+    - boot_hardening_enabled | bool
+    - boot_manage_kernel_symlink_compat | bool
+    - boot_versioned_kernel_image is defined
+    - boot_versioned_kernel_image.stat.exists
+    - not (boot_boot_vmlinuz_symlink.stat.exists | default(false))

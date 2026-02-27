@@ -2,6 +2,8 @@
 network_identity_manage_hosts: true
 network_identity_manage_resolv_conf: true
 network_identity_resolv_conf_path: /etc/resolv.conf
+network_identity_manage_systemd_resolved_when_symlink: true
+network_identity_systemd_resolved_dropin_path: /etc/systemd/resolved.conf.d/90-idops-dns.conf
 network_identity_primary_ipv4: ""
 network_identity_nameservers:
   - "8.8.8.8"

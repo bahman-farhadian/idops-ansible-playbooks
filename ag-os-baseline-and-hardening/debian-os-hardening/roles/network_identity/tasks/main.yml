@@ -57,7 +57,15 @@
         else (
           (ansible_default_ipv4.address | default(''))
           if (ansible_default_ipv4 is defined and ansible_default_ipv4.address is defined)
-          else (ansible_all_ipv4_addresses | default([]) | first | default(''))
+          else (
+            (ansible_all_ipv4_addresses | default([]) | first | default(''))
+            if (ansible_all_ipv4_addresses | default([]) | length) > 0
+            else (
+              (ansible_host | default(''))
+              if ((ansible_host | default('')) is match('^([0-9]{1,3}\\.){3}[0-9]{1,3}$'))
+              else ''
+            )
+          )
         )
       }}
 
@@ -172,3 +180,53 @@
   when:
     - network_identity_manage_resolv_conf | bool
     - network_identity_resolv_stat.stat.islnk
+    - not (network_identity_manage_systemd_resolved_when_symlink | bool)
+
+- name: Gather service facts for systemd-resolved fallback
+  ansible.builtin.service_facts:
+  when:
+    - network_identity_manage_resolv_conf | bool
+    - network_identity_resolv_stat.stat.islnk
+    - network_identity_manage_systemd_resolved_when_symlink | bool
+
+- name: Ensure systemd-resolved drop-in directory exists
+  ansible.builtin.file:
+    path: "{{ network_identity_systemd_resolved_dropin_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - network_identity_manage_resolv_conf | bool
+    - network_identity_resolv_stat.stat.islnk
+    - network_identity_manage_systemd_resolved_when_symlink | bool
+    - "'systemd-resolved.service' in ansible_facts.services"
+
+- name: Configure DNS/search domains via systemd-resolved drop-in
+  ansible.builtin.template:
+    src: resolved-idops.conf.j2
+    dest: "{{ network_identity_systemd_resolved_dropin_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    network_identity_template_search_domains: "{{ network_identity_effective_search_domains }}"
+  register: network_identity_resolved_dropin
+  when:
+    - network_identity_manage_resolv_conf | bool
+    - network_identity_resolv_stat.stat.islnk
+    - network_identity_manage_systemd_resolved_when_symlink | bool
+    - "'systemd-resolved.service' in ansible_facts.services"
+
+- name: Restart systemd-resolved when drop-in changed
+  ansible.builtin.systemd:
+    name: systemd-resolved.service
+    state: restarted
+    enabled: true
+  when:
+    - network_identity_manage_resolv_conf | bool
+    - network_identity_resolv_stat.stat.islnk
+    - network_identity_manage_systemd_resolved_when_symlink | bool
+    - "'systemd-resolved.service' in ansible_facts.services"
+    - network_identity_resolved_dropin is defined
+    - network_identity_resolved_dropin.changed

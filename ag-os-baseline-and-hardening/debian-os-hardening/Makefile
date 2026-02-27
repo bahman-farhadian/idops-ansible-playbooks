@@ -19,6 +19,8 @@ EXTRA_VARS ?=
 CHECK ?= false
 DIFF ?= false
 EXTRA_ARGS ?=
+HARDENING_VARS_FILE ?= vars/debian-hardening.yml
+HARDENING_LOCAL_SECRETS_FILE ?= vars/local-secrets.yml
 
 BOOL_TRUE := 1 true yes TRUE YES
 
@@ -31,6 +33,7 @@ CHECK_ARG := $(if $(filter $(CHECK),$(BOOL_TRUE)),--check,)
 DIFF_ARG := $(if $(filter $(DIFF),$(BOOL_TRUE)),--diff,)
 PLAY_ARGS := $(LIMIT_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
 ADHOC_ARGS := $(LIMIT_ARG) $(FORKS_ARG) $(EXTRA_ARGS)
+ADHOC_VARS_ARGS := -e @$(HARDENING_VARS_FILE) $(if $(wildcard $(HARDENING_LOCAL_SECRETS_FILE)),-e @$(HARDENING_LOCAL_SECRETS_FILE),)
 
 help:
 	@printf "Available targets:\n"
@@ -105,10 +108,10 @@ suggestions:
 	@grep '^suggestion\[\]=' artifacts/lynis/*/lynis-report.dat || true
 
 ssh-check: venv
-	$(VENV_ACTIVATE) && ansible -i $(INVENTORY) $(ADHOC_ARGS) $(GROUP) -b -m shell -a "sshd -T | egrep 'permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|loglevel|maxauthtries|maxsessions'"
+	$(VENV_ACTIVATE) && ansible -i $(INVENTORY) $(ADHOC_ARGS) $(ADHOC_VARS_ARGS) $(GROUP) -b -m shell -a "sshd -T | egrep 'permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|loglevel|maxauthtries|maxsessions'"
 
 gap-report:
 	@grep -E '^hardening_index=|^warning\[]=|^suggestion\[]=|^details\[]=(KRNL-6000|SSH-7408|FIRE-4513|NETW-2705|NAME-4028|NAME-4404|LOGG-2154|BOOT-5122|FILE-6310|PKGS-7346|ACCT-9630)' artifacts/lynis/*/lynis-report.dat || true
 
 runtime-check: venv
-	$(VENV_ACTIVATE) && ansible -i $(INVENTORY) $(ADHOC_ARGS) $(GROUP) -b -m shell -a "echo '== sshd -T =='; sshd -T | egrep 'port|permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|maxauthtries|maxsessions|loglevel'; echo '== issue.net =='; sed -n '1,120p' /etc/issue.net; echo '== pam_motd refs =='; grep -n pam_motd /etc/pam.d/sshd || true; echo '== ssh command hook =='; ls -l /etc/profile.d/99-ssh-command-logging.sh 2>/dev/null || true; echo '== rsyslog ssh logging =='; sed -n '1,200p' /etc/rsyslog.d/30-ssh-session-logging.conf 2>/dev/null || true; echo '== last ssh command logs =='; tail -n 20 /var/log/ssh_commands.log 2>/dev/null || true; echo '== firewall v4 =='; iptables -S; echo '== firewall v6 =='; ip6tables -S; echo '== dns =='; cat /etc/resolv.conf; echo '== hosts =='; cat /etc/hosts; echo '== sysctl =='; sysctl fs.protected_fifos kernel.modules_disabled; echo '== audit rules =='; auditctl -l || true; echo '== residual rc packages =='; dpkg -l | awk '/^rc/{print $$2}'"
+	$(VENV_ACTIVATE) && ansible -i $(INVENTORY) $(ADHOC_ARGS) $(ADHOC_VARS_ARGS) $(GROUP) -b -m shell -a "echo '== sshd -T =='; sshd -T | egrep 'port|permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|maxauthtries|maxsessions|loglevel'; echo '== issue.net =='; sed -n '1,120p' /etc/issue.net; echo '== pam_motd refs =='; grep -n pam_motd /etc/pam.d/sshd || true; echo '== ssh command hook =='; ls -l /etc/profile.d/99-ssh-command-logging.sh 2>/dev/null || true; echo '== rsyslog ssh logging =='; sed -n '1,200p' /etc/rsyslog.d/30-ssh-session-logging.conf 2>/dev/null || true; echo '== last ssh command logs =='; tail -n 20 /var/log/ssh_commands.log 2>/dev/null || true; echo '== firewall v4 =='; iptables -S; echo '== firewall v6 =='; ip6tables -S; echo '== dns =='; cat /etc/resolv.conf; echo '== hosts =='; cat /etc/hosts; echo '== sysctl =='; sysctl fs.protected_fifos kernel.modules_disabled; echo '== audit rules =='; auditctl -l || true; echo '== residual rc packages =='; dpkg -l | awk '/^rc/{print $$2}'"

@@ -48,6 +48,16 @@
     - prep_enabled | bool
     - (prep_root_authorized_keys | length) > 0
 
+- name: Set root password when enabled
+  ansible.builtin.command: chpasswd
+  args:
+    stdin: "root:{{ prep_root_plain_password }}"
+  no_log: true
+  when:
+    - prep_enabled | bool
+    - prep_manage_root_password | bool
+    - (prep_root_plain_password | default('') | length) > 0
+
 - name: Discover primary user by UID
   ansible.builtin.command: "getent passwd {{ prep_primary_user_uid }}"
   register: prep_primary_user_entry
@@ -333,6 +343,18 @@
     - prep_enabled | bool
     - prep_manage_primary_user | bool
     - prep_primary_user_name is defined
+
+- name: Set primary user password when enabled
+  ansible.builtin.command: chpasswd
+  args:
+    stdin: "{{ prep_primary_user_name }}:{{ prep_primary_user_plain_password }}"
+  no_log: true
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - prep_primary_user_name is defined
+    - prep_manage_primary_user_password | bool
+    - (prep_primary_user_plain_password | default('') | length) > 0
 
 - name: Ensure primary user sudoers file exists
   ansible.builtin.copy:

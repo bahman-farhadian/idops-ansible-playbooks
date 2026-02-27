@@ -9,6 +9,11 @@
     name: boot_hardening
   when: os_hardening_enabled | bool
 
+- name: Apply GRUB hardening baseline
+  ansible.builtin.include_role:
+    name: grub_hardening
+  when: os_hardening_enabled | bool
+
 - name: Apply preparation baseline
   ansible.builtin.include_role:
     name: prep_baseline

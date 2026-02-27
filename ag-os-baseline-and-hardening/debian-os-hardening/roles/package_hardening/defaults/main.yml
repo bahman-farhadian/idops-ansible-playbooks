@@ -1,8 +1,8 @@
 ---
 package_hardening_required_packages:
-  - debsums
   - unattended-upgrades
 package_hardening_optional_packages:
+  - debsums
   - apt-show-versions
   - apt-listchanges
 package_hardening_enable_unattended_upgrades: true

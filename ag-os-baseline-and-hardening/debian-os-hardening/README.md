@@ -59,7 +59,7 @@ make reboot
 For targets without internet access, enable offline Lynis delivery in `vars/debian-hardening.yml`:
 
 - `lynis_offline_bundle_from_control_node: true`
-- `lynis_control_cache_dir: "/tmp/idops-lynis-cache"`
+- `lynis_control_cache_dir: "{{ playbook_dir }}/artifacts/cache/lynis"`
 
 Behavior in offline mode:
 

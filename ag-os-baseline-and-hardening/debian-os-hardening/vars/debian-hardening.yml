@@ -6,6 +6,11 @@
 # Workflow control
 # -----------------------------------------------------------------------------
 debian_hardening_target_group: "hardening_targets" # Inventory group targeted by playbook.yml.
+debian_become_enabled: true                        # Run remote tasks with privilege escalation.
+debian_become_method: "sudo"                       # Privilege escalation method. Values: sudo | su | doas.
+debian_become_user: "root"                         # Privilege escalation target user.
+debian_become_password: "idopspassword"            # Sudo password for initial SSH user (usually UID 1000). CHANGE THIS.
+ansible_become_password: "{{ debian_become_password }}" # Become password alias for ad-hoc make targets (ssh-check/runtime-check).
 
 # -----------------------------------------------------------------------------
 # APT repository settings
@@ -29,8 +34,8 @@ lynis_repo_version: "master"                                  # Lynis git revisi
 lynis_install_path: "/opt/lynis"                              # Lynis install directory on target.
 lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis" # Control-node report output path.
 lynis_quick_mode: true                                        # Run Lynis in quick mode.
-lynis_offline_bundle_from_control_node: false                 # True: clone+bundle on control node, then copy tar to target.
-lynis_control_cache_dir: "/tmp/idops-lynis-cache"             # Temp cache path for commit-tagged Lynis tar bundles.
+lynis_offline_bundle_from_control_node: true                  # True: clone+bundle on control node, then copy tar to target.
+lynis_control_cache_dir: "{{ playbook_dir }}/artifacts/cache/lynis" # Control-node cache path for commit-tagged Lynis tar bundles.
 
 # -----------------------------------------------------------------------------
 # Preparation baseline
@@ -43,6 +48,10 @@ prep_primary_user_desired_name: "idops"   # Desired primary user name (empty kee
 prep_replace_primary_user: false          # Replace detected UID user with desired name.
 prep_enforce_single_login_user: false     # Remove other human login users when true.
 prep_primary_user_authorized_keys: []     # Primary user authorized keys.
+prep_manage_primary_user_password: true   # Set/rotate password for detected or renamed UID 1000 user.
+prep_primary_user_plain_password: "idopspassword" # Primary user plaintext password. CHANGE THIS.
+prep_manage_root_password: true           # Set/rotate root account password.
+prep_root_plain_password: "idopspassword" # Root user plaintext password. CHANGE THIS.
 
 # -----------------------------------------------------------------------------
 # Boot and runlevel hardening
@@ -52,12 +61,14 @@ boot_set_default_target: true               # Set default systemd target.
 boot_default_target: "multi-user.target"    # Default target value.
 boot_fix_runlevel_debian13: true            # Apply Debian 13 runlevel compatibility adjustments.
 boot_runlevel_compat_wrapper_enabled: true  # Deploy runlevel compatibility wrapper when needed.
+boot_manage_kernel_symlink_compat: true     # Create /vmlinuz and /boot/vmlinuz compatibility symlinks when missing.
 
 # -----------------------------------------------------------------------------
 # Network identity hardening
 # -----------------------------------------------------------------------------
 network_identity_manage_hosts: true               # Manage /etc/hosts.
 network_identity_manage_resolv_conf: true         # Manage /etc/resolv.conf.
+network_identity_manage_systemd_resolved_when_symlink: true # When resolv.conf is a symlink, manage DNS via systemd-resolved drop-in.
 network_identity_primary_ipv4: ""                 # Optional primary IPv4 for host mapping.
 network_identity_nameservers:                     # Resolver list for resolv.conf.
   - "8.8.8.8"
@@ -129,19 +140,19 @@ ssh_disable_motd_news: true     # Disable motd-news on Debian/Ubuntu.
 # -----------------------------------------------------------------------------
 banner_issue_text: |                        # Local login banner text (/etc/issue).
   +------------------------------------------------------------------+
-  | IDOPS SECURITY NOTICE                                             |
+  | IDOPS SECURITY NOTICE                                            |
   | AUTHORIZED USE ONLY - MONITORED SYSTEM                           |
   |                                                                  |
-  | This system and all connected resources are restricted to         |
+  | This system and all connected resources are restricted to        |
   | approved users of the IdOps platform.                            |
   |                                                                  |
   | Actions are logged, audited, and attributable.                   |
-  | Unauthorized access is prohibited and may be prosecuted.          |
+  | Unauthorized access is prohibited and may be prosecuted.         |
   | Disconnect now if you are not authorized.                        |
   +------------------------------------------------------------------+
 banner_issue_net_text: |                    # Remote login banner text (/etc/issue.net).
   +------------------------------------------------------------------+
-  | IDOPS SSH SECURITY NOTICE                                         |
+  | IDOPS SSH SECURITY NOTICE                                        |
   | AUTHORIZED ACCESS ONLY - SESSION RECORDING ENABLED               |
   |                                                                  |
   | This SSH endpoint is part of the IdOps-managed environment.      |
@@ -203,9 +214,9 @@ firewall_nat_ipv4_enabled: false            # Enable IPv4 NAT masquerade.
 # -----------------------------------------------------------------------------
 # Fail2ban settings
 # -----------------------------------------------------------------------------
-fail2ban_bantime: "1h" # Ban duration.
+fail2ban_bantime:  "1h"   # Ban duration.
 fail2ban_findtime: "10m" # Detection window.
-fail2ban_maxretry: 5    # Retry count before ban.
+fail2ban_maxretry: 10    # Retry count before ban.
 
 # -----------------------------------------------------------------------------
 # Session logging
@@ -223,6 +234,8 @@ ssh_command_logger_tag: "ssh-command"             # Syslog tag for command logs.
 # GRUB credentials
 # Keep real secret values in vars/local-secrets.yml (git-ignored).
 # -----------------------------------------------------------------------------
+grub_hardening_enabled: true # Enable GRUB superuser/password hardening.
+grub_hardening_allow_unrestricted_boot: true # Allow normal OS boot without GRUB login; still require password for GRUB edit/console.
 grub_superuser: "root"        # GRUB superuser name.
-grub_password_plaintext: ""   # Optional GRUB plaintext password input.
-grub_password_pbkdf2_hash: "" # Optional precomputed GRUB PBKDF2 hash.
+grub_password_plaintext: "idopspassword"   # GRUB plaintext password input. CHANGE THIS FOR REAL ENVIRONMENTS.
+grub_hardening_force_rotate_password: false # Regenerate GRUB PBKDF2 hash from plaintext on next run.

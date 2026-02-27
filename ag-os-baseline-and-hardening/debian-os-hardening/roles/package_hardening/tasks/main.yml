@@ -16,11 +16,16 @@
     lock_timeout: "{{ apt_lock_timeout | default(600) }}"
   failed_when: false
 
+- name: Gather package facts for optional package tuning
+  ansible.builtin.package_facts:
+    manager: auto
+
 - name: Configure debsums periodic check
   ansible.builtin.lineinfile:
     path: /etc/default/debsums
     regexp: '^CRON_CHECK='
     line: "CRON_CHECK={{ package_hardening_debsums_cron_check }}"
+  when: "'debsums' in ansible_facts.packages"
 
 - name: Collect packages with removed binaries but leftover config
   ansible.builtin.command: "dpkg-query -W -f='${db:Status-Abbrev} ${binary:Package}\\n'"

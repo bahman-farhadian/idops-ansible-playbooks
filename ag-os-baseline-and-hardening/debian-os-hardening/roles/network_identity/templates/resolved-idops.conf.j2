@@ -1,0 +1,6 @@
+# Managed by Ansible - network identity hardening
+[Resolve]
+DNS={{ network_identity_nameservers | join(' ') }}
+{% if (network_identity_template_search_domains | default(network_identity_search_domains)) | length > 0 %}
+Domains={{ (network_identity_template_search_domains | default(network_identity_search_domains)) | join(' ') }}
+{% endif %}

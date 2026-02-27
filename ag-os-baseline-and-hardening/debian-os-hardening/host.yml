@@ -2,10 +2,23 @@ all:
   children:
     hardening_targets:
       hosts:
-        target-node-01:
-          ansible_host: change-me-host-or-ip
-          ansible_user: change-me-ssh-user
-          ansible_port: 22
+        debian-bookworm-a:
+          ansible_host: 192.168.24.121
+          ansible_user: idops
+          ansible_port: 2222
+        debian-bookworm-b:
+          ansible_host: 192.168.24.122
+          ansible_user: idops
+          ansible_port: 2222
+        debian-trixie-a:
+          ansible_host: 192.168.24.131
+          ansible_user: idops
+          ansible_port: 2222
+        debian-trixie-b:
+          ansible_host: 192.168.24.132
+          ansible_user: idops
+          ansible_port: 2222
+          
         # To add more VMs, copy/paste a host block under hardening_targets.hosts
         # target-node-02:
         #   ansible_host: change-me-host-or-ip-2

@@ -5,23 +5,26 @@
   vars_files:
     - vars/debian-hardening.yml
   vars:
-    debian_hardening_action: "{{ debian_hardening_action | default('harden') }}"
+    debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
 
   tasks:
     - name: Validate hardening action value
       ansible.builtin.assert:
         that:
-          - debian_hardening_action in ['ping', 'scan', 'harden', 'reboot']
+          - debian_hardening_action_effective in ['ping', 'scan', 'harden', 'reboot']
         fail_msg: "debian_hardening_action must be one of: ping, scan, harden, reboot."
 
 - name: Execute Debian hardening action
   hosts: "{{ debian_hardening_target_group }}"
-  become: true
-  gather_facts: "{{ debian_hardening_action in ['scan', 'harden'] }}"
+  become: "{{ debian_become_enabled | default(true) | bool }}"
+  become_method: "{{ debian_become_method | default('sudo') }}"
+  become_user: "{{ debian_become_user | default('root') }}"
+  gather_facts: "{{ debian_hardening_action_effective in ['scan', 'harden'] }}"
   vars_files:
     - vars/debian-hardening.yml
   vars:
-    debian_hardening_action: "{{ debian_hardening_action | default('harden') }}"
+    debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
+    ansible_become_password: "{{ debian_become_password | default('') }}"
 
   pre_tasks:
     - name: Load optional local secrets overrides
@@ -32,21 +35,21 @@
 
     - name: Run hardening preflight checks for OS support
       ansible.builtin.include_tasks: tasks/preflight.yml
-      when: debian_hardening_action in ['scan', 'harden']
+      when: debian_hardening_action_effective in ['scan', 'harden']
 
   tasks:
     - name: Run connectivity workflow
       ansible.builtin.include_tasks: tasks/ping.yml
-      when: debian_hardening_action == 'ping'
+      when: debian_hardening_action_effective == 'ping'
 
     - name: Run Lynis baseline scan workflow
       ansible.builtin.include_tasks: tasks/scan.yml
-      when: debian_hardening_action == 'scan'
+      when: debian_hardening_action_effective == 'scan'
 
     - name: Run OS hardening workflow
       ansible.builtin.include_tasks: tasks/harden.yml
-      when: debian_hardening_action == 'harden'
+      when: debian_hardening_action_effective == 'harden'
 
     - name: Run reboot workflow
       ansible.builtin.include_tasks: tasks/reboot.yml
-      when: debian_hardening_action == 'reboot'
+      when: debian_hardening_action_effective == 'reboot'

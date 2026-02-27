@@ -34,6 +34,10 @@ prep_primary_user_uid: "1000"
 prep_primary_user_desired_name: ""
 prep_replace_primary_user: false
 prep_enforce_single_login_user: false
+prep_manage_primary_user_password: false
+prep_primary_user_plain_password: ""
+prep_manage_root_password: false
+prep_root_plain_password: ""
 prep_user_cleanup_min_uid: 1000
 prep_user_cleanup_max_uid: 60000
 prep_user_cleanup_exempt_users: []

@@ -1,0 +1,8 @@
+---
+grub_hardening_enabled: true
+grub_hardening_script_path: "/etc/grub.d/01-idops-hardening"
+grub_hardening_update_command: "update-grub"
+grub_hardening_force_rotate_password: false
+grub_hardening_allow_unrestricted_boot: true
+grub_superuser: "root"
+grub_password_plaintext: ""

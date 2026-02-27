@@ -1,0 +1,134 @@
+---
+- name: Check if managed GRUB hardening script already exists
+  ansible.builtin.stat:
+    path: "{{ grub_hardening_script_path }}"
+  register: grub_hardening_script_stat
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+
+- name: Read existing GRUB PBKDF2 hash from managed script
+  ansible.builtin.command: >-
+    awk '/^password_pbkdf2 / {print $3; exit}' {{ grub_hardening_script_path }}
+  register: grub_hardening_existing_hash
+  changed_when: false
+  failed_when: false
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+    - grub_hardening_script_stat.stat.exists
+    - not (grub_hardening_force_rotate_password | bool)
+
+- name: Reuse existing GRUB PBKDF2 hash when available
+  ansible.builtin.set_fact:
+    grub_hardening_password_hash: "{{ grub_hardening_existing_hash.stdout | trim }}"
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+    - grub_hardening_existing_hash is defined
+    - (grub_hardening_existing_hash.stdout | default('') | trim | length) > 0
+
+- name: Generate GRUB PBKDF2 hash from plaintext password
+  ansible.builtin.shell: |
+    set -o pipefail
+    printf '%s\n%s\n' "$GRUB_PASSWORD" "$GRUB_PASSWORD" \
+      | grub-mkpasswd-pbkdf2 \
+      | awk '/grub.pbkdf2/ {print $NF; exit}'
+  args:
+    executable: /bin/bash
+  environment:
+    GRUB_PASSWORD: "{{ grub_password_plaintext }}"
+  register: grub_hardening_generated_hash
+  changed_when: true
+  no_log: true
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+    - grub_hardening_password_hash is not defined
+
+- name: Store generated GRUB PBKDF2 hash for templating
+  ansible.builtin.set_fact:
+    grub_hardening_password_hash: "{{ grub_hardening_generated_hash.stdout | trim }}"
+  no_log: true
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+    - grub_hardening_generated_hash is defined
+    - not (grub_hardening_generated_hash.skipped | default(false))
+    - (grub_hardening_generated_hash.stdout | default('') | trim | length) > 0
+
+- name: Validate that a GRUB PBKDF2 hash is available
+  ansible.builtin.assert:
+    that:
+      - grub_hardening_password_hash is defined
+      - grub_hardening_password_hash | length > 0
+    fail_msg: >-
+      Failed to prepare GRUB PBKDF2 hash. Verify grub-mkpasswd-pbkdf2 is available
+      and grub_password_plaintext is set.
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+
+- name: Deploy managed GRUB superuser/password script
+  ansible.builtin.template:
+    src: 01-idops-hardening.j2
+    dest: "{{ grub_hardening_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  register: grub_hardening_script
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+
+- name: Ensure Debian Linux menu entries allow unrestricted boot
+  ansible.builtin.lineinfile:
+    path: /etc/grub.d/10_linux
+    regexp: '^CLASS="--class gnu-linux --class gnu --class os"$'
+    line: 'CLASS="--unrestricted --class gnu-linux --class gnu --class os"'
+  register: grub_hardening_linux_class
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+    - grub_hardening_allow_unrestricted_boot | bool
+
+- name: Restore Debian Linux menu class when unrestricted boot is disabled
+  ansible.builtin.lineinfile:
+    path: /etc/grub.d/10_linux
+    regexp: '^CLASS="--unrestricted --class gnu-linux --class gnu --class os"$'
+    line: 'CLASS="--class gnu-linux --class gnu --class os"'
+  register: grub_hardening_linux_class_restore
+  when:
+    - grub_hardening_enabled | bool
+    - grub_superuser | length > 0
+    - grub_password_plaintext | length > 0
+    - not (grub_hardening_allow_unrestricted_boot | bool)
+
+- name: Remove managed GRUB hardening script when disabled
+  ansible.builtin.file:
+    path: "{{ grub_hardening_script_path }}"
+    state: absent
+  register: grub_hardening_script_removed
+  when:
+    - not (
+        grub_hardening_enabled | bool
+        and grub_superuser | length > 0
+        and grub_password_plaintext | length > 0
+      )
+
+- name: Refresh GRUB configuration when managed script changed
+  ansible.builtin.command: "{{ grub_hardening_update_command }}"
+  changed_when: true
+  when: >-
+    (grub_hardening_script is defined and grub_hardening_script.changed)
+    or (grub_hardening_script_removed is defined and grub_hardening_script_removed.changed)
+    or (grub_hardening_linux_class is defined and grub_hardening_linux_class.changed)
+    or (grub_hardening_linux_class_restore is defined and grub_hardening_linux_class_restore.changed)
