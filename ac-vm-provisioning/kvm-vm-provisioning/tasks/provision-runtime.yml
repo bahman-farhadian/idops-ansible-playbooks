@@ -303,6 +303,15 @@
     - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
     - (instances_to_create | default([])) | length > 0
 
+- name: Build effective cloud-init readiness timeout
+  ansible.builtin.set_fact:
+    kvm_effective_cloud_init_readiness_timeout_seconds: 600
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
 - name: Wait for TCP SSH port on newly created instances before snapshot
   ansible.builtin.wait_for:
     host: "{{ item.instance_ipv4_address }}"
@@ -313,7 +322,7 @@
         (
           kvm_debian12_network_boot_wait_timeout_seconds
           if (item.image_profile_id | default('')) == 'debian-12'
-          else (kvm_wait_for_cloud_init_timeout_seconds | default(600))
+          else (kvm_effective_cloud_init_readiness_timeout_seconds | default(600))
         ) | int
       }}
     state: started
@@ -379,7 +388,7 @@
     msg: >-
       TCP port {{ (instances_to_create | first).ssh_port | default(22) }} was not reachable
       for instance(s): {{ cloud_init_port_timeout_instances | join(', ') }} before snapshot.
-      Check guest boot/network and increase kvm_wait_for_cloud_init_timeout_seconds when needed.
+      Check guest boot/network readiness before snapshot.
   when:
     - (cloud_init_port_timeout_instances | default([])) | length > 0
 
@@ -408,7 +417,7 @@
         and ((cloud_init_wait_sshpass_check.rc | default(1)) == 0)
       ) | ternary('true', 'false')
     }}; then
-      timeout "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int }}" \
+      timeout "{{ kvm_effective_cloud_init_readiness_timeout_seconds | default(600) | int }}" \
         sshpass -p {{ item.cloud_init_plain_password | quote }} \
         ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
           -o PreferredAuthentications=password -o PubkeyAuthentication=no \
@@ -416,7 +425,7 @@
           "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}" \
           "sh -lc \"$remote_cmd\""
     else
-      timeout "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int }}" \
+      timeout "{{ kvm_effective_cloud_init_readiness_timeout_seconds | default(600) | int }}" \
         ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
           -p "{{ item.ssh_port | int }}" \
           "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}" \
@@ -473,7 +482,8 @@
       }} before snapshot.
       This gate waits on cloud-init completion (not a fixed sleep) and can run as key-based SSH or
       password-based SSH when sshpass is available and cloud_init_plain_password is set.
-      Increase kvm_wait_for_cloud_init_timeout_seconds for slow mirrors, or disable this gate with
+      If this environment is consistently slower than expected, review runtime wait logic in
+      tasks/provision-runtime.yml, or disable this gate with
       kvm_wait_for_cloud_init_before_snapshot=false if you intentionally do not provide guest SSH auth.
   when:
     - (cloud_init_marker_timeout_instances | default([])) | length > 0
