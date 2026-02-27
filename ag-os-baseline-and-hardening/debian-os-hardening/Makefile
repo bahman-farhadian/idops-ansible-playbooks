@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help venv deps-bundle lint check ping scan harden reboot site score suggestions ssh-check gap-report runtime-check
+.PHONY: help venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check
 
 INVENTORY ?= host.yml
 PLAYBOOK_FILE ?= playbook.yml
@@ -42,7 +42,6 @@ help:
 	@printf "  %-24s %s\n" "make scan" "run Lynis baseline scan workflow"
 	@printf "  %-24s %s\n" "make harden" "run Debian/Ubuntu hardening workflow"
 	@printf "  %-24s %s\n" "make reboot" "reboot hardening targets"
-	@printf "  %-24s %s\n" "make site" "run staged site workflow (scan/harden switches)"
 	@printf "  %-24s %s\n" "make score" "show Lynis hardening_index values"
 	@printf "  %-24s %s\n" "make suggestions" "show Lynis suggestions from collected reports"
 	@printf "  %-24s %s\n" "make ssh-check" "inspect effective sshd hardening settings"
@@ -98,9 +97,6 @@ harden: venv
 
 reboot: venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=reboot $(PLAY_ARGS)
-
-site: venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=site $(PLAY_ARGS)
 
 score:
 	@grep '^hardening_index=' artifacts/lynis/*/lynis-report.dat || true

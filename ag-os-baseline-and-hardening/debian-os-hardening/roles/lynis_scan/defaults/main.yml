@@ -1,5 +1,9 @@
 ---
 lynis_repo_url: "https://github.com/CISOfy/lynis"
+lynis_repo_version: "master"
 lynis_install_path: "/opt/lynis"
 lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis"
 lynis_quick_mode: true
+lynis_offline_bundle_from_control_node: false
+lynis_control_cache_dir: "/tmp/idops-lynis-cache"
+lynis_control_repo_dir: "{{ lynis_control_cache_dir }}/lynis-repo"

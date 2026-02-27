@@ -11,13 +11,13 @@
     - name: Validate hardening action value
       ansible.builtin.assert:
         that:
-          - debian_hardening_action in ['ping', 'scan', 'harden', 'site', 'reboot']
-        fail_msg: "debian_hardening_action must be one of: ping, scan, harden, site, reboot."
+          - debian_hardening_action in ['ping', 'scan', 'harden', 'reboot']
+        fail_msg: "debian_hardening_action must be one of: ping, scan, harden, reboot."
 
 - name: Execute Debian hardening action
   hosts: "{{ debian_hardening_target_group }}"
   become: true
-  gather_facts: "{{ debian_hardening_action in ['scan', 'harden', 'site'] }}"
+  gather_facts: "{{ debian_hardening_action in ['scan', 'harden'] }}"
   vars_files:
     - vars/debian-hardening.yml
   vars:
@@ -32,7 +32,7 @@
 
     - name: Run hardening preflight checks for OS support
       ansible.builtin.include_tasks: tasks/preflight.yml
-      when: debian_hardening_action in ['scan', 'harden', 'site']
+      when: debian_hardening_action in ['scan', 'harden']
 
   tasks:
     - name: Run connectivity workflow
@@ -46,10 +46,6 @@
     - name: Run OS hardening workflow
       ansible.builtin.include_tasks: tasks/harden.yml
       when: debian_hardening_action == 'harden'
-
-    - name: Run staged site workflow
-      ansible.builtin.include_tasks: tasks/site.yml
-      when: debian_hardening_action == 'site'
 
     - name: Run reboot workflow
       ansible.builtin.include_tasks: tasks/reboot.yml

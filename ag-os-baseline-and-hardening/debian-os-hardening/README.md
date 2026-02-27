@@ -20,7 +20,7 @@ This project follows repository standards:
 ## Project Layout
 
 - `playbook.yml`
-- `tasks/` (`preflight.yml`, `ping.yml`, `scan.yml`, `harden.yml`, `site.yml`, `reboot.yml`)
+- `tasks/` (`preflight.yml`, `ping.yml`, `scan.yml`, `harden.yml`, `reboot.yml`)
 - `roles/` (migrated hardening and Lynis roles)
 - `vars/debian-hardening.yml`
 - `vars/local-secrets.yml.example`
@@ -50,13 +50,24 @@ make ping
 make scan
 make harden
 make reboot
-make site
 ```
 
-`make site` runs staged workflow switches from `vars/debian-hardening.yml`:
+`scan` and `harden` are explicit, separate workflows.
 
-- `run_lynis_scan`
-- `run_os_hardening`
+## Offline Lynis Bundle Mode
+
+For targets without internet access, enable offline Lynis delivery in `vars/debian-hardening.yml`:
+
+- `lynis_offline_bundle_from_control_node: true`
+- `lynis_control_cache_dir: "/tmp/idops-lynis-cache"`
+
+Behavior in offline mode:
+
+- Control node clones/updates Lynis from `lynis_repo_url`.
+- Control node creates commit-tagged tarball bundles in temp cache:
+  - `lynis-<commit>.tar.gz`
+- Bundle is copied to each target under `/tmp/` and extracted to `lynis_install_path`.
+- Existing bundles are reused by commit name, so unchanged commits are not re-bundled.
 
 ## Artifacts
 

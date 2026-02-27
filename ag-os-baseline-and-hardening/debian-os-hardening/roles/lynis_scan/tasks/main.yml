@@ -1,5 +1,5 @@
 ---
-- name: Ensure required packages for Lynis are present
+- name: Ensure required packages for Lynis are present on managed host (online mode)
   ansible.builtin.apt:
     name:
       - git
@@ -10,13 +10,97 @@
   retries: "{{ apt_package_retries | default(6) }}"
   delay: "{{ apt_package_retry_delay | default(10) }}"
   until: lynis_packages_install is succeeded
+  when: not (lynis_offline_bundle_from_control_node | bool)
 
-- name: Clone or update Lynis under /opt
+- name: Ensure Lynis cache directory exists on control node (offline bundle mode)
+  ansible.builtin.file:
+    path: "{{ lynis_control_cache_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Clone or update Lynis repository in control-node cache (offline bundle mode)
+  ansible.builtin.git:
+    repo: "{{ lynis_repo_url }}"
+    dest: "{{ lynis_control_repo_dir }}"
+    update: true
+    version: "{{ lynis_repo_version }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Resolve cached Lynis commit from control-node repository (offline bundle mode)
+  ansible.builtin.command:
+    cmd: "git -C {{ lynis_control_repo_dir }} rev-parse --short=12 HEAD"
+  register: lynis_control_commit_cmd
+  changed_when: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Set offline Lynis bundle metadata (offline bundle mode)
+  ansible.builtin.set_fact:
+    lynis_bundle_commit: "{{ lynis_control_commit_cmd.stdout | trim }}"
+    lynis_bundle_filename: "lynis-{{ lynis_control_commit_cmd.stdout | trim }}.tar.gz"
+    lynis_bundle_path: "{{ lynis_control_cache_dir }}/lynis-{{ lynis_control_commit_cmd.stdout | trim }}.tar.gz"
+  delegate_to: localhost
+  delegate_facts: true
+  become: false
+  run_once: true
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Build commit-tagged Lynis bundle in control-node temp cache (offline bundle mode)
+  ansible.builtin.command:
+    cmd: >-
+      tar -C {{ lynis_control_repo_dir }} --exclude=.git
+      -czf {{ hostvars['localhost'].lynis_bundle_path }} .
+  args:
+    creates: "{{ hostvars['localhost'].lynis_bundle_path }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Copy cached Lynis bundle to managed host (offline bundle mode)
+  ansible.builtin.copy:
+    src: "{{ hostvars['localhost'].lynis_bundle_path }}"
+    dest: "/tmp/{{ hostvars['localhost'].lynis_bundle_filename }}"
+    mode: "0644"
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Ensure clean Lynis install path for bundle extraction (offline bundle mode)
+  ansible.builtin.file:
+    path: "{{ lynis_install_path }}"
+    state: absent
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Ensure Lynis install directory exists for bundle extraction (offline bundle mode)
+  ansible.builtin.file:
+    path: "{{ lynis_install_path }}"
+    state: directory
+    mode: "0755"
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Extract Lynis bundle on managed host (offline bundle mode)
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ hostvars['localhost'].lynis_bundle_filename }}"
+    dest: "{{ lynis_install_path }}"
+    remote_src: true
+    mode: "0755"
+  when: lynis_offline_bundle_from_control_node | bool
+
+- name: Clone or update Lynis under /opt (online mode)
   ansible.builtin.git:
     repo: "{{ lynis_repo_url }}"
     dest: "{{ lynis_install_path }}"
     update: true
-    version: master
+    version: "{{ lynis_repo_version }}"
+  when: not (lynis_offline_bundle_from_control_node | bool)
 
 - name: Check Lynis include directory exists
   ansible.builtin.stat:

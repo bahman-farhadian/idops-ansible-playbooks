@@ -6,18 +6,16 @@
 # Workflow control
 # -----------------------------------------------------------------------------
 debian_hardening_target_group: "hardening_targets" # Inventory group targeted by playbook.yml.
-run_lynis_scan: true                               # Enable Lynis stage in site workflow.
-run_os_hardening: false                            # Enable hardening stage in site workflow.
 
 # -----------------------------------------------------------------------------
 # APT repository settings
 # -----------------------------------------------------------------------------
-apt_repository_url: "http://deb.debian.org/debian"                     # Debian base repository URI.
+apt_repository_url: "http://deb.debian.org/debian"                        # Debian base repository URI.
 apt_security_repository_url: "http://security.debian.org/debian-security" # Debian security repository URI.
-apt_debian_release_override: ""                                        # Optional suite override (empty = fact-based map).
+apt_debian_release_override: ""                                           # Optional suite override (empty = fact-based map).
 apt_debian_managed_sources_file: "/etc/apt/sources.list.d/debian.sources" # Managed deb822 sources file path.
-apt_debian_disable_conflicting_sources: true                           # Disable conflicting Debian source entries.
-apt_debian_components:                                                 # Repository components for Debian hosts.
+apt_debian_disable_conflicting_sources: true                              # Disable conflicting Debian source entries.
+apt_debian_components:                                                    # Repository components for Debian hosts.
   - main
   - contrib
   - non-free
@@ -26,10 +24,13 @@ apt_debian_components:                                                 # Reposit
 # -----------------------------------------------------------------------------
 # Lynis settings
 # -----------------------------------------------------------------------------
-lynis_repo_url: "https://github.com/CISOfy/lynis" # Lynis git repository URL.
-lynis_install_path: "/opt/lynis"                  # Lynis install directory on target.
+lynis_repo_url: "https://github.com/CISOfy/lynis"             # Lynis git repository URL.
+lynis_repo_version: "master"                                  # Lynis git revision/tag/branch.
+lynis_install_path: "/opt/lynis"                              # Lynis install directory on target.
 lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis" # Control-node report output path.
-lynis_quick_mode: true                            # Run Lynis in quick mode.
+lynis_quick_mode: true                                        # Run Lynis in quick mode.
+lynis_offline_bundle_from_control_node: false                 # True: clone+bundle on control node, then copy tar to target.
+lynis_control_cache_dir: "/tmp/idops-lynis-cache"             # Temp cache path for commit-tagged Lynis tar bundles.
 
 # -----------------------------------------------------------------------------
 # Preparation baseline
@@ -128,21 +129,26 @@ ssh_disable_motd_news: true     # Disable motd-news on Debian/Ubuntu.
 # -----------------------------------------------------------------------------
 banner_issue_text: |
   +------------------------------------------------------------------+
-  | SECURITY NOTICE: AUTHORIZED ACCESS ONLY                          |
-  | This system is private property.                                 |
-  | Access is restricted to authorized users only.                   |
-  | All activity is monitored and recorded.                          |
-  | Unauthorized use is prohibited and may be prosecuted.            |
-  | Disconnect immediately if you are not authorized.                |
+  | IDOPS SECURITY NOTICE                                             |
+  | AUTHORIZED USE ONLY - MONITORED SYSTEM                           |
+  |                                                                  |
+  | This system and all connected resources are restricted to         |
+  | approved users of the IdOps platform.                            |
+  |                                                                  |
+  | Actions are logged, audited, and attributable.                   |
+  | Unauthorized access is prohibited and may be prosecuted.          |
+  | Disconnect now if you are not authorized.                        |
   +------------------------------------------------------------------+
 banner_issue_net_text: |
   +------------------------------------------------------------------+
-  | SECURITY NOTICE: AUTHORIZED SSH ACCESS ONLY                      |
-  | This SSH service is private property.                            |
-  | Access is restricted to authorized users only.                   |
-  | All activity is monitored and recorded.                          |
-  | Unauthorized use is prohibited and may be prosecuted.            |
-  | Disconnect immediately if you are not authorized.                |
+  | IDOPS SSH SECURITY NOTICE                                         |
+  | AUTHORIZED ACCESS ONLY - SESSION RECORDING ENABLED               |
+  |                                                                  |
+  | This SSH endpoint is part of the IdOps-managed environment.      |
+  | All login attempts and commands are monitored and logged.        |
+  |                                                                  |
+  | Unauthorized use is forbidden and may result in legal action.    |
+  | Disconnect now if you are not explicitly authorized.             |
   +------------------------------------------------------------------+
 
 # -----------------------------------------------------------------------------
@@ -176,23 +182,23 @@ remote_syslog_protocol: "tcp" # Remote syslog protocol.
 # -----------------------------------------------------------------------------
 # Firewall policy (iptables-persistent)
 # -----------------------------------------------------------------------------
-firewall_default_input_policy: "DROP"    # Default INPUT policy.
-firewall_default_forward_policy: "DROP"  # Default FORWARD policy.
-firewall_default_output_policy: "ACCEPT" # Default OUTPUT policy.
-firewall_allow_icmp_v4: true             # Allow ICMPv4.
-firewall_allow_icmp_v6: true             # Allow ICMPv6.
+firewall_default_input_policy: "DROP"       # Default INPUT policy.
+firewall_default_forward_policy: "DROP"     # Default FORWARD policy.
+firewall_default_output_policy: "ACCEPT"    # Default OUTPUT policy.
+firewall_allow_icmp_v4: true                # Allow ICMPv4.
+firewall_allow_icmp_v6: true                # Allow ICMPv6.
 firewall_enable_extra_input_hardening: true # Enable additional input chain hardening.
-firewall_allow_ssh_from_anywhere: true   # Allow SSH from all sources.
-firewall_allowed_ssh_cidrs: []           # SSH CIDR allow list when not open to all.
-firewall_allowed_tcp_ports: []           # Additional allowed TCP ports (IPv4).
-firewall_allowed_udp_ports: []           # Additional allowed UDP ports (IPv4).
-firewall_allowed_tcp_ports_v6: []        # Additional allowed TCP ports (IPv6).
-firewall_allowed_udp_ports_v6: []        # Additional allowed UDP ports (IPv6).
-firewall_forward_ipv4_enabled: false     # Enable IPv4 forwarding.
-firewall_forward_ipv4_lan_interface: ""  # LAN interface for forwarding.
-firewall_forward_ipv4_wan_interface: ""  # WAN interface for forwarding.
-firewall_forward_ipv4_lan_cidr: ""       # LAN CIDR for forwarding rules.
-firewall_nat_ipv4_enabled: false         # Enable IPv4 NAT masquerade.
+firewall_allow_ssh_from_anywhere: true      # Allow SSH from all sources.
+firewall_allowed_ssh_cidrs: []              # SSH CIDR allow list when not open to all.
+firewall_allowed_tcp_ports: []              # Additional allowed TCP ports (IPv4).
+firewall_allowed_udp_ports: []              # Additional allowed UDP ports (IPv4).
+firewall_allowed_tcp_ports_v6: []           # Additional allowed TCP ports (IPv6).
+firewall_allowed_udp_ports_v6: []           # Additional allowed UDP ports (IPv6).
+firewall_forward_ipv4_enabled: false        # Enable IPv4 forwarding.
+firewall_forward_ipv4_lan_interface: ""     # LAN interface for forwarding.
+firewall_forward_ipv4_wan_interface: ""     # WAN interface for forwarding.
+firewall_forward_ipv4_lan_cidr: ""          # LAN CIDR for forwarding rules.
+firewall_nat_ipv4_enabled: false            # Enable IPv4 NAT masquerade.
 
 # -----------------------------------------------------------------------------
 # Fail2ban settings
