@@ -5,7 +5,7 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "Selene"       # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_host: "hypervisor.example.local"       # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
 kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hypervisor. Values: absolute path.
 kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
 
@@ -17,11 +17,11 @@ kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --ch
 # -----------------------------------------------------------------------------
 # Storage paths
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/home/bahman/b/QEMUKVM/isoPool/"        # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                         # Auto-create kvm_image_cache_path when missing.
-kvm_instance_disk_pool_path: "/home/bahman/b/QEMUKVM/stgPool/" # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"     # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                     # Remove cloud-init workspace at end of provision stage.
+kvm_image_cache_path: "/var/lib/libvirt/images/cache/"            # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: true                            # Auto-create kvm_image_cache_path when missing.
+kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances/" # Per-instance VM disk directory.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"        # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: true                        # Remove cloud-init workspace at end of provision stage.
 
 # -----------------------------------------------------------------------------
 # Image cache behavior
@@ -43,14 +43,14 @@ kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance dis
 # -----------------------------------------------------------------------------
 # Network defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "static_network_24"     # Libvirt network name for guest NIC attach.
+kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
 kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
 kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
 kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
   - "enp1s0"
   - "eth0"
 kvm_default_guest_network_prefix: "24"             # Default IPv4 prefix length.
-kvm_default_guest_network_gateway: "192.168.24.1"  # Default IPv4 gateway.
+kvm_default_guest_network_gateway: "192.168.122.1" # Default IPv4 gateway.
 kvm_default_guest_dns_servers:                     # Default DNS resolvers for guest cloud-init config.
   - "1.1.1.1"
   - "8.8.8.8"
@@ -71,7 +71,7 @@ kvm_default_cloud_init_disable_root: true              # Disable direct root log
 # Cloud-init seed content defaults (overridable per instance)
 # -----------------------------------------------------------------------------
 kvm_default_cloud_init_manage_etc_hosts: true            # Manage /etc/hosts entries. Values: true | false.
-kvm_default_cloud_init_timezone: "Asia/Tehran"                   # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
+kvm_default_cloud_init_timezone: "UTC"                   # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
 kvm_default_cloud_init_locale: "en_US.UTF-8"             # Guest locale.
 kvm_default_cloud_init_package_update: true              # Run apt update during first boot.
 kvm_default_cloud_init_package_upgrade: true             # Run apt upgrade during first boot.
@@ -191,7 +191,7 @@ kvm_cloud_image_catalog:
 kvm_instance_definitions:
   - instance_name: "debian-12-a"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.121"  # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.121" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
@@ -205,7 +205,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-12-b"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.122"  # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.122" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
@@ -219,7 +219,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-13-a"             # Target libvirt domain name.
     image_profile_id: "debian-13"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.131"  # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.131" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
@@ -233,7 +233,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-13-b"             # Target libvirt domain name.
     image_profile_id: "debian-13"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.132"  # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.132" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
