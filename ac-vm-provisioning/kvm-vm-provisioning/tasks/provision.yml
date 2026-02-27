@@ -57,6 +57,20 @@
     kvm_run_stage_provision: "{{ (kvm_provision_stage | default('full')) in ['full', 'provision'] }}"
     kvm_run_stage_runtime: "{{ (kvm_provision_stage | default('full')) in ['full', 'runtime'] }}"
 
+- name: Validate performance and manifest policy settings
+  ansible.builtin.assert:
+    that:
+      - (kvm_parallel_instance_workers | default(4) | int) > 0
+      - (kvm_image_manifest_refresh_policy | default('on-demand')) in ['on-demand', 'always']
+      - (kvm_debian12_network_boot_wait_timeout_seconds | default(360) | int) > 0
+      - (kvm_default_cloud_init_networkd_wait_online_timeout_seconds | default(30) | int) > 0
+    fail_msg: >-
+      Invalid performance or manifest policy setting.
+      Ensure kvm_parallel_instance_workers > 0,
+      kvm_image_manifest_refresh_policy is on-demand|always,
+      kvm_debian12_network_boot_wait_timeout_seconds > 0,
+      and kvm_default_cloud_init_networkd_wait_online_timeout_seconds > 0.
+
 - name: Validate instance image profile references
   ansible.builtin.assert:
     that:
@@ -77,7 +91,7 @@
       root_disk_size_gb: "{{ kvm_default_root_disk_size_gb }}"
       firmware_boot_mode: "uefi"
       virt_install_machine_type: "q35"
-      seed_device_bus: "sata"
+      seed_device_bus: "scsi"
       guest_network_interface: "{{ kvm_default_guest_network_interface }}"
       guest_network_prefix: "{{ kvm_default_guest_network_prefix }}"
       guest_network_gateway: "{{ kvm_default_guest_network_gateway }}"
@@ -102,7 +116,10 @@
       cloud_init_bootcmd: "{{ kvm_default_cloud_init_bootcmd }}"
       cloud_init_runcmd: "{{ kvm_default_cloud_init_runcmd }}"
       cloud_init_write_files: "{{ kvm_default_cloud_init_write_files }}"
+      cloud_init_tune_networkd_wait_online: "{{ kvm_default_cloud_init_tune_networkd_wait_online | default(true) }}"
+      cloud_init_networkd_wait_online_timeout_seconds: "{{ kvm_default_cloud_init_networkd_wait_online_timeout_seconds | default(30) }}"
       cloud_init_final_message: "{{ kvm_default_cloud_init_final_message }}"
+      force_single_socket_vcpu_topology: "{{ kvm_force_single_socket_vcpu_topology | default(true) }}"
       instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
       instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
 
@@ -179,6 +196,7 @@
       - item.cloud_init_write_files is sequence
       - item.cloud_init_write_files is not string
       - item.cloud_init_final_message is string
+      - item.force_single_socket_vcpu_topology is boolean
       - item.instance_extra_disks_enabled is boolean
       - item.instance_extra_disks is sequence
       - item.instance_extra_disks is not string

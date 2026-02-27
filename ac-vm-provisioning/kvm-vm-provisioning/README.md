@@ -21,6 +21,7 @@ Scope: this playbook supports **Debian images only**.
 - Configurable firmware mode per profile/instance (`bios` or `uefi`)
 - VM domain definition via `virt-install --import`
 - Runtime workflow for start + TCP port checks + optional snapshots
+- Optional CPU topology policy to force `sockets=1,threads=1` per instance
 - Strict cleanup scope to declared instance names only
 
 ## Directory Layout
@@ -33,6 +34,8 @@ Scope: this playbook supports **Debian images only**.
 - `tasks/provision-runtime.yml`
 - `tasks/cleanup.yml`
 - `tasks/ping.yml`
+- `callback_plugins/idops_task_timing.py`
+- `scripts/benchmark_report.py`
 - `vars/kvm-provisioning.yml`
 - `host.yml`
 - `ansible.cfg`
@@ -97,6 +100,9 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
    `make image-cache` processes all catalog profiles, while instance creation
    still follows `kvm_instance_definitions`.
 12. Default demo password is `changeme`; CHANGE THIS PASSWORD BEFORE PRODUCTION.
+13. CPU topology default is single-socket/single-thread policy enabled
+    (`kvm_force_single_socket_vcpu_topology=true`). Set it to `false`
+    if you want libvirt to use plain `vcpu_count` topology.
 
 Then run:
 
@@ -128,6 +134,8 @@ make provision-check
 make cleanup
 make cleanup-force
 make cleanup-force-disks
+make benchmark-cold
+make benchmark-report
 ```
 
 Difference between `make provision-stage` and `make provision`:
@@ -146,9 +154,45 @@ images using checksum-versioned filenames. When Debian `latest` changes, a new
 versioned file is downloaded and old cached files are preserved.
 By design, it caches all profiles defined in `kvm_cloud_image_catalog`.
 
+## Safety And Performance Policy
+
+Default policy is safety-first:
+
+- checksum verification remains enabled by default (`kvm_image_cache_verify_on_run=true`)
+- snapshot behavior remains enabled by default
+- cleanup scope remains exact-name and opt-in for disk deletion
+
+Performance tuning is applied internally without removing those safety defaults.
+
+## Benchmarking
+
+Use benchmark targets only when you intentionally want destructive cold-run measurements:
+
+```bash
+make benchmark-cold
+make benchmark-report
+```
+
+`make benchmark-cold` does:
+
+1. cleanup with `kvm_cleanup_confirmed=true` and disk removal enabled
+2. timed full provision with shell `time`
+3. cloud-init apt update/upgrade disabled only for benchmark comparability
+
+Benchmark artifacts are written to `logs/benchmark/<timestamp>/`:
+
+- `time.txt` (wall clock and CPU timing data from shell `time`)
+- `task_timings.jsonl`
+- `task_timings.csv`
+- `timing_summary.json`
+
+`make benchmark-report` prints wall-time, stage totals, and top slow tasks.
+Note: benchmark metrics explicitly exclude apt update/upgrade time.
+
 When snapshot is enabled, runtime stage waits for TCP port readiness first and
 then applies a grace delay before shutdown/snapshot to reduce first-boot
 interruption risk on slow mirrors.
+Default grace is controlled by `kvm_wait_for_cloud_init_grace_seconds` (60s).
 
 Developer note: Debian `nocloud` artifacts were rejected for this workflow after
 testing because they did not provide reliable cloud-init behavior in this stack.
@@ -161,10 +205,10 @@ Developer note: UEFI provisioning uses secure-boot OVMF paths internally
 (`OVMF_CODE_4M.ms.fd` + `OVMF_VARS_4M.ms.fd`) and does not expose secure-boot
 toggles in user variables.
 
-Developer note: seed-bus/machine-type are profile-specific for compatibility:
-- Debian 12 uses `virt_install_machine_type: pc` + `seed_device_bus: ide`
-  because the Debian 12 cloud kernel in this workflow lacks `ahci` support.
-- Debian 13 uses `virt_install_machine_type: q35` + `seed_device_bus: sata`.
+Developer note: machine/firmware are aligned across Debian variants
+(`virt_install_machine_type: q35`, `firmware_boot_mode: uefi`).
+For seed media, both profiles use `seed_device_bus: scsi` to avoid Debian 12
+genericcloud cases where SATA seed media is not detected early at boot.
 
 If provisioning fails with `Network not found`, run on hypervisor:
 
@@ -186,6 +230,14 @@ shown in the failure message to speed up root-cause analysis.
 Use the same URI configured in `kvm_libvirt_connection_uri` when checking manually.
 For static-IP guests, `virsh domifaddr` can be empty with default source; also check:
 `virsh -c qemu:///system domifaddr <instance> --source arp` and `--source agent`.
+
+Debian 12 note:
+
+- The playbook avoids forced interface `set-name` during Debian 12 network rendering.
+- Runtime waits use `kvm_debian12_network_boot_wait_timeout_seconds` for Debian 12
+  instances to absorb slower first-boot network initialization.
+- If needed, increase `kvm_debian12_network_boot_wait_timeout_seconds` before
+  increasing global SSH wait values.
 
 ## Cleanup Safety Rules
 
@@ -212,8 +264,15 @@ Core interface keys:
 - `kvm_image_cache_path`
 - `kvm_instance_disk_pool_path`
 - `kvm_image_cache_verify_on_run`
+- `kvm_image_manifest_refresh_policy`
+- `kvm_force_manifest_refresh`
 - `kvm_cloud_image_catalog`
 - `kvm_instance_definitions`
+- `kvm_parallel_instance_workers`
+- `kvm_skip_pre_snapshot_port_recheck`
+- `kvm_debian12_network_boot_wait_timeout_seconds`
+- `kvm_wait_for_cloud_init_grace_seconds`
+- `kvm_force_single_socket_vcpu_topology`
 - `kvm_cleanup_confirmed`
 - `kvm_cleanup_remove_instance_disks`
 

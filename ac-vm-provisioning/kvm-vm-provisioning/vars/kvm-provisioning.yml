@@ -5,9 +5,9 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "kvm-hypervisor.example.internal" # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
-kvm_hypervisor_python_interpreter: "/usr/bin/python3"  # Python path on hypervisor. Values: absolute path.
-kvm_libvirt_connection_uri: "qemu:///system"           # Libvirt URI. Values: qemu:///system | qemu:///session.
+kvm_hypervisor_host: "kvm-hypervisor"                 # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hypervisor. Values: absolute path.
+kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
 
 # -----------------------------------------------------------------------------
 # Provision workflow stage control
@@ -18,17 +18,19 @@ kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --ch
 # -----------------------------------------------------------------------------
 # Storage paths
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/idops/kvm/image-cache/"           # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                            # Auto-create kvm_image_cache_path when missing.
-kvm_instance_disk_pool_path: "/var/lib/idops/kvm/instance-disks/" # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"        # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                        # Remove cloud-init workspace at end of provision stage.
+kvm_image_cache_path: "/var/lib/libvirt/image-cache/"           # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: true                          # Auto-create kvm_image_cache_path when missing.
+kvm_instance_disk_pool_path: "/var/lib/libvirt/instance-disks/" # Per-instance VM disk directory.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"      # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: true                      # Remove cloud-init workspace at end of provision stage.
 
 # -----------------------------------------------------------------------------
 # Image cache behavior
 # -----------------------------------------------------------------------------
 kvm_image_cache_verify_on_run: true                # Verify cached image checksums on image-cache stage.
 kvm_image_cache_repair_on_checksum_mismatch: false # Re-download corrupted cached image file when checksum fails.
+kvm_image_manifest_refresh_policy: "on-demand"     # Manifest fetch policy in provision flow. Values: on-demand | always.
+kvm_force_manifest_refresh: false                  # Force manifest refresh regardless of policy. Values: true | false.
 kvm_allow_nocloud_images: false                    # Allow nocloud images. Values: false (recommended) | true (override).
 
 # -----------------------------------------------------------------------------
@@ -36,15 +38,16 @@ kvm_allow_nocloud_images: false                    # Allow nocloud images. Value
 # -----------------------------------------------------------------------------
 kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
 kvm_default_root_disk_size_gb: 20              # Default total instance disk size in GiB for new instances.
+kvm_parallel_instance_workers: 4               # Max concurrent per-instance heavy operations during provision stage.
 kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance disk files when domain is missing.
 
 # -----------------------------------------------------------------------------
 # Network defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
-kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
-kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
-kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
+kvm_default_libvirt_network_name: "default"        # Libvirt network name for guest NIC attach.
+kvm_auto_start_required_libvirt_networks: false    # Auto-start inactive required networks during preflight.
+kvm_default_guest_network_interface: "ens3"        # Guest NIC name for cloud-init network config.
+kvm_guest_network_interface_fallbacks:             # Additional interface candidates for cloud-init static config.
   - "enp1s0"
   - "eth0"
 kvm_default_guest_network_prefix: "24"             # Default IPv4 prefix length.
@@ -56,12 +59,14 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
 # -----------------------------------------------------------------------------
 # Cloud-init guest access defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_user: "debian"                   # Initial guest username created by cloud-init.
-kvm_default_cloud_init_ssh_public_keys:                 # Initial SSH authorized keys for cloud-init user.
+kvm_default_cloud_init_user: "debian"                  # Initial guest username created by cloud-init.
+kvm_default_cloud_init_ssh_public_keys:                # Initial SSH authorized keys for cloud-init user.
   - "ssh-ed25519 REPLACE_ME_WITH_YOUR_PUBLIC_KEY"
-kvm_default_cloud_init_plain_password: "idops_password" # CHANGE THIS PASSWORD BEFORE PRODUCTION.
-kvm_default_cloud_init_ssh_password_auth: true          # Enable SSH password auth in guest.
-kvm_default_cloud_init_disable_root: true               # Disable direct root login via cloud-init.
+kvm_default_cloud_init_plain_password: "changeme"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+kvm_default_cloud_init_root_plain_password: ""         # Optional root password (leave empty to keep root password locked).
+kvm_default_cloud_init_user_sudo_rule: "ALL=(ALL) ALL" # Sudo policy for cloud-init user. Example: ALL=(ALL) ALL | ALL=(ALL) NOPASSWD:ALL.
+kvm_default_cloud_init_ssh_password_auth: true         # Enable SSH password auth in guest.
+kvm_default_cloud_init_disable_root: true              # Disable direct root login via cloud-init.
 
 # -----------------------------------------------------------------------------
 # Cloud-init seed content defaults (overridable per instance)
@@ -84,51 +89,29 @@ kvm_default_cloud_init_packages: []                                             
 kvm_default_cloud_init_bootcmd: []                                              # cloud-init bootcmd list.
 kvm_default_cloud_init_runcmd: []                                               # cloud-init runcmd list.
 kvm_default_cloud_init_write_files: []                                          # cloud-init write_files list.
+kvm_default_cloud_init_tune_networkd_wait_online: true                          # Apply systemd-networkd-wait-online timeout tuning on Debian 12 guests.
+kvm_default_cloud_init_networkd_wait_online_timeout_seconds: 30                 # Debian 12 systemd-networkd-wait-online timeout in seconds.
 kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" # Final cloud-init completion message.
+kvm_allow_mount_var_on_extra_disk: false                                        # Allow /var mount on fresh extra disk (unsafe). Values: false | true.
+kvm_force_single_socket_vcpu_topology: true                                     # CPU topology policy. true=force sockets=1,threads=1,cores=vcpu_count for all instances; false=use plain vcpu_count only.
 
 # -----------------------------------------------------------------------------
-# Cloud-init storage layout controls (overridable per instance)
+# Optional additional instance disks (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_growpart_devices: []                    # Devices for cloud-init growpart. Values: [] | list (for example: ['/']).
-kvm_default_cloud_init_resize_rootfs: false                    # Expand root filesystem automatically. Values: true | false.
-kvm_default_cloud_init_storage_layout_enabled: true            # Enable custom storage map injection. Values: true | false.
-kvm_default_cloud_init_storage_config:                         # Storage map. Values: mapping with disk_setup, fs_setup, mounts.
-  disk_setup:                                                  # Partition layout definitions. Values: mapping keyed by block device.
-    /dev/vda:
-      table_type: gpt                                          # Partition table type. Values: gpt | mbr.
-      overwrite: true                                          # Repartition target disk on first boot. Values: true | false.
-      layout:                                                  # Partition percentages; sum should be 100.
-        - 5                                                    # /boot/efi = 1GiB
-        - 10                                                   # /boot = 2GiB
-        - 50                                                   # / = 10GiB
-        - 35                                                   # /var = 7GiB
-  fs_setup:                                                    # Filesystem definitions for created partitions.
-    - label: efi                                               # Filesystem label.
-      filesystem: vfat                                         # Filesystem type. Values: vfat | ext4 | xfs.
-      device: /dev/vda1                                        # Target block device path.
-    - label: boot                                              # Filesystem label.
-      filesystem: ext4                                         # Filesystem type. Values: ext4 | xfs.
-      device: /dev/vda2                                        # Target block device path.
-    - label: root                                              # Filesystem label.
-      filesystem: ext4                                         # Filesystem type. Values: ext4 | xfs.
-      device: /dev/vda3                                        # Target block device path.
-    - label: var                                               # Filesystem label.
-      filesystem: ext4                                         # Filesystem type. Values: ext4 | xfs.
-      device: /dev/vda4                                        # Target block device path.
-  mounts:                                                      # Mount table entries. Format: [device, mountpoint, fstype, options, dump, pass].
-    - ["/dev/vda1", "/boot/efi", "vfat", "defaults", "0", "2"] # EFI system partition mount entry.
-    - ["/dev/vda2", "/boot", "ext4", "defaults", "0", "2"]     # Boot partition mount entry.
-    - ["/dev/vda3", "/", "ext4", "defaults", "0", "1"]         # Root partition mount entry.
-    - ["/dev/vda4", "/var", "ext4", "defaults", "0", "2"]      # Var partition mount entry.
+kvm_default_instance_extra_disks_enabled: false # Enable additional disk provisioning. Values: true | false.
+kvm_default_instance_extra_disks: []            # Extra disk list. Values: [] | list of disk maps (guest_device, size_gb, mount_point, ...).
 
 # -----------------------------------------------------------------------------
 # Runtime behavior
 # -----------------------------------------------------------------------------
-kvm_ensure_requested_instances_running: true # Ensure requested instances are running in runtime stage.
-kvm_wait_for_instance_ssh: true              # Wait for SSH reachability after start phases.
-kvm_wait_for_ssh_timeout_seconds: 180        # SSH wait timeout per instance in seconds.
-kvm_wait_for_ssh_poll_retries: 40            # Async-status retries while waiting for SSH jobs.
-kvm_wait_for_ssh_poll_delay_seconds: 5       # Delay between SSH async-status polls in seconds.
+kvm_ensure_requested_instances_running: true        # Ensure requested instances are running in runtime stage.
+kvm_wait_for_instance_ssh: true                     # Wait for TCP reachability on ssh_port after start phases.
+kvm_wait_for_ssh_timeout_seconds: 180               # TCP wait timeout per instance in seconds.
+kvm_debian12_network_boot_wait_timeout_seconds: 360 # Debian 12 first-boot TCP wait timeout to absorb slower network bring-up.
+kvm_wait_for_cloud_init_before_snapshot: true       # Enforce pre-snapshot readiness gate for newly created instances.
+kvm_wait_for_cloud_init_timeout_seconds: 600        # Pre-snapshot TCP wait timeout per instance in seconds.
+kvm_wait_for_cloud_init_grace_seconds: 60           # Extra wait after TCP port is open before snapshot (increase on slow mirrors).
+kvm_skip_pre_snapshot_port_recheck: true            # Skip duplicate pre-snapshot TCP wait when runtime TCP wait already passed.
 
 # -----------------------------------------------------------------------------
 # Snapshot behavior
@@ -169,7 +152,10 @@ kvm_cloud_image_catalog:
     image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"       # Official checksum manifest.
     image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
     virt_install_os_variant: "debian12"                                                                      # OS variant for virt-install.
+    virt_install_machine_type: "q35"                                                                         # Debian 12 profile machine type (kept aligned with Debian 13).
+    seed_device_bus: "scsi"                                                                                  # Debian 12 profile seed bus (kept aligned with Debian 13; avoids SATA seed visibility issues on Debian 12 cloud kernel).
     cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
+    firmware_boot_mode: "uefi"                                                                               # Debian 12 profile firmware mode (kept aligned with Debian 13).
 
   debian-13:
     image_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"   # Source URL for base image.
@@ -177,7 +163,10 @@ kvm_cloud_image_catalog:
     image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/SHA512SUMS"         # Official checksum manifest.
     image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
     virt_install_os_variant: "debian13"                                                                      # OS variant for virt-install.
+    virt_install_machine_type: "q35"                                                                         # Debian 13 profile uses q35 machine.
+    seed_device_bus: "scsi"                                                                                  # Debian 13 profile seed bus (aligned with Debian 12 for consistent behavior).
     cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
+    firmware_boot_mode: "uefi"                                                                               # Debian 13 genericcloud supports UEFI in this workflow.
 
 # -----------------------------------------------------------------------------
 # Instance definitions (managed scope for provision + cleanup)
@@ -188,33 +177,73 @@ kvm_cloud_image_catalog:
 # - guest_network_prefix
 # - guest_network_gateway
 # - guest_dns_servers
+# - instance_extra_disks_enabled
+# - instance_extra_disks
 # - instance_mac_address (format: xx:xx:xx:xx:xx:xx)
+#
+# instance_extra_disks item keys:
+# - guest_device (required, vd[b-z], example: vdb)
+# - size_gb (required, integer > 0)
+# - mount_point (required, absolute path, example: /data or /var/lib/app)
+#   NOTE: /var is blocked by default because mounting a fresh disk on /var can break boot.
+# - filesystem (optional, ext4 | xfs, default: ext4)
+# - mount_options (optional, default: defaults,nofail)
+# - disk_extension (optional, default: instance_disk_extension)
+# - filesystem_label (optional, default: <instance>-<guest_device>, truncated)
 # -----------------------------------------------------------------------------
 kvm_instance_definitions:
-  - instance_name: "debian-12-a"            # Target libvirt domain name.
-    image_profile_id: "debian-12"           # Cloud image profile reference.
+  - instance_name: "debian-12-a"             # Target libvirt domain name.
+    image_profile_id: "debian-12"            # Cloud image profile reference.
     instance_ipv4_address: "192.168.122.121" # Instance static IPv4 address.
-    vcpu_count: 2                           # vCPU allocation.
-    memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 20                   # Root disk target size in GiB.
+    vcpu_count: 2                            # vCPU allocation.
+    memory_mb: 2048                          # Memory allocation in MB.
+    root_disk_size_gb: 20                    # Root disk target size in GiB.
+    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+    instance_extra_disks:                    # Attach a dedicated /data disk.
+      - guest_device: "vdb"                  # Guest disk device.
+        size_gb: 10                          # Disk size in GiB.
+        mount_point: "/data"                 # Mount point inside guest.
+        filesystem: "ext4"                   # Filesystem for this disk.
+        mount_options: "defaults,nofail"     # Mount options written to fstab.
 
-  - instance_name: "debian-12-b"            # Target libvirt domain name.
-    image_profile_id: "debian-12"           # Cloud image profile reference.
+  - instance_name: "debian-12-b"             # Target libvirt domain name.
+    image_profile_id: "debian-12"            # Cloud image profile reference.
     instance_ipv4_address: "192.168.122.122" # Instance static IPv4 address.
-    vcpu_count: 2                           # vCPU allocation.
-    memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 20                   # Root disk target size in GiB.
+    vcpu_count: 2                            # vCPU allocation.
+    memory_mb: 2048                          # Memory allocation in MB.
+    root_disk_size_gb: 20                    # Root disk target size in GiB.
+    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+    instance_extra_disks:                    # Attach a dedicated /data disk.
+      - guest_device: "vdb"                  # Guest disk device.
+        size_gb: 10                          # Disk size in GiB.
+        mount_point: "/data"                 # Mount point inside guest.
+        filesystem: "ext4"                   # Filesystem for this disk.
+        mount_options: "defaults,nofail"     # Mount options written to fstab.
 
-  - instance_name: "debian-13-a"            # Target libvirt domain name.
-    image_profile_id: "debian-13"           # Cloud image profile reference.
+  - instance_name: "debian-13-a"             # Target libvirt domain name.
+    image_profile_id: "debian-13"            # Cloud image profile reference.
     instance_ipv4_address: "192.168.122.131" # Instance static IPv4 address.
-    vcpu_count: 2                           # vCPU allocation.
-    memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 20                   # Root disk target size in GiB.
+    vcpu_count: 2                            # vCPU allocation.
+    memory_mb: 2048                          # Memory allocation in MB.
+    root_disk_size_gb: 20                    # Root disk target size in GiB.
+    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+    instance_extra_disks:                    # Attach a dedicated /data disk.
+      - guest_device: "vdb"                  # Guest disk device.
+        size_gb: 10                          # Disk size in GiB.
+        mount_point: "/data"                 # Mount point inside guest.
+        filesystem: "ext4"                   # Filesystem for this disk.
+        mount_options: "defaults,nofail"     # Mount options written to fstab.
 
-  - instance_name: "debian-13-b"            # Target libvirt domain name.
-    image_profile_id: "debian-13"           # Cloud image profile reference.
+  - instance_name: "debian-13-b"             # Target libvirt domain name.
+    image_profile_id: "debian-13"            # Cloud image profile reference.
     instance_ipv4_address: "192.168.122.132" # Instance static IPv4 address.
-    vcpu_count: 2                           # vCPU allocation.
-    memory_mb: 2048                         # Memory allocation in MB.
-    root_disk_size_gb: 20                   # Root disk target size in GiB.
+    vcpu_count: 2                            # vCPU allocation.
+    memory_mb: 2048                          # Memory allocation in MB.
+    root_disk_size_gb: 20                    # Root disk target size in GiB.
+    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+    instance_extra_disks:                    # Attach a dedicated /data disk.
+      - guest_device: "vdb"                  # Guest disk device.
+        size_gb: 10                          # Disk size in GiB.
+        mount_point: "/data"                 # Mount point inside guest.
+        filesystem: "ext4"                   # Filesystem for this disk.
+        mount_options: "defaults,nofail"     # Mount options written to fstab.

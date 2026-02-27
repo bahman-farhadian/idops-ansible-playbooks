@@ -2,3 +2,4 @@ __pycache__/
 *.retry
 .ansible/
 *.log
+logs/benchmark/

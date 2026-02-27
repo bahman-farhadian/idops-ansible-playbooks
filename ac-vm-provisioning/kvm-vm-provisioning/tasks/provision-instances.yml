@@ -32,6 +32,11 @@
     normalized_cloud_init_workspace_path: "{{ kvm_cloud_init_workspace_path | regex_replace('/+$', '') }}"
   when: instances_to_create | length > 0
 
+- name: Normalize provision-stage parallel worker count
+  ansible.builtin.set_fact:
+    kvm_effective_parallel_instance_workers: "{{ [1, (kvm_parallel_instance_workers | default(4) | int)] | max }}"
+  when: instances_to_create | length > 0
+
 - name: Build materialized path entries per instance
   ansible.builtin.set_fact:
     instances_to_create_materialized: >-
@@ -101,6 +106,7 @@
   when:
     - instances_to_create | length > 0
     - kvm_run_mutation_phases | bool
+    - not (kvm_preflight_commands_validated | default(false) | bool)
 
 - name: Fail when required provision commands are missing
   ansible.builtin.fail:
@@ -114,6 +120,7 @@
   when:
     - instances_to_create | length > 0
     - kvm_run_mutation_phases | bool
+    - not (kvm_preflight_commands_validated | default(false) | bool)
     - >-
       (
         provision_command_checks.results
@@ -434,34 +441,31 @@
     - instances_to_create | length > 0
     - kvm_run_mutation_phases | bool
 
-- name: Create per-instance disk files from cached base image
-  ansible.builtin.command:
-    argv:
-      - qemu-img
-      - convert
-      - -O
-      - "{{ item.instance_disk_extension }}"
-      - "{{ item.base_image_path }}"
-      - "{{ item.instance_disk_path }}"
-  loop: "{{ instances_requiring_disk_create | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  changed_when: true
+- name: Build root-disk creation batches
+  ansible.builtin.set_fact:
+    root_disk_create_batches: >-
+      {{
+        (
+          instances_requiring_disk_create
+          | default([])
+          | batch(kvm_effective_parallel_instance_workers | int)
+          | map('list')
+          | list
+        )
+      }}
   when:
     - kvm_run_mutation_phases | bool
     - (instances_requiring_disk_create | default([])) | length > 0
 
-- name: Resize newly created instance disks
-  ansible.builtin.command:
-    argv:
-      - qemu-img
-      - resize
-      - "{{ item.instance_disk_path }}"
-      - "{{ item.root_disk_size_gb }}G"
-  loop: "{{ instances_requiring_disk_create | default([]) }}"
+- name: Create and resize root disks in parallel batches
+  ansible.builtin.include_tasks: tasks/provision-instances-batch-root-disks.yml
+  loop: "{{ root_disk_create_batches | default([]) }}"
   loop_control:
-    label: "{{ item.instance_name }}"
-  changed_when: true
+    label: >-
+      {{
+        kvm_instance_batch | map(attribute='instance_name') | list | join(', ')
+      }}
+    loop_var: kvm_instance_batch
   when:
     - kvm_run_mutation_phases | bool
     - (instances_requiring_disk_create | default([])) | length > 0
@@ -525,28 +529,35 @@
     - kvm_run_mutation_phases | bool
     - (instances_requiring_disk_create | default([])) | length > 0
 
-- name: Create additional disk files
-  ansible.builtin.command:
-    argv:
-      - qemu-img
-      - create
-      - -f
-      - "{{ item.1.disk_extension | default(item.0.instance_disk_extension) }}"
-      - >-
-        {{
-          normalized_instance_disk_pool_path
-          ~ '/'
-          ~ item.0.instance_name
-          ~ '-'
-          ~ item.1.guest_device
-          ~ '.'
-          ~ (item.1.disk_extension | default(item.0.instance_disk_extension))
-        }}
-      - "{{ item.1.size_gb }}G"
-  loop: "{{ additional_disks_requiring_create | default([]) }}"
+- name: Build additional-disk creation batches
+  ansible.builtin.set_fact:
+    additional_disk_create_batches: >-
+      {{
+        (
+          additional_disks_requiring_create
+          | default([])
+          | batch(kvm_effective_parallel_instance_workers | int)
+          | map('list')
+          | list
+        )
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - (additional_disks_requiring_create | default([])) | length > 0
+
+- name: Create additional disks in parallel batches
+  ansible.builtin.include_tasks: tasks/provision-instances-batch-extra-disk-create.yml
+  loop: "{{ additional_disk_create_batches | default([]) }}"
   loop_control:
-    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
-  changed_when: true
+    label: >-
+      {{
+        kvm_extra_disk_batch
+        | map('first')
+        | map(attribute='instance_name')
+        | list
+        | join(', ')
+      }}
+    loop_var: kvm_extra_disk_batch
   when:
     - kvm_run_mutation_phases | bool
     - (additional_disks_requiring_create | default([])) | length > 0
@@ -604,9 +615,32 @@
         - {{ package_name | to_json }}
       {% endfor %}
       {% endif %}
-      {% if (item.cloud_init_write_files | default([])) | length > 0 %}
+      {% set generated_write_files = [] %}
+      {% if (item.cloud_init_tune_networkd_wait_online | default(true) | bool) and ((item.image_profile_id | default('')) == 'debian-12') %}
+      {% set generated_write_files = generated_write_files + [
+        {
+          'path': '/etc/systemd/system/systemd-networkd-wait-online.service.d/10-idops-timeout.conf',
+          'owner': 'root:root',
+          'permissions': '0644',
+          'content': (
+            '[Service]\n'
+            ~ 'ExecStart=\n'
+            ~ 'ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout='
+            ~ (
+              item.cloud_init_networkd_wait_online_timeout_seconds
+              | default(30)
+              | int
+              | string
+            )
+            ~ '\n'
+          )
+        }
+      ] %}
+      {% endif %}
+      {% set effective_write_files = (item.cloud_init_write_files | default([])) + generated_write_files %}
+      {% if (effective_write_files | default([])) | length > 0 %}
       write_files:
-      {{ item.cloud_init_write_files | to_nice_yaml(indent=2) | indent(2, true) }}
+      {{ effective_write_files | to_nice_yaml(indent=2) | indent(2, true) }}
       {% endif %}
       {% if (item.cloud_init_bootcmd | default([])) | length > 0 %}
       bootcmd:
@@ -680,7 +714,9 @@
         idops0:
           match:
             macaddress: "{{ item.instance_mac_address | lower }}"
+      {% if item.image_profile_id != 'debian-12' %}
           set-name: "{{ item.guest_network_interface }}"
+      {% endif %}
           dhcp4: false
           dhcp6: false
           optional: true
@@ -698,93 +734,34 @@
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
 
-- name: Build cloud-init seed iso files
-  ansible.builtin.command:
-    argv:
-      - cloud-localds
-      - --network-config
-      - "{{ item.cloud_init_network_path }}"
-      - "{{ item.seed_disk_path }}"
-      - "{{ item.cloud_init_user_data_path }}"
-      - "{{ item.cloud_init_meta_data_path }}"
-  loop: "{{ instances_to_create_materialized | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  changed_when: true
+- name: Build instance provisioning batches
+  ansible.builtin.set_fact:
+    instance_provision_batches: >-
+      {{
+        (
+          instances_to_create_materialized
+          | default([])
+          | batch(kvm_effective_parallel_instance_workers | int)
+          | map('list')
+          | list
+        )
+      }}
   when:
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
 
-- name: Define BIOS instances with virt-install import
-  ansible.builtin.command:
-    argv:
-      - virt-install
-      - --name
-      - "{{ item.instance_name }}"
-      - --memory
-      - "{{ item.memory_mb | int }}"
-      - --vcpus
-      - "{{ item.vcpu_count | int }}"
-      - --machine
-      - "{{ item.virt_install_machine_type }}"
-      - --import
-      - --disk
-      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
-      - --disk
-      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
-      - --os-variant
-      - "{{ item.virt_install_os_variant }}"
-      - --network
-      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
-      - --graphics
-      - none
-      - --noautoconsole
-      - --noreboot
-  loop: "{{ instances_to_create_materialized | default([]) }}"
+- name: Build cloud-init seeds and define instances in parallel batches
+  ansible.builtin.include_tasks: tasks/provision-instances-batch-seed-define.yml
+  loop: "{{ instance_provision_batches | default([]) }}"
   loop_control:
-    label: "{{ item.instance_name }}"
-  changed_when: true
+    label: >-
+      {{
+        kvm_instance_batch | map(attribute='instance_name') | list | join(', ')
+      }}
+    loop_var: kvm_instance_batch
   when:
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
-    - (item.firmware_boot_mode | default('uefi') | lower) == 'bios'
-
-- name: Define UEFI instances with virt-install import
-  ansible.builtin.command:
-    argv:
-      - virt-install
-      - --name
-      - "{{ item.instance_name }}"
-      - --memory
-      - "{{ item.memory_mb | int }}"
-      - --vcpus
-      - "{{ item.vcpu_count | int }}"
-      - --machine
-      - "{{ item.virt_install_machine_type }}"
-      - --import
-      - --boot
-      - >-
-        loader=/usr/share/OVMF/OVMF_CODE_4M.ms.fd,loader.readonly=yes,loader.type=pflash,nvram.template=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
-      - --disk
-      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
-      - --disk
-      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
-      - --os-variant
-      - "{{ item.virt_install_os_variant }}"
-      - --network
-      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
-      - --graphics
-      - none
-      - --noautoconsole
-      - --noreboot
-  loop: "{{ instances_to_create_materialized | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  changed_when: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - instances_to_create | length > 0
-    - (item.firmware_boot_mode | default('uefi') | lower) == 'uefi'
 
 - name: Verify newly defined instances exist
   ansible.builtin.command:
@@ -797,39 +774,62 @@
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
 
-- name: Attach additional disks to newly defined instances
-  ansible.builtin.command:
-    argv:
-      - virsh
-      - attach-disk
-      - "{{ item.0.instance_name }}"
-      - >-
-        {{
-          normalized_instance_disk_pool_path
-          ~ '/'
-          ~ item.0.instance_name
-          ~ '-'
-          ~ item.1.guest_device
-          ~ '.'
-          ~ (item.1.disk_extension | default(item.0.instance_disk_extension))
-        }}
-      - "{{ item.1.guest_device }}"
-      - --targetbus
-      - virtio
-      - --subdriver
-      - "{{ item.1.disk_extension | default(item.0.instance_disk_extension) }}"
-      - --type
-      - disk
-      - --config
-      - --persistent
+- name: Build additional-disk attach list
+  ansible.builtin.set_fact:
+    additional_disks_to_attach: []
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Collect additional disks to attach for enabled instances
+  ansible.builtin.set_fact:
+    additional_disks_to_attach: >-
+      {{
+        additional_disks_to_attach
+        + [item]
+      }}
   loop: "{{ (instances_to_create_materialized | default([])) | subelements('instance_extra_disks', skip_missing=True) }}"
   loop_control:
     label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
-  changed_when: true
   when:
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
     - item.0.instance_extra_disks_enabled | bool
+
+- name: Build additional-disk attach batches
+  ansible.builtin.set_fact:
+    additional_disk_attach_batches: >-
+      {{
+        (
+          additional_disks_to_attach
+          | default([])
+          | batch(kvm_effective_parallel_instance_workers | int)
+          | map('list')
+          | list
+        )
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+    - (additional_disks_to_attach | default([])) | length > 0
+
+- name: Attach additional disks in parallel batches
+  ansible.builtin.include_tasks: tasks/provision-instances-batch-extra-disk-attach.yml
+  loop: "{{ additional_disk_attach_batches | default([]) }}"
+  loop_control:
+    label: >-
+      {{
+        kvm_extra_disk_attach_batch
+        | map('first')
+        | map(attribute='instance_name')
+        | list
+        | join(', ')
+      }}
+    loop_var: kvm_extra_disk_attach_batch
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+    - (additional_disks_to_attach | default([])) | length > 0
 
 - name: Remove cloud-init workspace artifacts when enabled
   ansible.builtin.file:

@@ -16,16 +16,82 @@
   loop_control:
     label: "{{ item.profile_id }}"
 
-- name: Fetch official checksum manifests
+- name: Normalize image cache path for metadata resolution
+  ansible.builtin.set_fact:
+    normalized_image_cache_path: "{{ kvm_image_cache_path | regex_replace('/+$', '') }}"
+
+- name: Check canonical alias image presence by profile
+  ansible.builtin.stat:
+    path: "{{ normalized_image_cache_path }}/{{ item.image_filename }}"
+    get_checksum: false
+  loop: "{{ required_cloud_images }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  register: image_alias_presence_stats
+  changed_when: false
+
+- name: Build canonical alias presence map by profile
+  ansible.builtin.set_fact:
+    image_alias_exists_by_profile: >-
+      {{
+        (image_alias_exists_by_profile | default({}))
+        | combine({item.item.profile_id: (item.stat.exists | default(false))})
+      }}
+  loop: "{{ image_alias_presence_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.profile_id }}"
+
+- name: Initialize list of profiles that require manifest fetch
+  ansible.builtin.set_fact:
+    manifest_fetch_required_profiles: []
+
+- name: Select profiles that require manifest fetch in current run
+  ansible.builtin.set_fact:
+    manifest_fetch_required_profiles: "{{ (manifest_fetch_required_profiles + [item.profile_id]) | unique }}"
+  loop: "{{ required_cloud_images }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  when:
+    - (kvm_force_manifest_refresh | default(false) | bool)
+      or ((kvm_image_manifest_refresh_policy | default('on-demand')) == 'always')
+      or (kvm_run_stage_image_cache | bool)
+      or not (image_alias_exists_by_profile[item.profile_id] | default(false))
+
+- name: Build list of profiles using cached metadata fallback (manifest skipped)
+  ansible.builtin.set_fact:
+    manifest_fetch_skipped_profiles: >-
+      {{
+        (
+          required_cloud_images | map(attribute='profile_id') | list
+        )
+        | difference(manifest_fetch_required_profiles | default([]))
+      }}
+
+- name: Explain manifest fetch skip decisions for on-demand policy
+  ansible.builtin.debug:
+    msg: >-
+      Skipping manifest fetch for cached profile(s): {{
+      manifest_fetch_skipped_profiles | join(', ')
+      }}.
+      Provision flow will use canonical alias paths.
+  when: (manifest_fetch_skipped_profiles | default([])) | length > 0
+
+- name: Fetch official checksum manifests for required profiles
   ansible.builtin.uri:
     url: "{{ item.image_checksum_manifest_url }}"
     return_content: true
     method: GET
-  loop: "{{ required_cloud_images }}"
+  loop: >-
+    {{
+      required_cloud_images
+      | selectattr('profile_id', 'in', manifest_fetch_required_profiles | default([]))
+      | list
+    }}
   loop_control:
     label: "{{ item.profile_id }}"
   register: checksum_manifest_fetch_results
   changed_when: false
+  when: (manifest_fetch_required_profiles | default([])) | length > 0
 
 - name: Initialize resolved cloud image metadata list
   ansible.builtin.set_fact:
@@ -75,9 +141,37 @@
         )
         ~ filename_ext
       }}
-  loop: "{{ checksum_manifest_fetch_results.results }}"
+  loop: "{{ checksum_manifest_fetch_results.results | default([]) }}"
   loop_control:
     label: "{{ item.item.profile_id }}"
+
+- name: Add cached-alias fallback metadata for manifest-skipped profiles
+  ansible.builtin.set_fact:
+    required_cloud_images_resolved: >-
+      {{
+        (required_cloud_images_resolved | default([]))
+        + [
+          item
+          | combine(
+              {
+                'official_checksum': '',
+                'checksum_expected_length': (64 if item.image_checksum_algorithm == 'sha256' else 128),
+                'cached_image_versioned_filename': item.image_filename,
+                'cached_image_path': (normalized_image_cache_path ~ '/' ~ item.image_filename),
+                'cached_image_alias_path': (normalized_image_cache_path ~ '/' ~ item.image_filename)
+              },
+              recursive=True
+            )
+        ]
+      }}
+  loop: >-
+    {{
+      required_cloud_images
+      | selectattr('profile_id', 'in', manifest_fetch_skipped_profiles | default([]))
+      | list
+    }}
+  loop_control:
+    label: "{{ item.profile_id }}"
 
 - name: Fail when official checksum cannot be resolved from manifest
   ansible.builtin.fail:
@@ -87,7 +181,9 @@
   loop: "{{ required_cloud_images_resolved | default([]) }}"
   loop_control:
     label: "{{ item.profile_id }}"
-  when: (item.official_checksum | default('') | length) == 0
+  when:
+    - item.profile_id in (manifest_fetch_required_profiles | default([]))
+    - (item.official_checksum | default('') | length) == 0
 
 - name: Fail when checksum length does not match checksum algorithm
   ansible.builtin.fail:
@@ -98,7 +194,9 @@
   loop: "{{ required_cloud_images_resolved | default([]) }}"
   loop_control:
     label: "{{ item.profile_id }}"
-  when: (item.official_checksum | length) != (item.checksum_expected_length | int)
+  when:
+    - item.profile_id in (manifest_fetch_required_profiles | default([]))
+    - (item.official_checksum | length) != (item.checksum_expected_length | int)
 
 - name: Build resolved cache path map by image profile
   ansible.builtin.set_fact:

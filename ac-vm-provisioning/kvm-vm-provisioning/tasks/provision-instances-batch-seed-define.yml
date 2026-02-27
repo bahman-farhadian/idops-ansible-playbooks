@@ -1,0 +1,181 @@
+---
+- name: Start cloud-init seed image builds for batch
+  ansible.builtin.command:
+    argv:
+      - cloud-localds
+      - --network-config
+      - "{{ item.cloud_init_network_path }}"
+      - "{{ item.seed_disk_path }}"
+      - "{{ item.cloud_init_user_data_path }}"
+      - "{{ item.cloud_init_meta_data_path }}"
+  loop: "{{ kvm_instance_batch }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: 600
+  poll: 0
+  register: seed_build_jobs
+  changed_when: true
+
+- name: Wait for cloud-init seed image builds for batch
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ seed_build_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: seed_build_status
+  until: (seed_build_status.finished | default(false)) | bool
+  retries: 120
+  delay: 5
+  failed_when: (seed_build_status.rc | default(0) | int) != 0
+  when: item.ansible_job_id is defined
+
+- name: Build BIOS define list for batch
+  ansible.builtin.set_fact:
+    bios_batch_instances: >-
+      {{
+        kvm_instance_batch
+        | selectattr('firmware_boot_mode', 'defined')
+        | selectattr('firmware_boot_mode', 'match', '(?i)^bios$')
+        | list
+      }}
+
+- name: Start BIOS virt-install import jobs for batch
+  ansible.builtin.command:
+    argv:
+      - virt-install
+      - --name
+      - "{{ item.instance_name }}"
+      - --memory
+      - "{{ item.memory_mb | int }}"
+      - --vcpus
+      - >-
+        {{
+          (
+            (item.vcpu_count | int | string)
+            ~ ',sockets=1,cores=' ~ (item.vcpu_count | int | string)
+            ~ ',threads=1'
+          )
+          if (item.force_single_socket_vcpu_topology | default(true) | bool)
+          else (item.vcpu_count | int | string)
+        }}
+      - --machine
+      - "{{ item.virt_install_machine_type }}"
+      - --import
+      - --disk
+      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
+      - --disk
+      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
+      - --os-variant
+      - "{{ item.virt_install_os_variant }}"
+      - --network
+      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
+      - --graphics
+      - none
+      - --noautoconsole
+      - --noreboot
+  loop: "{{ bios_batch_instances | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: 900
+  poll: 0
+  register: bios_define_jobs
+  changed_when: true
+  when: (bios_batch_instances | default([])) | length > 0
+
+- name: Wait for BIOS virt-install import jobs for batch
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ bios_define_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: bios_define_status
+  until: (bios_define_status.finished | default(false)) | bool
+  retries: 180
+  delay: 5
+  failed_when: (bios_define_status.rc | default(0) | int) != 0
+  when:
+    - (bios_batch_instances | default([])) | length > 0
+    - item.ansible_job_id is defined
+
+- name: Build UEFI define list for batch
+  ansible.builtin.set_fact:
+    uefi_batch_instances: >-
+      {{
+        kvm_instance_batch
+        | rejectattr('firmware_boot_mode', 'defined')
+        | list
+      }}
+
+- name: Extend UEFI define list with explicit UEFI firmware mode instances
+  ansible.builtin.set_fact:
+    uefi_batch_instances: >-
+      {{
+        uefi_batch_instances
+        + (
+          kvm_instance_batch
+          | selectattr('firmware_boot_mode', 'defined')
+          | selectattr('firmware_boot_mode', 'match', '(?i)^uefi$')
+          | list
+        )
+      }}
+
+- name: Start UEFI virt-install import jobs for batch
+  ansible.builtin.command:
+    argv:
+      - virt-install
+      - --name
+      - "{{ item.instance_name }}"
+      - --memory
+      - "{{ item.memory_mb | int }}"
+      - --vcpus
+      - >-
+        {{
+          (
+            (item.vcpu_count | int | string)
+            ~ ',sockets=1,cores=' ~ (item.vcpu_count | int | string)
+            ~ ',threads=1'
+          )
+          if (item.force_single_socket_vcpu_topology | default(true) | bool)
+          else (item.vcpu_count | int | string)
+        }}
+      - --machine
+      - "{{ item.virt_install_machine_type }}"
+      - --import
+      - --boot
+      - >-
+        loader=/usr/share/OVMF/OVMF_CODE_4M.ms.fd,loader.readonly=yes,loader.type=pflash,nvram.template=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
+      - --disk
+      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
+      - --disk
+      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
+      - --os-variant
+      - "{{ item.virt_install_os_variant }}"
+      - --network
+      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
+      - --graphics
+      - none
+      - --noautoconsole
+      - --noreboot
+  loop: "{{ uefi_batch_instances | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: 900
+  poll: 0
+  register: uefi_define_jobs
+  changed_when: true
+  when: (uefi_batch_instances | default([])) | length > 0
+
+- name: Wait for UEFI virt-install import jobs for batch
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ uefi_define_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: uefi_define_status
+  until: (uefi_define_status.finished | default(false)) | bool
+  retries: 180
+  delay: 5
+  failed_when: (uefi_define_status.rc | default(0) | int) != 0
+  when:
+    - (uefi_batch_instances | default([])) | length > 0
+    - item.ansible_job_id is defined

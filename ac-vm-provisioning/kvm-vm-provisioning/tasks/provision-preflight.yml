@@ -119,6 +119,10 @@
       | length
     ) > 0
 
+- name: Mark command availability checks as complete for this run
+  ansible.builtin.set_fact:
+    kvm_preflight_commands_validated: true
+
 - name: Check setfacl availability when runtime ACL auto-fix is enabled
   ansible.builtin.command:
     cmd: which setfacl

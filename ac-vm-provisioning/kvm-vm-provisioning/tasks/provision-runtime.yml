@@ -91,17 +91,25 @@
     - kvm_run_mutation_phases | bool
     - item.ansible_job_id is defined
 
-- name: Wait for TCP SSH port on runtime targets
+- name: Confirm TCP SSH port on runtime targets
   ansible.builtin.wait_for:
     host: "{{ item.instance_ipv4_address }}"
     port: "{{ item.ssh_port | int }}"
-    delay: 5
-    timeout: "{{ kvm_wait_for_ssh_timeout_seconds | default(180) | int }}"
+    delay: 0
+    timeout: >-
+      {{
+        (
+          kvm_debian12_network_boot_wait_timeout_seconds
+          if (item.image_profile_id | default('')) == 'debian-12'
+          else (kvm_wait_for_ssh_timeout_seconds | default(180))
+        ) | int
+      }}
     state: started
   loop: "{{ instance_runtime_targets }}"
   loop_control:
     label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
   register: ssh_wait_results
+  changed_when: false
   failed_when: false
   when:
     - kvm_run_mutation_phases | bool
@@ -165,6 +173,18 @@
       {{
         instance_runtime_targets
         | selectattr('instance_name', 'in', runtime_ssh_timeout_instances | default([]))
+        | list
+      }}
+  when:
+    - (runtime_ssh_timeout_instances | default([])) | length > 0
+
+- name: Build Debian 12 timeout hint list
+  ansible.builtin.set_fact:
+    runtime_ssh_timeout_debian12_instances: >-
+      {{
+        runtime_ssh_timeout_targets
+        | selectattr('image_profile_id', 'equalto', 'debian-12')
+        | map(attribute='instance_name')
         | list
       }}
   when:
@@ -236,6 +256,7 @@
       Suggested recovery:
       1) make cleanup-force-disks
       2) make provision
+      debian12_hint={{ runtime_ssh_timeout_debian12_instances | default([]) }}
       ping_targets={{ runtime_ssh_timeout_targets | default([]) | map(attribute='instance_name') | list }}
       ping_rc={{ runtime_ssh_timeout_ping.results | default([]) | map(attribute='rc') | list }}
       domiflist={{ runtime_ssh_timeout_domiflist.results | default([]) | map(attribute='stdout') | join(' || ') }}
@@ -244,14 +265,59 @@
   when:
     - (runtime_ssh_timeout_instances | default([])) | length > 0
 
+- name: Build runtime TCP-ready instance list
+  ansible.builtin.set_fact:
+    runtime_tcp_ready_instances: >-
+      {{
+        ssh_wait_results.results
+        | default([])
+        | selectattr('state', 'defined')
+        | selectattr('state', 'equalto', 'started')
+        | map(attribute='item.instance_name')
+        | list
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+
+- name: Build pre-snapshot TCP wait target list
+  ansible.builtin.set_fact:
+    instances_requiring_pre_snapshot_port_check: >-
+      {{
+        (
+          instances_to_create | default([])
+          if not (
+            (kvm_skip_pre_snapshot_port_recheck | default(true) | bool)
+            and (kvm_wait_for_instance_ssh | default(true) | bool)
+          )
+          else (
+            (instances_to_create | default([]))
+            | rejectattr('instance_name', 'in', runtime_tcp_ready_instances | default([]))
+            | list
+          )
+        )
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
 - name: Wait for TCP SSH port on newly created instances before snapshot
   ansible.builtin.wait_for:
     host: "{{ item.instance_ipv4_address }}"
     port: "{{ item.ssh_port | int }}"
-    delay: 5
-    timeout: "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int }}"
+    delay: 0
+    timeout: >-
+      {{
+        (
+          kvm_debian12_network_boot_wait_timeout_seconds
+          if (item.image_profile_id | default('')) == 'debian-12'
+          else (kvm_wait_for_cloud_init_timeout_seconds | default(600))
+        ) | int
+      }}
     state: started
-  loop: "{{ instances_to_create | default([]) }}"
+  loop: "{{ instances_requiring_pre_snapshot_port_check | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"
   register: cloud_init_port_wait_results
@@ -261,7 +327,7 @@
     - kvm_snapshot_enabled | default(true) | bool
     - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
     - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
+    - (instances_requiring_pre_snapshot_port_check | default([])) | length > 0
 
 - name: Build list of TCP SSH port timeout failures before snapshot
   ansible.builtin.set_fact:
@@ -271,6 +337,7 @@
     - kvm_snapshot_enabled | default(true) | bool
     - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
     - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_requiring_pre_snapshot_port_check | default([])) | length > 0
 
 - name: Collect TCP SSH port timeout failures before snapshot
   ansible.builtin.set_fact:
@@ -283,6 +350,7 @@
     - kvm_snapshot_enabled | default(true) | bool
     - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
     - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_requiring_pre_snapshot_port_check | default([])) | length > 0
     - >-
       (
         item.failed | default(false) | bool
@@ -438,17 +506,25 @@
     - kvm_start_instances_after_snapshot | default(true) | bool
     - item.ansible_job_id is defined
 
-- name: Wait for TCP SSH port after snapshot restart
+- name: Confirm TCP SSH port after snapshot restart
   ansible.builtin.wait_for:
     host: "{{ item.instance_ipv4_address }}"
     port: "{{ item.ssh_port | int }}"
     delay: 5
-    timeout: "{{ kvm_wait_for_ssh_timeout_seconds | default(180) | int }}"
+    timeout: >-
+      {{
+        (
+          kvm_debian12_network_boot_wait_timeout_seconds
+          if (item.image_profile_id | default('')) == 'debian-12'
+          else (kvm_wait_for_ssh_timeout_seconds | default(180))
+        ) | int
+      }}
     state: started
   loop: "{{ instances_to_create | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
   register: post_snapshot_ssh_results
+  changed_when: false
   failed_when: false
   when:
     - kvm_run_mutation_phases | bool
