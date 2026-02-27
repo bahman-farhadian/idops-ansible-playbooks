@@ -1,115 +1,131 @@
 ---
-# Inventory target group used by playbook.yml.
-debian_hardening_target_group: "hardening_targets"
+# Debian OS hardening configuration
+# Single source of user-editable settings.
 
-# Stage switches
-run_lynis_scan: true
-run_os_hardening: false
+# -----------------------------------------------------------------------------
+# Workflow control
+# -----------------------------------------------------------------------------
+debian_hardening_target_group: "hardening_targets" # Inventory group targeted by playbook.yml.
+run_lynis_scan: true                               # Enable Lynis stage in site workflow.
+run_os_hardening: false                            # Enable hardening stage in site workflow.
 
+# -----------------------------------------------------------------------------
 # APT repository settings
-apt_repository_url: "http://deb.debian.org/debian"
-apt_security_repository_url: "http://security.debian.org/debian-security"
-# Optional suite override (leave empty for fact-based mapping: Debian 12->bookworm, 13->trixie)
-apt_debian_release_override: ""
-# Managed Debian sources file path
-apt_debian_managed_sources_file: "/etc/apt/sources.list.d/debian.sources"
-# Disable conflicting default cloud image Debian source entries
-apt_debian_disable_conflicting_sources: true
-# Debian only; Ubuntu keeps distro defaults unless you add an Ubuntu role later.
-apt_debian_components:
+# -----------------------------------------------------------------------------
+apt_repository_url: "http://deb.debian.org/debian"                     # Debian base repository URI.
+apt_security_repository_url: "http://security.debian.org/debian-security" # Debian security repository URI.
+apt_debian_release_override: ""                                        # Optional suite override (empty = fact-based map).
+apt_debian_managed_sources_file: "/etc/apt/sources.list.d/debian.sources" # Managed deb822 sources file path.
+apt_debian_disable_conflicting_sources: true                           # Disable conflicting Debian source entries.
+apt_debian_components:                                                 # Repository components for Debian hosts.
   - main
   - contrib
   - non-free
   - non-free-firmware
 
+# -----------------------------------------------------------------------------
 # Lynis settings
-lynis_repo_url: "https://github.com/CISOfy/lynis"
-lynis_install_path: "/opt/lynis"
-lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis"
-lynis_quick_mode: true
+# -----------------------------------------------------------------------------
+lynis_repo_url: "https://github.com/CISOfy/lynis" # Lynis git repository URL.
+lynis_install_path: "/opt/lynis"                  # Lynis install directory on target.
+lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis" # Control-node report output path.
+lynis_quick_mode: true                            # Run Lynis in quick mode.
 
-# Preparation baseline (idempotent replacement for bootstrap script)
-prep_enabled: true
-prep_root_authorized_keys: []
-prep_manage_primary_user: true
-prep_primary_user_uid: "1000"
-# Optional rename for template default user (e.g. qwerty -> adminops).
-# Leave empty to keep detected UID user name unchanged.
-prep_primary_user_desired_name: "adminops"
-# If true, remove the detected UID user and recreate it with prep_primary_user_desired_name.
-# Keep false on production unless you explicitly want to replace template users (debian/qwerty).
-prep_replace_primary_user: false
-# If true, keep only prep_primary_user_desired_name as the non-root login user.
-# This removes other human login users (for example debian/qwerty). Disable on production if not desired.
-prep_enforce_single_login_user: false
-# SSH public keys for the primary non-root user.
-# Keep real keys in vars/local-secrets.yml.
-prep_primary_user_authorized_keys: []
+# -----------------------------------------------------------------------------
+# Preparation baseline
+# -----------------------------------------------------------------------------
+prep_enabled: true                        # Enable preparation baseline role.
+prep_root_authorized_keys: []             # Root authorized keys.
+prep_manage_primary_user: true            # Manage primary UID user baseline.
+prep_primary_user_uid: "1000"             # UID used to identify primary template user.
+prep_primary_user_desired_name: "adminops" # Desired primary user name (empty keeps detected name).
+prep_replace_primary_user: false          # Replace detected UID user with desired name.
+prep_enforce_single_login_user: false     # Remove other human login users when true.
+prep_primary_user_authorized_keys: []     # Primary user authorized keys.
 
-# Boot/runlevel hardening
-boot_hardening_enabled: true
-boot_set_default_target: true
-boot_default_target: "multi-user.target"
-boot_fix_runlevel_debian13: true
-boot_runlevel_compat_wrapper_enabled: true
+# -----------------------------------------------------------------------------
+# Boot and runlevel hardening
+# -----------------------------------------------------------------------------
+boot_hardening_enabled: true                # Enable boot hardening role.
+boot_set_default_target: true               # Set default systemd target.
+boot_default_target: "multi-user.target"    # Default target value.
+boot_fix_runlevel_debian13: true            # Apply Debian 13 runlevel compatibility adjustments.
+boot_runlevel_compat_wrapper_enabled: true  # Deploy runlevel compatibility wrapper when needed.
 
+# -----------------------------------------------------------------------------
 # Network identity hardening
-network_identity_manage_hosts: true
-# Keep DNS identity controls enabled by default to avoid Lynis NETW-2705/NAME-4028 regressions.
-network_identity_manage_resolv_conf: true
-network_identity_primary_ipv4: ""
-network_identity_nameservers:
+# -----------------------------------------------------------------------------
+network_identity_manage_hosts: true               # Manage /etc/hosts.
+network_identity_manage_resolv_conf: true         # Manage /etc/resolv.conf.
+network_identity_primary_ipv4: ""                 # Optional primary IPv4 for host mapping.
+network_identity_nameservers:                     # Resolver list for resolv.conf.
   - "8.8.8.8"
   - "1.1.1.1"
-network_identity_search_domains: []
-network_identity_set_hostname: true
-network_identity_hostname: "{{ (network_identity_fqdn if (network_identity_fqdn | length > 0) else inventory_hostname).split('.')[0] }}"
-network_identity_fqdn: "{{ inventory_hostname if '.' in inventory_hostname else inventory_hostname ~ '.localdomain' }}"
-network_identity_manage_loopback_fqdn: true
-network_identity_manage_hosts_via_template: true
-network_identity_cleanup_stale_hostname_entries: true
-network_identity_extra_hosts_entries: []
-# Optional local repository host mapping in /etc/hosts (for private/local DNS gaps)
-network_identity_local_repo_hosts_enabled: false
-network_identity_local_repo_hosts_entries: []
-# Example:
-# network_identity_local_repo_hosts_entries:
-#   - "192.168.24.2 repo.idops.local"
+network_identity_search_domains: []               # Search domain list.
+network_identity_set_hostname: true               # Enforce hostname on target.
+network_identity_hostname: >-
+  {{
+    (
+      network_identity_fqdn
+      if (network_identity_fqdn | length > 0)
+      else inventory_hostname
+    ).split('.')[0]
+  }}
+network_identity_fqdn: >-
+  {{
+    inventory_hostname
+    if '.' in inventory_hostname
+    else inventory_hostname ~ '.localdomain'
+  }}
+network_identity_manage_loopback_fqdn: true       # Ensure loopback FQDN mapping.
+network_identity_manage_hosts_via_template: true  # Render /etc/hosts from template.
+network_identity_cleanup_stale_hostname_entries: true # Remove stale hostname entries from hosts file.
+network_identity_extra_hosts_entries: []          # Additional static /etc/hosts lines.
+network_identity_local_repo_hosts_enabled: false  # Enable static local repo host mappings.
+network_identity_local_repo_hosts_entries: []     # Local repo host mapping entries.
 
-# Package/update hardening
-package_hardening_enable_unattended_upgrades: true
-package_hardening_run_dist_upgrade: true
-package_hardening_debsums_cron_check: "weekly"
-package_hardening_purge_removed_packages: true
+# -----------------------------------------------------------------------------
+# Package and update hardening
+# -----------------------------------------------------------------------------
+package_hardening_enable_unattended_upgrades: true # Enable unattended-upgrades.
+package_hardening_run_dist_upgrade: true            # Run dist-upgrade as part of hardening.
+package_hardening_debsums_cron_check: "weekly"      # Debsums periodic check frequency.
+package_hardening_purge_removed_packages: true      # Purge residual removed packages.
 
-# Service hardening (systemd drop-ins)
-service_hardening_enabled: true
-service_hardening_units:
+# -----------------------------------------------------------------------------
+# Service hardening
+# -----------------------------------------------------------------------------
+service_hardening_enabled: true # Enable systemd service hardening drop-ins.
+service_hardening_units:        # Services to harden.
   - ssh.service
   - fail2ban.service
   - rsyslog.service
   - cron.service
   - unattended-upgrades.service
-# Optional: disable services you do not use (example: exim4.service)
-service_hardening_disable_units: []
+service_hardening_disable_units: [] # Optional service units to stop/disable.
 
+# -----------------------------------------------------------------------------
 # Authentication hardening
-auth_apply_to_existing_local_users: true
-auth_apply_to_root: true
-auth_skip_users: []
+# -----------------------------------------------------------------------------
+auth_apply_to_existing_local_users: true # Apply auth policies to existing users.
+auth_apply_to_root: true                 # Apply auth policies to root account.
+auth_skip_users: []                      # Users excluded from auth policy updates.
 
+# -----------------------------------------------------------------------------
 # SSH hardening
-ssh_port: 2222
-ssh_allow_password_auth: false
-# Root SSH access is allowed by SSH key only (no password auth).
-ssh_allow_root_login: true
-ssh_allowed_users: []
-ssh_disable_pam_motd: true
-ssh_print_last_log: true
-ssh_clean_login_output: true
-ssh_disable_motd_news: true
+# -----------------------------------------------------------------------------
+ssh_port: 2222                  # SSH port enforced by hardening.
+ssh_allow_password_auth: false  # SSH password authentication.
+ssh_allow_root_login: true      # Root SSH login policy (key-only when password auth is disabled).
+ssh_allowed_users: []           # Optional explicit allowed SSH users.
+ssh_disable_pam_motd: true      # Disable PAM MOTD output.
+ssh_print_last_log: true        # Show last login information.
+ssh_clean_login_output: true    # Reduce noisy login output.
+ssh_disable_motd_news: true     # Disable motd-news on Debian/Ubuntu.
 
+# -----------------------------------------------------------------------------
 # Login banners
+# -----------------------------------------------------------------------------
 banner_issue_text: |
   +------------------------------------------------------------------+
   | SECURITY NOTICE: AUTHORIZED ACCESS ONLY                          |
@@ -129,65 +145,78 @@ banner_issue_net_text: |
   | Disconnect immediately if you are not authorized.                |
   +------------------------------------------------------------------+
 
-# Kernel/module hardening
-kernel_sysctl_dropin_path: /etc/sysctl.d/99-zz-hardening.conf
-kernel_disable_usb_storage: true
-kernel_disable_firewire_storage: true
-kernel_disable_core_dumps: true
-kernel_lock_module_loading: false
+# -----------------------------------------------------------------------------
+# Kernel and module hardening
+# -----------------------------------------------------------------------------
+kernel_sysctl_dropin_path: "/etc/sysctl.d/99-zz-hardening.conf" # Sysctl drop-in file path.
+kernel_disable_usb_storage: true    # Disable usb-storage module.
+kernel_disable_firewire_storage: true # Disable firewire storage module.
+kernel_disable_core_dumps: true     # Disable core dumps.
+kernel_lock_module_loading: false   # Lock module loading after boot (high impact).
 
+# -----------------------------------------------------------------------------
 # File permissions hardening
-file_permissions_hardening_enabled: true
+# -----------------------------------------------------------------------------
+file_permissions_hardening_enabled: true # Enable permissions hardening role.
 
+# -----------------------------------------------------------------------------
 # Integrity tooling
-integrity_initialize_aide: true
-integrity_aide_checksum_algorithm: sha512
+# -----------------------------------------------------------------------------
+integrity_initialize_aide: true            # Initialize AIDE database.
+integrity_aide_checksum_algorithm: "sha512" # AIDE checksum algorithm.
 
-# Optional external log forwarding
-remote_syslog_enabled: false
-remote_syslog_host: ""
-remote_syslog_port: 514
-remote_syslog_protocol: "tcp"
+# -----------------------------------------------------------------------------
+# Remote syslog forwarding
+# -----------------------------------------------------------------------------
+remote_syslog_enabled: false # Enable remote rsyslog forwarding.
+remote_syslog_host: ""       # Remote syslog hostname/IP.
+remote_syslog_port: 514      # Remote syslog port.
+remote_syslog_protocol: "tcp" # Remote syslog protocol.
 
-# Firewall (iptables-persistent)
-firewall_default_input_policy: "DROP"
-firewall_default_forward_policy: "DROP"
-firewall_default_output_policy: "ACCEPT"
-firewall_allow_icmp_v4: true
-firewall_allow_icmp_v6: true
-firewall_enable_extra_input_hardening: true
-# If true, allow SSH from any source; set false and define firewall_allowed_ssh_cidrs to restrict.
-firewall_allow_ssh_from_anywhere: true
-# Populate with CIDRs only when firewall_allow_ssh_from_anywhere is false.
-firewall_allowed_ssh_cidrs: []
-# Optional service ports (ingress allow list)
-firewall_allowed_tcp_ports: []
-firewall_allowed_udp_ports: []
-firewall_allowed_tcp_ports_v6: []
-firewall_allowed_udp_ports_v6: []
-# Optional bastion/router mode (IPv4 forwarding + optional NAT masquerade)
-firewall_forward_ipv4_enabled: false
-firewall_forward_ipv4_lan_interface: ""
-firewall_forward_ipv4_wan_interface: ""
-firewall_forward_ipv4_lan_cidr: ""
-firewall_nat_ipv4_enabled: false
+# -----------------------------------------------------------------------------
+# Firewall policy (iptables-persistent)
+# -----------------------------------------------------------------------------
+firewall_default_input_policy: "DROP"    # Default INPUT policy.
+firewall_default_forward_policy: "DROP"  # Default FORWARD policy.
+firewall_default_output_policy: "ACCEPT" # Default OUTPUT policy.
+firewall_allow_icmp_v4: true             # Allow ICMPv4.
+firewall_allow_icmp_v6: true             # Allow ICMPv6.
+firewall_enable_extra_input_hardening: true # Enable additional input chain hardening.
+firewall_allow_ssh_from_anywhere: true   # Allow SSH from all sources.
+firewall_allowed_ssh_cidrs: []           # SSH CIDR allow list when not open to all.
+firewall_allowed_tcp_ports: []           # Additional allowed TCP ports (IPv4).
+firewall_allowed_udp_ports: []           # Additional allowed UDP ports (IPv4).
+firewall_allowed_tcp_ports_v6: []        # Additional allowed TCP ports (IPv6).
+firewall_allowed_udp_ports_v6: []        # Additional allowed UDP ports (IPv6).
+firewall_forward_ipv4_enabled: false     # Enable IPv4 forwarding.
+firewall_forward_ipv4_lan_interface: ""  # LAN interface for forwarding.
+firewall_forward_ipv4_wan_interface: ""  # WAN interface for forwarding.
+firewall_forward_ipv4_lan_cidr: ""       # LAN CIDR for forwarding rules.
+firewall_nat_ipv4_enabled: false         # Enable IPv4 NAT masquerade.
 
-# Fail2ban
-fail2ban_bantime: "1h"
-fail2ban_findtime: "10m"
-fail2ban_maxretry: 5
+# -----------------------------------------------------------------------------
+# Fail2ban settings
+# -----------------------------------------------------------------------------
+fail2ban_bantime: "1h" # Ban duration.
+fail2ban_findtime: "10m" # Detection window.
+fail2ban_maxretry: 5    # Retry count before ban.
 
-# Session log retention
-ssh_session_log_file: "/var/log/ssh_sessions.log"
-ssh_session_logrotate_days: 30
-ssh_command_logging_enabled: true
-ssh_command_log_file: "/var/log/ssh_commands.log"
-ssh_command_logrotate_days: 30
-ssh_command_log_facility: "local6"
-ssh_command_log_priority: "notice"
-ssh_command_logger_tag: "ssh-command"
+# -----------------------------------------------------------------------------
+# Session logging
+# -----------------------------------------------------------------------------
+ssh_session_log_file: "/var/log/ssh_sessions.log" # Session audit log file.
+ssh_session_logrotate_days: 30                    # Session log retention days.
+ssh_command_logging_enabled: true                 # Enable per-command SSH logging.
+ssh_command_log_file: "/var/log/ssh_commands.log" # Command audit log file.
+ssh_command_logrotate_days: 30                    # Command log retention days.
+ssh_command_log_facility: "local6"                # Syslog facility for command logs.
+ssh_command_log_priority: "notice"                # Syslog priority for command logs.
+ssh_command_logger_tag: "ssh-command"             # Syslog tag for command logs.
 
-# GRUB credentials (keep real secrets in vars/local-secrets.yml, which is git-ignored)
-grub_superuser: "root"
-grub_password_plaintext: ""
-grub_password_pbkdf2_hash: ""
+# -----------------------------------------------------------------------------
+# GRUB credentials
+# Keep real secret values in vars/local-secrets.yml (git-ignored).
+# -----------------------------------------------------------------------------
+grub_superuser: "root"        # GRUB superuser name.
+grub_password_plaintext: ""   # Optional GRUB plaintext password input.
+grub_password_pbkdf2_hash: "" # Optional precomputed GRUB PBKDF2 hash.
