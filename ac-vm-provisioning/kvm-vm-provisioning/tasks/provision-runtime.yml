@@ -1,12 +1,12 @@
 ---
 # =========================================================================
-# STAGE: runtime (start + SSH checks + optional snapshot)
+# STAGE: runtime (start + TCP port checks + optional snapshot)
 # =========================================================================
 - name: Explain runtime stage skip in check mode
   ansible.builtin.debug:
     msg: >-
       Runtime stage is skipped because mutation phases are disabled in check mode.
-      Run make provision for actual start/ssh/snapshot actions.
+      Run make provision for actual start/port-check/snapshot actions.
   when: not (kvm_run_mutation_phases | bool)
 
 - name: No runtime targets selected
@@ -91,7 +91,7 @@
     - kvm_run_mutation_phases | bool
     - item.ansible_job_id is defined
 
-- name: Wait for SSH on runtime targets
+- name: Wait for TCP SSH port on runtime targets
   ansible.builtin.wait_for:
     host: "{{ item.instance_ipv4_address }}"
     port: "{{ item.ssh_port | int }}"
@@ -109,7 +109,7 @@
     - instance_runtime_targets | length > 0
     - kvm_wait_for_instance_ssh | default(true) | bool
 
-- name: Confirm SSH availability on runtime targets
+- name: Confirm TCP SSH port on runtime targets
   ansible.builtin.async_status:
     jid: "{{ item.ansible_job_id }}"
   loop: "{{ ssh_wait_jobs.results | default([]) }}"
@@ -125,14 +125,14 @@
     - kvm_wait_for_instance_ssh | default(true) | bool
     - item.ansible_job_id is defined
 
-- name: Build list of SSH timeout failures for runtime targets
+- name: Build list of TCP SSH port timeout failures for runtime targets
   ansible.builtin.set_fact:
     runtime_ssh_timeout_instances: []
   when:
     - kvm_run_mutation_phases | bool
     - kvm_wait_for_instance_ssh | default(true) | bool
 
-- name: Collect SSH timeout failures for runtime targets
+- name: Collect TCP SSH port timeout failures for runtime targets
   ansible.builtin.set_fact:
     runtime_ssh_timeout_instances: >-
       {{ (runtime_ssh_timeout_instances + [item.0.instance_name]) | unique }}
@@ -175,7 +175,7 @@
         (item.1.msg | default('')) is search('Timeout when waiting')
       )
 
-- name: Collect domiflist diagnostics for SSH timeout instances
+- name: Collect domiflist diagnostics for TCP SSH port timeout instances
   ansible.builtin.command:
     cmd: virsh domiflist "{{ item }}"
   loop: "{{ runtime_ssh_timeout_instances | default([]) }}"
@@ -198,7 +198,7 @@
   when:
     - (runtime_ssh_timeout_instances | default([])) | length > 0
 
-- name: Probe ICMP reachability for SSH timeout instances
+- name: Probe ICMP reachability for TCP SSH port timeout instances
   ansible.builtin.command:
     argv:
       - ping
@@ -238,7 +238,7 @@
   when:
     - (runtime_ssh_timeout_targets | default([])) | length > 0
 
-- name: Collect domifaddr diagnostics for SSH timeout instances
+- name: Collect domifaddr diagnostics for TCP SSH port timeout instances
   ansible.builtin.command:
     cmd: virsh domifaddr "{{ item }}"
   loop: "{{ runtime_ssh_timeout_instances | default([]) }}"
@@ -250,13 +250,13 @@
   when:
     - (runtime_ssh_timeout_instances | default([])) | length > 0
 
-- name: Fail with actionable diagnostics when SSH wait fails
+- name: Fail with actionable diagnostics when TCP SSH port wait fails
   ansible.builtin.fail:
     msg: >-
-      SSH wait timed out for instance(s): {{
+      TCP port {{ (instance_runtime_targets | first).ssh_port | default(22) }} wait timed out for instance(s): {{
       runtime_ssh_timeout_instances | join(', ')
       }}.
-      Verify guest network, cloud-init, and credentials.
+      Verify guest network and cloud-init boot progress.
       Note: this project uses libvirt URI '{{ kvm_libvirt_connection_uri | default('qemu:///system') }}'.
       If plain 'virsh' shows "domain not found", check using the same URI:
       virsh -c {{ kvm_libvirt_connection_uri | default('qemu:///system') }} domiflist <instance>
@@ -272,31 +272,19 @@
   when:
     - (runtime_ssh_timeout_instances | default([])) | length > 0
 
-- name: Wait for cloud-init boot-finished marker before snapshot
-  ansible.builtin.command:
-    argv:
-      - timeout
-      - "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int | string }}"
-      - ssh
-      - -o
-      - BatchMode=yes
-      - -o
-      - StrictHostKeyChecking=accept-new
-      - -o
-      - ConnectTimeout=10
-      - -p
-      - "{{ item.ssh_port | int | string }}"
-      - "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}"
-      - sh
-      - -c
-      - while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 2; done
+- name: Wait for TCP SSH port on newly created instances before snapshot
+  ansible.builtin.wait_for:
+    host: "{{ item.instance_ipv4_address }}"
+    port: "{{ item.ssh_port | int }}"
+    delay: 5
+    timeout: "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int }}"
+    state: started
   loop: "{{ instances_to_create | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"
   async: "{{ (kvm_wait_for_cloud_init_timeout_seconds | default(600) | int) + 30 }}"
   poll: 0
-  register: cloud_init_wait_jobs
-  changed_when: false
+  register: cloud_init_port_wait_jobs
   when:
     - kvm_run_mutation_phases | bool
     - kvm_snapshot_enabled | default(true) | bool
@@ -304,30 +292,98 @@
     - kvm_wait_for_instance_ssh | default(true) | bool
     - (instances_to_create | default([])) | length > 0
 
-- name: Confirm cloud-init boot-finished marker before snapshot
+- name: Confirm TCP SSH port on newly created instances before snapshot
   ansible.builtin.async_status:
     jid: "{{ item.ansible_job_id }}"
-  loop: "{{ cloud_init_wait_jobs.results | default([]) }}"
+  loop: "{{ cloud_init_port_wait_jobs.results | default([]) }}"
   loop_control:
     label: "{{ item.item.instance_name }}"
-  register: cloud_init_wait_status
-  until: (cloud_init_wait_status.finished | default(false)) | bool
+  register: cloud_init_port_wait_status
+  until: (cloud_init_port_wait_status.finished | default(false)) | bool
   retries: "{{ kvm_wait_for_cloud_init_poll_retries | default(60) | int }}"
   delay: "{{ kvm_wait_for_cloud_init_poll_delay_seconds | default(5) | int }}"
-  failed_when: >-
-    (
-      (cloud_init_wait_status.finished | default(0) | int) == 1
-    )
-    and
-    (
-      (cloud_init_wait_status.rc | default(0) | int) != 0
-    )
+  failed_when: false
   when:
     - kvm_run_mutation_phases | bool
     - kvm_snapshot_enabled | default(true) | bool
     - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
     - kvm_wait_for_instance_ssh | default(true) | bool
     - item.ansible_job_id is defined
+
+- name: Build list of TCP SSH port timeout failures before snapshot
+  ansible.builtin.set_fact:
+    cloud_init_port_timeout_instances: []
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+
+- name: Collect TCP SSH port timeout failures before snapshot
+  ansible.builtin.set_fact:
+    cloud_init_port_timeout_instances: >-
+      {{ (cloud_init_port_timeout_instances + [item.0.instance_name]) | unique }}
+  loop: >-
+    {{
+      (instances_to_create | default([]))
+      | zip(cloud_init_port_wait_status.results | default([]))
+      | list
+    }}
+  loop_control:
+    label: "{{ item.0.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (item.1.finished | default(0) | int) == 1
+    - >-
+      (
+        item.1.failed | default(false) | bool
+      )
+      or
+      (
+        (
+          item.1.rc is defined
+        )
+        and
+        (
+          (item.1.rc | int) != 0
+        )
+      )
+      or
+      (
+        item.1.state is defined
+        and
+        (
+          (item.1.state | default('')) != 'started'
+        )
+      )
+      or
+      (
+        (item.1.msg | default('')) is search('Timeout when waiting')
+      )
+
+- name: Fail when TCP SSH port is not reachable before snapshot
+  ansible.builtin.fail:
+    msg: >-
+      TCP port {{ (instances_to_create | first).ssh_port | default(22) }} was not reachable
+      for instance(s): {{ cloud_init_port_timeout_instances | join(', ') }} before snapshot.
+      Check guest boot/network and increase kvm_wait_for_cloud_init_timeout_seconds when needed.
+  when:
+    - (cloud_init_port_timeout_instances | default([])) | length > 0
+
+- name: Wait extra grace period before snapshot after TCP SSH port is reachable
+  ansible.builtin.pause:
+    seconds: "{{ kvm_wait_for_cloud_init_grace_seconds | default(120) | int }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+    - (cloud_init_port_timeout_instances | default([])) | length == 0
+    - (kvm_wait_for_cloud_init_grace_seconds | default(120) | int) > 0
 
 - name: Shut down newly created instances for snapshot
   ansible.builtin.command:
@@ -440,7 +496,7 @@
     - kvm_start_instances_after_snapshot | default(true) | bool
     - item.ansible_job_id is defined
 
-- name: Wait for SSH after snapshot restart
+- name: Wait for TCP SSH port after snapshot restart
   ansible.builtin.wait_for:
     host: "{{ item.instance_ipv4_address }}"
     port: "{{ item.ssh_port | int }}"
@@ -460,7 +516,7 @@
     - kvm_wait_for_instance_ssh | default(true) | bool
     - (instances_to_create | default([])) | length > 0
 
-- name: Confirm SSH after snapshot restart
+- name: Confirm TCP SSH port after snapshot restart
   ansible.builtin.async_status:
     jid: "{{ item.ansible_job_id }}"
   loop: "{{ post_snapshot_ssh_jobs.results | default([]) }}"

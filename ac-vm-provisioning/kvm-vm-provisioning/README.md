@@ -20,7 +20,7 @@ Scope: this playbook supports **Debian images only**.
   for reliable cloud-init network matching
 - Configurable firmware mode per profile/instance (`bios` or `uefi`)
 - VM domain definition via `virt-install --import`
-- Runtime workflow for start + SSH checks + optional snapshots
+- Runtime workflow for start + TCP port checks + optional snapshots
 - Strict cleanup scope to declared instance names only
 
 ## Directory Layout
@@ -146,8 +146,9 @@ images using checksum-versioned filenames. When Debian `latest` changes, a new
 versioned file is downloaded and old cached files are preserved.
 By design, it caches all profiles defined in `kvm_cloud_image_catalog`.
 
-When snapshot is enabled, runtime stage waits for cloud-init completion before
-shutdown/snapshot to avoid interrupting first-boot package update/upgrade.
+When snapshot is enabled, runtime stage waits for TCP port readiness first and
+then applies a grace delay before shutdown/snapshot to reduce first-boot
+interruption risk on slow mirrors.
 
 Developer note: Debian `nocloud` artifacts were rejected for this workflow after
 testing because they did not provide reliable cloud-init behavior in this stack.
@@ -180,7 +181,7 @@ Optional runtime flag to auto-start inactive required networks:
 make provision EXTRA_ARGS="-e kvm_auto_start_required_libvirt_networks=true"
 ```
 
-If SSH wait times out, pre-collected `virsh domiflist/domifaddr` diagnostics are
+If TCP port wait times out, pre-collected `virsh domiflist/domifaddr` diagnostics are
 shown in the failure message to speed up root-cause analysis.
 Use the same URI configured in `kvm_libvirt_connection_uri` when checking manually.
 For static-IP guests, `virsh domifaddr` can be empty with default source; also check:
