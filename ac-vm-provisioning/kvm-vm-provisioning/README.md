@@ -34,8 +34,6 @@ Scope: this playbook supports **Debian images only**.
 - `tasks/provision-runtime.yml`
 - `tasks/cleanup.yml`
 - `tasks/ping.yml`
-- `callback_plugins/idops_task_timing.py`
-- `scripts/benchmark_report.py`
 - `vars/kvm-provisioning.yml`
 - `host.yml`
 - `ansible.cfg`
@@ -134,8 +132,6 @@ make provision-check
 make cleanup
 make cleanup-force
 make cleanup-force-disks
-make benchmark-cold
-make benchmark-report
 ```
 
 Difference between `make provision-stage` and `make provision`:
@@ -163,31 +159,6 @@ Default policy is safety-first:
 - cleanup scope remains exact-name and opt-in for disk deletion
 
 Performance tuning is applied internally without removing those safety defaults.
-
-## Benchmarking
-
-Use benchmark targets only when you intentionally want destructive cold-run measurements:
-
-```bash
-make benchmark-cold
-make benchmark-report
-```
-
-`make benchmark-cold` does:
-
-1. cleanup with `kvm_cleanup_confirmed=true` and disk removal enabled
-2. timed full provision with shell `time`
-3. cloud-init apt update/upgrade disabled only for benchmark comparability
-
-Benchmark artifacts are written to `logs/benchmark/<timestamp>/`:
-
-- `time.txt` (wall clock and CPU timing data from shell `time`)
-- `task_timings.jsonl`
-- `task_timings.csv`
-- `timing_summary.json`
-
-`make benchmark-report` prints wall-time, stage totals, and top slow tasks.
-Note: benchmark metrics explicitly exclude apt update/upgrade time.
 
 When snapshot is enabled, runtime stage waits for TCP port readiness first and
 then actively waits for cloud-init completion (`cloud-init status --wait` or
@@ -331,7 +302,7 @@ Example:
 kvm_instance_definitions:
   - instance_name: "debian-13-a"
     image_profile_id: "debian-13"
-    instance_ipv4_address: "192.168.24.131"
+    instance_ipv4_address: "192.168.122.131"
     vcpu_count: 2
     memory_mb: 2048
     root_disk_size_gb: 20

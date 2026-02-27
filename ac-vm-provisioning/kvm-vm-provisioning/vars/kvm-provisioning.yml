@@ -5,7 +5,7 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "Selene"                 # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_host: "hypervisor.example.local"       # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
 kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hypervisor. Values: absolute path.
 kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
 
@@ -18,9 +18,9 @@ kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --ch
 # -----------------------------------------------------------------------------
 # Storage paths
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/home/bahman/b/QEMUKVM/isoPool/"           # Base-image cache directory on hypervisor.
+kvm_image_cache_path: "/var/lib/libvirt/images/cache/" # Base-image cache directory on hypervisor.
 kvm_auto_create_image_cache_path: true                          # Auto-create kvm_image_cache_path when missing.
-kvm_instance_disk_pool_path: "/home/bahman/b/QEMUKVM/stgPool/" # Per-instance VM disk directory.
+kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances/" # Per-instance VM disk directory.
 kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"      # Temporary cloud-init file workspace.
 kvm_cleanup_workspace_path_after_run: true                      # Remove cloud-init workspace at end of provision stage.
 
@@ -44,14 +44,14 @@ kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance dis
 # -----------------------------------------------------------------------------
 # Network defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "static_network_24"        # Libvirt network name for guest NIC attach.
+kvm_default_libvirt_network_name: "default"             # Libvirt network name for guest NIC attach.
 kvm_auto_start_required_libvirt_networks: false    # Auto-start inactive required networks during preflight.
 kvm_default_guest_network_interface: "ens3"        # Guest NIC name for cloud-init network config.
 kvm_guest_network_interface_fallbacks:             # Additional interface candidates for cloud-init static config.
   - "enp1s0"
   - "eth0"
 kvm_default_guest_network_prefix: "24"             # Default IPv4 prefix length.
-kvm_default_guest_network_gateway: "192.168.24.1" # Default IPv4 gateway.
+kvm_default_guest_network_gateway: "192.168.122.1" # Default IPv4 gateway.
 kvm_default_guest_dns_servers:                     # Default DNS resolvers for guest cloud-init config.
   - "1.1.1.1"
   - "8.8.8.8"
@@ -61,9 +61,9 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
 # -----------------------------------------------------------------------------
 kvm_default_cloud_init_user: "debian"                  # Initial guest username created by cloud-init.
 kvm_default_cloud_init_ssh_public_keys:                # Initial SSH authorized keys for cloud-init user.
-  - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDP1BzVvCU5aVuauSNeWRIG6l9hvAR2kt6qVKwPQ9u28EHivwNKhOUmB9s03y0lccYBrIowPkSKW9YWfq2aAGIr2GmqRJkxMNYfg0hElCFJxQPgzvYyn+bBbhPSCRFVjeCm7VPHB/EXvaPn4EF/uQKM+3u+WlUqWPnOn2f9yerq8AeHWsV6lwkC1ZVwY2GG2oFxxod0z2tAvwLUkP6CKwW7N+zdu+YDlGWGO0ulgC4ivDRPxP4///ZFmKbnAF2hK1aqp/MxfSyeOboUTPe4YEbJ3L7uHwdZJPrOt1j1G6Rda+MvpKkoHyLboRKHmWtK3hap2EjDQrcMS9dJxL6TMOIv12MVw6kko4/IgGIqgxL4pmCr6GGwS7Jwv6qsLq7UjxPGZqRtwE+5lC9/jL5kpzgzE9cEthcmrnSQfpljmOGmR93yAA8A/KaLTb7eWIQBUjjRf+MDMujxs7P2sORY/m51Bgqcg8K+OZQ9p0kDSWTx14P8W2dSAuBTB3/NriquyfRqYXfJognJQLABXUQpIjMt93r3S4AcN89U122kCSaN6TcmBYclofM6l1kdG2BDWZoGSolKcF5YOLPiuQthXnKl8kiKbuhChQSjck0Mu0fY8wGZGnBohIfeuW8lXlpregOEcw/G5QxlbryP67vwUM/S3ppzcbT5ocuNq2udsEKNQw== bahman.farhadian@outlook.com"
-kvm_default_cloud_init_plain_password: "idops"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
-kvm_default_cloud_init_root_plain_password: "idops"         # Optional root password (leave empty to keep root password locked).
+  - "ssh-ed25519 REPLACE_ME_WITH_YOUR_PUBLIC_KEY"
+kvm_default_cloud_init_plain_password: "changeme" # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+kvm_default_cloud_init_root_plain_password: ""     # Optional root password (leave empty to keep root password locked).
 kvm_default_cloud_init_user_sudo_rule: "ALL=(ALL) ALL" # Sudo policy for cloud-init user. Example: ALL=(ALL) ALL | ALL=(ALL) NOPASSWD:ALL.
 kvm_default_cloud_init_ssh_password_auth: true         # Enable SSH password auth in guest.
 kvm_default_cloud_init_disable_root: true              # Disable direct root login via cloud-init.
@@ -93,7 +93,7 @@ kvm_default_cloud_init_tune_networkd_wait_online: true                          
 kvm_default_cloud_init_networkd_wait_online_timeout_seconds: 30                 # Debian 12 systemd-networkd-wait-online timeout in seconds.
 kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" # Final cloud-init completion message.
 kvm_allow_mount_var_on_extra_disk: false                                        # Allow /var mount on fresh extra disk (unsafe). Values: false | true.
-kvm_force_single_socket_vcpu_topology: true                                     # CPU topology policy. true=force sockets=1,threads=1,cores=vcpu_count for all instances; false=use plain vcpu_count only.
+kvm_force_single_socket_vcpu_topology: true # CPU topology policy. true=sockets=1,threads=1; false=plain vcpu_count.
 
 # -----------------------------------------------------------------------------
 # Optional additional instance disks (overridable per instance)
@@ -151,10 +151,10 @@ kvm_cloud_image_catalog:
     image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"       # Official checksum manifest.
     image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
     virt_install_os_variant: "debian12"                                                                      # OS variant for virt-install.
-    virt_install_machine_type: "q35"                                                                         # Debian 12 profile machine type (kept aligned with Debian 13).
-    seed_device_bus: "scsi"                                                                                  # Debian 12 profile seed bus (kept aligned with Debian 13; avoids SATA seed visibility issues on Debian 12 cloud kernel).
+    virt_install_machine_type: "q35"                                                                         # Keep aligned with Debian 13 profile.
+    seed_device_bus: "scsi"                                                                                  # Keep aligned with Debian 13 profile.
     cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"                                                                               # Debian 12 profile firmware mode (kept aligned with Debian 13).
+    firmware_boot_mode: "uefi"                                                                               # Keep aligned with Debian 13 profile.
 
   debian-13:
     image_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"   # Source URL for base image.
@@ -163,9 +163,9 @@ kvm_cloud_image_catalog:
     image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
     virt_install_os_variant: "debian13"                                                                      # OS variant for virt-install.
     virt_install_machine_type: "q35"                                                                         # Debian 13 profile uses q35 machine.
-    seed_device_bus: "scsi"                                                                                  # Debian 13 profile seed bus (aligned with Debian 12 for consistent behavior).
+    seed_device_bus: "scsi"                                                                                  # Keep aligned with Debian 12 profile.
     cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"                                                                               # Debian 13 genericcloud supports UEFI in this workflow.
+    firmware_boot_mode: "uefi"                                                                               # Keep aligned with Debian 12 profile.
 
 # -----------------------------------------------------------------------------
 # Instance definitions (managed scope for provision + cleanup)
@@ -193,7 +193,7 @@ kvm_cloud_image_catalog:
 kvm_instance_definitions:
   - instance_name: "debian-12-a"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.121" # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.121" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
@@ -207,7 +207,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-12-b"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.122" # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.122" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
@@ -221,7 +221,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-13-a"             # Target libvirt domain name.
     image_profile_id: "debian-13"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.131" # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.131" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
@@ -235,7 +235,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-13-b"             # Target libvirt domain name.
     image_profile_id: "debian-13"            # Cloud image profile reference.
-    instance_ipv4_address: "192.168.24.132" # Instance static IPv4 address.
+    instance_ipv4_address: "192.168.122.132" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
