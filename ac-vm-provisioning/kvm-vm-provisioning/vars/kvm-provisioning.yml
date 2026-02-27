@@ -17,11 +17,11 @@ kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --ch
 # -----------------------------------------------------------------------------
 # Storage paths
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/libvirt/images/cache/" # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                          # Auto-create kvm_image_cache_path when missing.
+kvm_image_cache_path: "/var/lib/libvirt/images/cache/"            # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: true                            # Auto-create kvm_image_cache_path when missing.
 kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances/" # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"      # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                      # Remove cloud-init workspace at end of provision stage.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"        # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: true                        # Remove cloud-init workspace at end of provision stage.
 
 # -----------------------------------------------------------------------------
 # Image cache behavior
@@ -43,10 +43,10 @@ kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance dis
 # -----------------------------------------------------------------------------
 # Network defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "default"             # Libvirt network name for guest NIC attach.
-kvm_auto_start_required_libvirt_networks: false    # Auto-start inactive required networks during preflight.
-kvm_default_guest_network_interface: "ens3"        # Guest NIC name for cloud-init network config.
-kvm_guest_network_interface_fallbacks:             # Additional interface candidates for cloud-init static config.
+kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
+kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
+kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
+kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
   - "enp1s0"
   - "eth0"
 kvm_default_guest_network_prefix: "24"             # Default IPv4 prefix length.
@@ -61,8 +61,8 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
 kvm_default_cloud_init_user: "debian"                  # Initial guest username created by cloud-init.
 kvm_default_cloud_init_ssh_public_keys:                # Initial SSH authorized keys for cloud-init user.
   - "ssh-ed25519 REPLACE_ME_WITH_YOUR_PUBLIC_KEY"
-kvm_default_cloud_init_plain_password: "changeme" # CHANGE THIS PASSWORD BEFORE PRODUCTION.
-kvm_default_cloud_init_root_plain_password: ""     # Optional root password (leave empty to keep root password locked).
+kvm_default_cloud_init_plain_password: "changeme"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+kvm_default_cloud_init_root_plain_password: ""         # Optional root password (leave empty to keep root password locked).
 kvm_default_cloud_init_user_sudo_rule: "ALL=(ALL) ALL" # Sudo policy for cloud-init user. Example: ALL=(ALL) ALL | ALL=(ALL) NOPASSWD:ALL.
 kvm_default_cloud_init_ssh_password_auth: true         # Enable SSH password auth in guest.
 kvm_default_cloud_init_disable_root: true              # Disable direct root login via cloud-init.
@@ -92,7 +92,7 @@ kvm_default_cloud_init_tune_networkd_wait_online: true                          
 kvm_default_cloud_init_networkd_wait_online_timeout_seconds: 30                 # Debian 12 systemd-networkd-wait-online timeout in seconds.
 kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" # Final cloud-init completion message.
 kvm_allow_mount_var_on_extra_disk: false                                        # Allow /var mount on fresh extra disk (unsafe). Values: false | true.
-kvm_force_single_socket_vcpu_topology: true # CPU topology policy. true=sockets=1,threads=1; false=plain vcpu_count.
+kvm_force_single_socket_vcpu_topology: true                                     # CPU topology policy. true=sockets=1,threads=1; false=plain vcpu_count.
 
 # -----------------------------------------------------------------------------
 # Optional additional instance disks (overridable per instance)
