@@ -190,9 +190,10 @@ Benchmark artifacts are written to `logs/benchmark/<timestamp>/`:
 Note: benchmark metrics explicitly exclude apt update/upgrade time.
 
 When snapshot is enabled, runtime stage waits for TCP port readiness first and
-then applies a grace delay before shutdown/snapshot to reduce first-boot
-interruption risk on slow mirrors.
-Default grace is controlled by `kvm_wait_for_cloud_init_grace_seconds` (60s).
+then actively waits for cloud-init completion (`cloud-init status --wait` or
+`/var/lib/cloud/instance/boot-finished`) before shutdown/snapshot. This is an
+active readiness gate, not a fixed sleep.
+Maximum wait is controlled by `kvm_wait_for_cloud_init_timeout_seconds`.
 
 Developer note: Debian `nocloud` artifacts were rejected for this workflow after
 testing because they did not provide reliable cloud-init behavior in this stack.
@@ -271,7 +272,7 @@ Core interface keys:
 - `kvm_parallel_instance_workers`
 - `kvm_skip_pre_snapshot_port_recheck`
 - `kvm_debian12_network_boot_wait_timeout_seconds`
-- `kvm_wait_for_cloud_init_grace_seconds`
+- `kvm_wait_for_cloud_init_timeout_seconds`
 - `kvm_force_single_socket_vcpu_topology`
 - `kvm_cleanup_confirmed`
 - `kvm_cleanup_remove_instance_disks`

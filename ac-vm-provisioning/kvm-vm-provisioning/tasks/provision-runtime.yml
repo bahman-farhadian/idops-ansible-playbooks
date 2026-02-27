@@ -383,9 +383,12 @@
   when:
     - (cloud_init_port_timeout_instances | default([])) | length > 0
 
-- name: Wait extra grace period before snapshot after TCP SSH port is reachable
-  ansible.builtin.wait_for:
-    timeout: "{{ kvm_wait_for_cloud_init_grace_seconds | default(120) | int }}"
+- name: Check sshpass availability for optional password-based cloud-init wait
+  ansible.builtin.command:
+    cmd: bash -lc "command -v sshpass"
+  register: cloud_init_wait_sshpass_check
+  changed_when: false
+  failed_when: false
   when:
     - kvm_run_mutation_phases | bool
     - kvm_snapshot_enabled | default(true) | bool
@@ -393,7 +396,87 @@
     - kvm_wait_for_instance_ssh | default(true) | bool
     - (instances_to_create | default([])) | length > 0
     - (cloud_init_port_timeout_instances | default([])) | length == 0
-    - (kvm_wait_for_cloud_init_grace_seconds | default(120) | int) > 0
+
+- name: Confirm cloud-init boot-finished marker before snapshot
+  ansible.builtin.shell: |
+    set -euo pipefail
+    remote_cmd='cloud-init status --wait >/dev/null 2>&1 || while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 2; done'
+    if {{
+      (
+        (item.cloud_init_ssh_password_auth | default(false) | bool)
+        and (item.cloud_init_plain_password | default('') | length > 0)
+        and ((cloud_init_wait_sshpass_check.rc | default(1)) == 0)
+      ) | ternary('true', 'false')
+    }}; then
+      timeout "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int }}" \
+        sshpass -p {{ item.cloud_init_plain_password | quote }} \
+        ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+          -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+          -p "{{ item.ssh_port | int }}" \
+          "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}" \
+          "sh -lc \"$remote_cmd\""
+    else
+      timeout "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int }}" \
+        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+          -p "{{ item.ssh_port | int }}" \
+          "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}" \
+          "sh -lc \"$remote_cmd\""
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ instances_to_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: cloud_init_marker_wait_results
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+    - (cloud_init_port_timeout_instances | default([])) | length == 0
+
+- name: Build list of cloud-init readiness failures before snapshot
+  ansible.builtin.set_fact:
+    cloud_init_marker_timeout_instances: []
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+    - (cloud_init_port_timeout_instances | default([])) | length == 0
+
+- name: Collect cloud-init readiness failures before snapshot
+  ansible.builtin.set_fact:
+    cloud_init_marker_timeout_instances: "{{ (cloud_init_marker_timeout_instances + [item.item.instance_name]) | unique }}"
+  loop: "{{ cloud_init_marker_wait_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+    - (cloud_init_port_timeout_instances | default([])) | length == 0
+    - (item.rc | default(0) | int) != 0
+
+- name: Fail when cloud-init readiness check does not complete before snapshot
+  ansible.builtin.fail:
+    msg: >-
+      Cloud-init readiness check did not complete for instance(s): {{
+      cloud_init_marker_timeout_instances | join(', ')
+      }} before snapshot.
+      This gate waits on cloud-init completion (not a fixed sleep) and can run as key-based SSH or
+      password-based SSH when sshpass is available and cloud_init_plain_password is set.
+      Increase kvm_wait_for_cloud_init_timeout_seconds for slow mirrors, or disable this gate with
+      kvm_wait_for_cloud_init_before_snapshot=false if you intentionally do not provide guest SSH auth.
+  when:
+    - (cloud_init_marker_timeout_instances | default([])) | length > 0
 
 - name: Shut down newly created instances for snapshot
   ansible.builtin.command:
