@@ -13,6 +13,8 @@
   ansible.builtin.set_fact:
     cleanup_instance_defaults:
       instance_disk_extension: "{{ kvm_default_instance_disk_extension }}"
+      instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
+      instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
 
 - name: Build normalized cleanup instance definitions
   ansible.builtin.set_fact:
@@ -32,6 +34,9 @@
       - item.instance_name | length > 0
       - item.instance_name is match('^[A-Za-z0-9][A-Za-z0-9-]{0,62}$')
       - item.instance_disk_extension is match('^[A-Za-z0-9]+$')
+      - item.instance_extra_disks_enabled is boolean
+      - item.instance_extra_disks is sequence
+      - item.instance_extra_disks is not string
     fail_msg: >-
       Invalid cleanup target '{{ item.instance_name | default('unknown') }}'.
       Cleanup requires exact, valid instance names from kvm_instance_definitions.
@@ -46,6 +51,23 @@
         ==
         cleanup_instance_definitions | map(attribute='instance_name') | list | unique | length
     fail_msg: "Duplicate instance_name values detected in kvm_instance_definitions."
+
+- name: Validate cleanup additional disk schema per instance
+  ansible.builtin.assert:
+    that:
+      - cleanup_disk.guest_device is defined
+      - cleanup_disk.guest_device is match('^vd[b-z]$')
+      - (cleanup_disk.disk_extension | default(item.0.instance_disk_extension)) is match('^[A-Za-z0-9]+$')
+    fail_msg: >-
+      Invalid additional disk definition for cleanup on instance {{ item.0.instance_name }}.
+      guest_device must be vd[b-z].
+  vars:
+    cleanup_disk: "{{ item.1 }}"
+  loop: "{{ cleanup_instance_definitions | subelements('instance_extra_disks', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device | default('missing-device') }}"
+  when:
+    - item.0.instance_extra_disks_enabled | bool
 
 - name: WARNING - Dry run mode
   ansible.builtin.debug:
@@ -154,8 +176,15 @@
       when: item.ansible_job_id is defined
 
     - name: Undefine declared instances (async)
-      ansible.builtin.command:
-        cmd: virsh undefine "{{ item.instance_name }}" --snapshots-metadata
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if virsh dumpxml "{{ item.instance_name }}" | grep -q '<nvram'; then
+          virsh undefine "{{ item.instance_name }}" --snapshots-metadata --nvram
+        else
+          virsh undefine "{{ item.instance_name }}" --snapshots-metadata
+        fi
+      args:
+        executable: /bin/bash
       loop: "{{ instances_to_delete }}"
       loop_control:
         label: "{{ item.instance_name }}"
@@ -237,3 +266,24 @@
   when:
     - kvm_cleanup_confirmed | bool
     - kvm_cleanup_remove_instance_disks | default(false) | bool
+
+- name: Remove declared additional disk files when disk removal is enabled
+  ansible.builtin.file:
+    path: >-
+      {{
+        kvm_instance_disk_pool_path
+        ~ '/'
+        ~ item.0.instance_name
+        ~ '-'
+        ~ item.1.guest_device
+        ~ '.'
+        ~ (item.1.disk_extension | default(item.0.instance_disk_extension))
+      }}
+    state: absent
+  loop: "{{ cleanup_instance_definitions | subelements('instance_extra_disks', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+    - item.0.instance_extra_disks_enabled | bool

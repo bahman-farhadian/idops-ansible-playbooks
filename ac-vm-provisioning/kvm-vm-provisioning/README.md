@@ -13,7 +13,9 @@ Scope: this playbook supports **Debian images only**.
   - `kvm_instance_disk_pool_path` for per-instance VM disks
 - Per-instance provisioning from cached cloud images (no `virt-clone`)
 - Cloud-init seed generation per instance (user-data, meta-data, network-config)
-- Seed content configuration via `vars/kvm-provisioning.yml` (timezone, apt, packages, bootcmd/runcmd, storage map)
+- Seed content configuration via `vars/kvm-provisioning.yml` (timezone, apt, packages, bootcmd/runcmd)
+- Optional multi-disk provisioning (disabled by default) with per-disk mount targets
+  such as `/data` or `/var/lib/<service>`
 - Deterministic per-instance MAC assignment (or optional explicit `instance_mac_address`)
   for reliable cloud-init network matching
 - Configurable firmware mode per profile/instance (`bios` or `uefi`)
@@ -78,20 +80,23 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 3. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
 4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
 5. Confirm official checksum manifest URLs under `kvm_cloud_image_catalog[*].image_checksum_manifest_url`.
-6. Set cloud-init access defaults (including plain password) and instance definitions.
+6. Set cloud-init access defaults (plain user password, sudo policy, optional root password)
+   and instance definitions.
 7. Optional: set `kvm_guest_network_interface_fallbacks` to expand NIC-name fallbacks
    (defaults to `['ens3', 'enp1s0', 'eth0']`).
 8. Use `*-genericcloud-amd64.qcow2` images for this workflow.
    `nocloud` is blocked by default; override only if intentional with
    `kvm_allow_nocloud_images=true`.
-9. Set firmware mode with `kvm_default_firmware_boot_mode` (global default) and/or
-   per-profile `firmware_boot_mode` in `kvm_cloud_image_catalog`.
-   If unset, playbook fallback is `uefi`. On this stack, Debian 13 `genericcloud`
-   requires `uefi`.
-10. Add or remove Debian variants in `kvm_cloud_image_catalog`.
+9. Root-disk repartitioning on `genericcloud` images is intentionally not supported
+   in this playbook. Use installer-based provisioning or a custom image pipeline
+   if you require custom root partition layout.
+10. Set per-profile `firmware_boot_mode` in `kvm_cloud_image_catalog`.
+    If unset, playbook fallback is `uefi`. On this stack, Debian 13 `genericcloud`
+    requires `uefi`.
+11. Add or remove Debian variants in `kvm_cloud_image_catalog`.
    `make image-cache` processes all catalog profiles, while instance creation
    still follows `kvm_instance_definitions`.
-11. Default demo password is `changeme`; CHANGE THIS PASSWORD BEFORE PRODUCTION.
+12. Default demo password is `changeme`; CHANGE THIS PASSWORD BEFORE PRODUCTION.
 
 Then run:
 
@@ -141,12 +146,24 @@ images using checksum-versioned filenames. When Debian `latest` changes, a new
 versioned file is downloaded and old cached files are preserved.
 By design, it caches all profiles defined in `kvm_cloud_image_catalog`.
 
+When snapshot is enabled, runtime stage waits for cloud-init completion before
+shutdown/snapshot to avoid interrupting first-boot package update/upgrade.
+
 Developer note: Debian `nocloud` artifacts were rejected for this workflow after
 testing because they did not provide reliable cloud-init behavior in this stack.
 Use Debian `genericcloud` artifacts.
 
 Developer note: Debian 13 `genericcloud` booted reliably only with UEFI firmware
 (`firmware_boot_mode: uefi`) on this hypervisor.
+
+Developer note: UEFI provisioning uses secure-boot OVMF paths internally
+(`OVMF_CODE_4M.ms.fd` + `OVMF_VARS_4M.ms.fd`) and does not expose secure-boot
+toggles in user variables.
+
+Developer note: seed-bus/machine-type are profile-specific for compatibility:
+- Debian 12 uses `virt_install_machine_type: pc` + `seed_device_bus: ide`
+  because the Debian 12 cloud kernel in this workflow lacks `ahci` support.
+- Debian 13 uses `virt_install_machine_type: q35` + `seed_device_bus: sata`.
 
 If provisioning fails with `Network not found`, run on hypervisor:
 
@@ -179,7 +196,8 @@ Cleanup is strict by design:
 4. Disk deletion is opt-in (`kvm_cleanup_remove_instance_disks=true` or `make cleanup-force-disks`).
 5. Base image cache files are not removed by cleanup.
 
-`make cleanup-force-disks` also removes declared instance disk/seed files when a
+`make cleanup-force-disks` also removes declared instance root disk, optional
+additional disks, and seed files when a
 domain does not exist (stale disk cleanup), while still never touching
 non-declared names.
 
@@ -209,12 +227,65 @@ Seed/user-data defaults are centralized in `vars/kvm-provisioning.yml`:
 - `kvm_default_cloud_init_bootcmd`
 - `kvm_default_cloud_init_runcmd`
 - `kvm_default_cloud_init_write_files`
-- `kvm_default_cloud_init_storage_layout_enabled`
-- `kvm_default_cloud_init_storage_config`
+- `kvm_default_cloud_init_user_sudo_rule`
+- `kvm_default_cloud_init_root_plain_password` (optional)
 
 Default APT mirror is `deb.debian.org` via `kvm_default_cloud_init_apt_config`.
-Default storage map targets a 20GiB disk layout: 1GiB `/boot/efi`, 2GiB `/boot`,
-10GiB `/`, and 7GiB `/var`.
+
+## Additional Disks
+
+Root-disk partition customization is not applied on Debian `genericcloud` images
+in this playbook. Use optional extra disks instead.
+
+Global defaults:
+
+- `kvm_default_instance_extra_disks_enabled` (default `false`)
+- `kvm_default_instance_extra_disks` (default `[]`)
+
+Per-instance overrides in `kvm_instance_definitions[]`:
+
+- `instance_extra_disks_enabled`
+- `instance_extra_disks`
+
+`instance_extra_disks` item fields:
+
+- `guest_device` (required, `vd[b-z]`, example: `vdb`)
+- `size_gb` (required, integer > 0)
+- `mount_point` (required, absolute path, example: `/data`, `/var/lib/app`)
+- `filesystem` (optional, `ext4` or `xfs`, default: `ext4`)
+- `mount_options` (optional, default: `defaults,nofail`)
+- `disk_extension` (optional, default: `instance_disk_extension`)
+- `filesystem_label` (optional)
+
+Safety note:
+
+- Mounting a fresh extra disk directly on `/var` is blocked by default because it
+  can break boot on cloud images. Override only if you intentionally handle
+  `/var` migration in your image pipeline:
+  `kvm_allow_mount_var_on_extra_disk=true`.
+
+Example:
+
+```yaml
+kvm_instance_definitions:
+  - instance_name: "debian-13-a"
+    image_profile_id: "debian-13"
+    instance_ipv4_address: "192.168.24.131"
+    vcpu_count: 2
+    memory_mb: 2048
+    root_disk_size_gb: 20
+    instance_extra_disks_enabled: true
+    instance_extra_disks:
+      - guest_device: "vdb"
+        size_gb: 40
+        mount_point: "/data"
+        filesystem: "ext4"
+      - guest_device: "vdc"
+        size_gb: 100
+        mount_point: "/data"
+        filesystem: "xfs"
+        mount_options: "defaults,nofail"
+```
 
 Nexus/local apt cache example:
 
@@ -231,7 +302,7 @@ kvm_default_cloud_init_apt_config:
 
 Per-instance overrides are supported by setting equivalent keys inside each
 `kvm_instance_definitions[]` item (for example `cloud_init_timezone`,
-`cloud_init_apt_config`, `cloud_init_storage_config`).
+`cloud_init_apt_config`, `instance_extra_disks`).
 
 ## Notes
 

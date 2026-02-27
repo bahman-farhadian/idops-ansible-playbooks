@@ -75,7 +75,9 @@
     instance_defaults:
       instance_disk_extension: "{{ kvm_default_instance_disk_extension }}"
       root_disk_size_gb: "{{ kvm_default_root_disk_size_gb }}"
-      firmware_boot_mode: "{{ kvm_default_firmware_boot_mode | default('uefi') }}"
+      firmware_boot_mode: "uefi"
+      virt_install_machine_type: "q35"
+      seed_device_bus: "sata"
       guest_network_interface: "{{ kvm_default_guest_network_interface }}"
       guest_network_prefix: "{{ kvm_default_guest_network_prefix }}"
       guest_network_gateway: "{{ kvm_default_guest_network_gateway }}"
@@ -85,6 +87,8 @@
       cloud_init_user: "{{ kvm_default_cloud_init_user }}"
       cloud_init_ssh_public_keys: "{{ kvm_default_cloud_init_ssh_public_keys }}"
       cloud_init_plain_password: "{{ kvm_default_cloud_init_plain_password }}"
+      cloud_init_root_plain_password: "{{ kvm_default_cloud_init_root_plain_password | default('') }}"
+      cloud_init_user_sudo_rule: "{{ kvm_default_cloud_init_user_sudo_rule | default('ALL=(ALL) ALL') }}"
       cloud_init_ssh_password_auth: "{{ kvm_default_cloud_init_ssh_password_auth }}"
       cloud_init_disable_root: "{{ kvm_default_cloud_init_disable_root }}"
       cloud_init_manage_etc_hosts: "{{ kvm_default_cloud_init_manage_etc_hosts }}"
@@ -99,10 +103,8 @@
       cloud_init_runcmd: "{{ kvm_default_cloud_init_runcmd }}"
       cloud_init_write_files: "{{ kvm_default_cloud_init_write_files }}"
       cloud_init_final_message: "{{ kvm_default_cloud_init_final_message }}"
-      cloud_init_growpart_devices: "{{ kvm_default_cloud_init_growpart_devices }}"
-      cloud_init_resize_rootfs: "{{ kvm_default_cloud_init_resize_rootfs }}"
-      cloud_init_storage_layout_enabled: "{{ kvm_default_cloud_init_storage_layout_enabled }}"
-      cloud_init_storage_config: "{{ kvm_default_cloud_init_storage_config }}"
+      instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
+      instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
 
 - name: Build normalized instance definitions
   ansible.builtin.set_fact:
@@ -146,10 +148,17 @@
       - (item.root_disk_size_gb | int) > 0
       - item.instance_disk_extension is match('^[A-Za-z0-9]+$')
       - (item.firmware_boot_mode | default('uefi') | lower) in ['bios', 'uefi']
+      - item.virt_install_machine_type is string
+      - item.virt_install_machine_type | length > 0
+      - item.seed_device_bus is defined
+      - (item.seed_device_bus | lower) in ['sata', 'ide', 'scsi', 'virtio']
       - item.libvirt_network_name is defined
       - item.libvirt_network_name | length > 0
       - item.cloud_init_user is defined
       - item.cloud_init_user | length > 0
+      - item.cloud_init_user_sudo_rule is string
+      - item.cloud_init_user_sudo_rule | length > 0
+      - item.cloud_init_root_plain_password is string
       - item.cloud_init_manage_etc_hosts is boolean
       - item.cloud_init_timezone is string
       - item.cloud_init_timezone | length > 0
@@ -170,19 +179,10 @@
       - item.cloud_init_write_files is sequence
       - item.cloud_init_write_files is not string
       - item.cloud_init_final_message is string
-      - item.cloud_init_growpart_devices is sequence
-      - item.cloud_init_growpart_devices is not string
-      - item.cloud_init_resize_rootfs is boolean
-      - item.cloud_init_storage_layout_enabled is boolean
-      - item.cloud_init_storage_config is mapping
-      - >-
-        (
-          not (item.cloud_init_storage_layout_enabled | bool)
-        )
-        or
-        (
-          (item.cloud_init_storage_config | default({}) | length) > 0
-        )
+      - item.instance_extra_disks_enabled is boolean
+      - item.instance_extra_disks is sequence
+      - item.instance_extra_disks is not string
+      - (item.instance_extra_disks | length == 0) or (item.instance_extra_disks_enabled | bool)
       - (item.cloud_init_plain_password | length > 0) or not (item.cloud_init_ssh_password_auth | bool)
       - >-
         (
@@ -205,6 +205,53 @@
         ==
         normalized_instances | map(attribute='instance_name') | list | unique | length
     fail_msg: "Instance names must be unique in kvm_instance_definitions."
+
+- name: Validate additional disk schema per instance
+  ansible.builtin.assert:
+    that:
+      - disk_spec.guest_device is defined
+      - disk_spec.guest_device is match('^vd[b-z]$')
+      - disk_spec.mount_point is defined
+      - disk_spec.mount_point is match('^/[A-Za-z0-9._/-]*$')
+      - disk_spec.mount_point not in ['/', '/boot', '/boot/efi']
+      - (disk_spec.mount_point != '/var') or (kvm_allow_mount_var_on_extra_disk | default(false) | bool)
+      - disk_spec.size_gb is defined
+      - (disk_spec.size_gb | int) > 0
+      - (disk_spec.filesystem | default('ext4')) in ['ext4', 'xfs']
+      - (disk_spec.mount_options | default('defaults,nofail')) is string
+      - (disk_spec.disk_extension | default(item.0.instance_disk_extension)) is match('^[A-Za-z0-9]+$')
+    fail_msg: >-
+      Invalid additional disk definition for instance {{ item.0.instance_name }}:
+      guest_device must be vd[b-z], mount_point must be an absolute path
+      (not /, /boot, /boot/efi), and size_gb must be > 0.
+      /var is blocked by default on fresh extra disks because it can break boot.
+      Set kvm_allow_mount_var_on_extra_disk=true only if you intentionally
+      handle /var data migration in your image pipeline.
+  vars:
+    disk_spec: "{{ item.1 }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device | default('missing-device') }}"
+  loop: "{{ normalized_instances | subelements('instance_extra_disks', skip_missing=True) }}"
+  when:
+    - item.0.instance_extra_disks_enabled | bool
+
+- name: Validate additional disk uniqueness per instance
+  ansible.builtin.assert:
+    that:
+      - item.instance_extra_disks | map(attribute='guest_device') | list | length
+        ==
+        item.instance_extra_disks | map(attribute='guest_device') | list | unique | length
+      - item.instance_extra_disks | map(attribute='mount_point') | list | length
+        ==
+        item.instance_extra_disks | map(attribute='mount_point') | list | unique | length
+    fail_msg: >-
+      Instance {{ item.instance_name }} has duplicate additional disk guest_device or mount_point values.
+  loop: "{{ normalized_instances }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - item.instance_extra_disks_enabled | bool
+    - (item.instance_extra_disks | length) > 0
 
 - name: Build unique image profile list from requested instances
   ansible.builtin.set_fact:

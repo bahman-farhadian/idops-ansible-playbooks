@@ -122,6 +122,58 @@
         | length
       ) > 0
 
+- name: Initialize required UEFI firmware file list
+  ansible.builtin.set_fact:
+    required_uefi_firmware_files: []
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+
+- name: Build required UEFI firmware file list for instances to create
+  ansible.builtin.set_fact:
+    required_uefi_firmware_files: >-
+      {{
+        (
+          required_uefi_firmware_files
+          + [
+              '/usr/share/OVMF/OVMF_CODE_4M.ms.fd',
+              '/usr/share/OVMF/OVMF_VARS_4M.ms.fd'
+            ]
+        )
+        | unique
+      }}
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - (item.firmware_boot_mode | default('uefi') | lower) == 'uefi'
+
+- name: Validate required UEFI firmware files exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ required_uefi_firmware_files | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  register: uefi_firmware_stats
+  changed_when: false
+  when:
+    - instances_to_create | length > 0
+    - kvm_run_mutation_phases | bool
+    - (required_uefi_firmware_files | default([])) | length > 0
+
+- name: Fail when required UEFI firmware files are missing
+  ansible.builtin.fail:
+    msg: >-
+      Required UEFI firmware file is missing: {{ item.item }}.
+      Install/verify OVMF secure-boot firmware on the hypervisor.
+  loop: "{{ uefi_firmware_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - not (item.stat.exists | default(false))
+
 - name: Validate base cloud images exist for instances to create
   ansible.builtin.stat:
     path: "{{ item.base_image_path }}"
@@ -414,6 +466,91 @@
     - kvm_run_mutation_phases | bool
     - (instances_requiring_disk_create | default([])) | length > 0
 
+- name: Check additional disk files for instances requiring creation
+  ansible.builtin.stat:
+    path: >-
+      {{
+        normalized_instance_disk_pool_path
+        ~ '/'
+        ~ item.0.instance_name
+        ~ '-'
+        ~ item.1.guest_device
+        ~ '.'
+        ~ (item.1.disk_extension | default(item.0.instance_disk_extension))
+      }}
+  loop: "{{ (instances_requiring_disk_create | default([])) | subelements('instance_extra_disks', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  register: additional_disk_stats
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - (instances_requiring_disk_create | default([])) | length > 0
+    - item.0.instance_extra_disks_enabled | bool
+
+- name: Fail when additional disk files already exist and reuse is disabled
+  ansible.builtin.fail:
+    msg: >-
+      Additional disk file already exists for instance {{ item.item.0.instance_name }}
+      on guest device {{ item.item.1.guest_device }}:
+      {{
+        normalized_instance_disk_pool_path
+        ~ '/'
+        ~ item.item.0.instance_name
+        ~ '-'
+        ~ item.item.1.guest_device
+        ~ '.'
+        ~ (item.item.1.disk_extension | default(item.item.0.instance_disk_extension))
+      }}.
+      Set kvm_allow_reuse_existing_instance_disks=true to reuse existing files,
+      or run: make cleanup-force-disks.
+  loop: "{{ additional_disk_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.0.instance_name }}:{{ item.item.1.guest_device }}"
+  when:
+    - item.stat.exists | default(false)
+    - not (kvm_allow_reuse_existing_instance_disks | default(false) | bool)
+
+- name: Build list of additional disks requiring creation
+  ansible.builtin.set_fact:
+    additional_disks_requiring_create: >-
+      {{
+        additional_disk_stats.results
+        | default([])
+        | rejectattr('stat.exists', 'equalto', true)
+        | map(attribute='item')
+        | list
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - (instances_requiring_disk_create | default([])) | length > 0
+
+- name: Create additional disk files
+  ansible.builtin.command:
+    argv:
+      - qemu-img
+      - create
+      - -f
+      - "{{ item.1.disk_extension | default(item.0.instance_disk_extension) }}"
+      - >-
+        {{
+          normalized_instance_disk_pool_path
+          ~ '/'
+          ~ item.0.instance_name
+          ~ '-'
+          ~ item.1.guest_device
+          ~ '.'
+          ~ (item.1.disk_extension | default(item.0.instance_disk_extension))
+        }}
+      - "{{ item.1.size_gb }}G"
+  loop: "{{ additional_disks_requiring_create | default([]) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - (additional_disks_requiring_create | default([])) | length > 0
+
 - name: Generate cloud-init user-data files
   ansible.builtin.copy:
     dest: "{{ item.cloud_init_user_data_path }}"
@@ -431,11 +568,10 @@
       ssh_pwauth: {{ (item.cloud_init_ssh_password_auth | bool) | ternary('true', 'false') }}
       disable_root: {{ (item.cloud_init_disable_root | bool) | ternary('true', 'false') }}
       users:
-        - default
         - name: {{ item.cloud_init_user }}
           shell: /bin/bash
           groups: [sudo]
-          sudo: ALL=(ALL) NOPASSWD:ALL
+          sudo: {{ item.cloud_init_user_sudo_rule | to_json }}
           lock_passwd: {{ (item.cloud_init_plain_password | length == 0) | ternary('true', 'false') }}
       {% if (item.cloud_init_ssh_public_keys | default([])) | length > 0 %}
           ssh_authorized_keys:
@@ -443,11 +579,20 @@
             - {{ pubkey }}
       {% endfor %}
       {% endif %}
-      {% if item.cloud_init_plain_password | length > 0 %}
+      {% if (item.cloud_init_plain_password | length > 0) or ((item.cloud_init_root_plain_password | default('')) | length > 0) %}
       chpasswd:
-        list: |
-          {{ item.cloud_init_user }}:{{ item.cloud_init_plain_password }}
         expire: false
+        users:
+      {% if item.cloud_init_plain_password | length > 0 %}
+          - name: {{ item.cloud_init_user }}
+            password: {{ item.cloud_init_plain_password | to_json }}
+            type: text
+      {% endif %}
+      {% if (item.cloud_init_root_plain_password | default('')) | length > 0 %}
+          - name: root
+            password: {{ item.cloud_init_root_plain_password | to_json }}
+            type: text
+      {% endif %}
       {% endif %}
       {% if (item.cloud_init_apt_config | default({})) | length > 0 %}
       apt:
@@ -475,16 +620,33 @@
         - {{ run_command | to_json }}
       {% endfor %}
       {% endif %}
-      {% if item.cloud_init_storage_layout_enabled | bool %}
-      {{ item.cloud_init_storage_config | to_nice_yaml(indent=2) | trim }}
+      {% if (item.instance_extra_disks_enabled | bool) and ((item.instance_extra_disks | default([])) | length > 0) %}
+      disk_setup:
+      {% for extra_disk in item.instance_extra_disks %}
+        /dev/{{ extra_disk.guest_device }}:
+          table_type: gpt
+          layout: true
+          overwrite: false
+      {% endfor %}
+      fs_setup:
+      {% for extra_disk in item.instance_extra_disks %}
+        - label: {{ (extra_disk.filesystem_label | default((item.instance_name ~ '-' ~ extra_disk.guest_device)[0:16])) | to_json }}
+          filesystem: {{ extra_disk.filesystem | default('ext4') }}
+          device: /dev/{{ extra_disk.guest_device }}1
+          partition: auto
+      {% endfor %}
+      mounts:
+      {% for extra_disk in item.instance_extra_disks %}
+        - [
+            "/dev/{{ extra_disk.guest_device }}1",
+            "{{ extra_disk.mount_point }}",
+            "{{ extra_disk.filesystem | default('ext4') }}",
+            "{{ extra_disk.mount_options | default('defaults,nofail') }}",
+            "0",
+            "2"
+          ]
+      {% endfor %}
       {% endif %}
-      {% if (item.cloud_init_growpart_devices | default([])) | length > 0 %}
-      growpart:
-        mode: auto
-        devices: {{ item.cloud_init_growpart_devices | to_json }}
-        ignore_growroot_disabled: false
-      {% endif %}
-      resize_rootfs: {{ (item.cloud_init_resize_rootfs | bool) | ternary('true', 'false') }}
       final_message: {{ item.cloud_init_final_message | to_json }}
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
@@ -515,8 +677,10 @@
     content: |
       version: 2
       ethernets:
-      {% for iface in item.guest_network_interface_candidates %}
-        "{{ iface }}":
+        idops0:
+          match:
+            macaddress: "{{ item.instance_mac_address | lower }}"
+          set-name: "{{ item.guest_network_interface }}"
           dhcp4: false
           dhcp6: false
           optional: true
@@ -527,7 +691,6 @@
               via: {{ item.guest_network_gateway }}
           nameservers:
             addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
-      {% endfor %}
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"
@@ -562,11 +725,13 @@
       - "{{ item.memory_mb | int }}"
       - --vcpus
       - "{{ item.vcpu_count | int }}"
+      - --machine
+      - "{{ item.virt_install_machine_type }}"
       - --import
       - --disk
       - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
       - --disk
-      - "path={{ item.seed_disk_path }},device=disk,bus=virtio,format=raw,readonly=on"
+      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
       - --os-variant
       - "{{ item.virt_install_os_variant }}"
       - --network
@@ -594,13 +759,16 @@
       - "{{ item.memory_mb | int }}"
       - --vcpus
       - "{{ item.vcpu_count | int }}"
+      - --machine
+      - "{{ item.virt_install_machine_type }}"
       - --import
       - --boot
-      - uefi
+      - >-
+        loader=/usr/share/OVMF/OVMF_CODE_4M.ms.fd,loader.readonly=yes,loader.type=pflash,nvram.template=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
       - --disk
       - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
       - --disk
-      - "path={{ item.seed_disk_path }},device=disk,bus=virtio,format=raw,readonly=on"
+      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
       - --os-variant
       - "{{ item.virt_install_os_variant }}"
       - --network
@@ -628,6 +796,40 @@
   when:
     - kvm_run_mutation_phases | bool
     - instances_to_create | length > 0
+
+- name: Attach additional disks to newly defined instances
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - attach-disk
+      - "{{ item.0.instance_name }}"
+      - >-
+        {{
+          normalized_instance_disk_pool_path
+          ~ '/'
+          ~ item.0.instance_name
+          ~ '-'
+          ~ item.1.guest_device
+          ~ '.'
+          ~ (item.1.disk_extension | default(item.0.instance_disk_extension))
+        }}
+      - "{{ item.1.guest_device }}"
+      - --targetbus
+      - virtio
+      - --subdriver
+      - "{{ item.1.disk_extension | default(item.0.instance_disk_extension) }}"
+      - --type
+      - disk
+      - --config
+      - --persistent
+  loop: "{{ (instances_to_create_materialized | default([])) | subelements('instance_extra_disks', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+    - item.0.instance_extra_disks_enabled | bool
 
 - name: Remove cloud-init workspace artifacts when enabled
   ansible.builtin.file:

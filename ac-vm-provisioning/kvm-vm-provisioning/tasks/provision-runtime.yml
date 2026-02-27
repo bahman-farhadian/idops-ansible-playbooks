@@ -272,6 +272,63 @@
   when:
     - (runtime_ssh_timeout_instances | default([])) | length > 0
 
+- name: Wait for cloud-init boot-finished marker before snapshot
+  ansible.builtin.command:
+    argv:
+      - timeout
+      - "{{ kvm_wait_for_cloud_init_timeout_seconds | default(600) | int | string }}"
+      - ssh
+      - -o
+      - BatchMode=yes
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - -o
+      - ConnectTimeout=10
+      - -p
+      - "{{ item.ssh_port | int | string }}"
+      - "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}"
+      - sh
+      - -c
+      - while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 2; done
+  loop: "{{ instances_to_create | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  async: "{{ (kvm_wait_for_cloud_init_timeout_seconds | default(600) | int) + 30 }}"
+  poll: 0
+  register: cloud_init_wait_jobs
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - (instances_to_create | default([])) | length > 0
+
+- name: Confirm cloud-init boot-finished marker before snapshot
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ cloud_init_wait_jobs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: cloud_init_wait_status
+  until: (cloud_init_wait_status.finished | default(false)) | bool
+  retries: "{{ kvm_wait_for_cloud_init_poll_retries | default(60) | int }}"
+  delay: "{{ kvm_wait_for_cloud_init_poll_delay_seconds | default(5) | int }}"
+  failed_when: >-
+    (
+      (cloud_init_wait_status.finished | default(0) | int) == 1
+    )
+    and
+    (
+      (cloud_init_wait_status.rc | default(0) | int) != 0
+    )
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | default(true) | bool
+    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
+    - kvm_wait_for_instance_ssh | default(true) | bool
+    - item.ansible_job_id is defined
+
 - name: Shut down newly created instances for snapshot
   ansible.builtin.command:
     cmd: virsh shutdown "{{ item.instance_name }}"
