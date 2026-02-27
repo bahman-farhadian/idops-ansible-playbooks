@@ -1,0 +1,15 @@
+---
+auth_login_defs_settings:
+  PASS_MAX_DAYS: "90"
+  PASS_MIN_DAYS: "1"
+  PASS_WARN_AGE: "7"
+  UMASK: "027"
+  SHA_CRYPT_MIN_ROUNDS: "640000"
+  SHA_CRYPT_MAX_ROUNDS: "640000"
+auth_useradd_inactive_days: 30
+auth_pwquality_retry: 3
+auth_pwquality_minlen: 14
+auth_pwquality_difok: 4
+auth_apply_to_existing_local_users: true
+auth_apply_to_root: true
+auth_skip_users: []

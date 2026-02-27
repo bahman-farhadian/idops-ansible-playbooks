@@ -1,0 +1,59 @@
+#!/bin/bash
+# Managed by Ansible - log interactive SSH commands through syslog.
+
+if [ -z "${BASH_VERSION:-}" ]; then
+    return 0
+fi
+
+case "$-" in
+    *i*) ;;
+    *) return 0 ;;
+esac
+
+if [ -z "${SSH_CONNECTION:-}" ]; then
+    return 0
+fi
+
+__ansible_ssh_command_log_prompt() {
+    local previous_rc history_line command_text remote_ip remote_port local_ip local_port tty_value
+    previous_rc="$?"
+
+    if [ -z "${HISTCMD:-}" ]; then
+        return 0
+    fi
+
+    if [ "${HISTCMD}" = "${__ANSIBLE_SSH_LAST_HISTCMD:-}" ]; then
+        return 0
+    fi
+
+    history_line="$(history 1 2>/dev/null)"
+    command_text="$(printf '%s' "${history_line}" | sed -E 's/^[[:space:]]*[0-9]+\*?[[:space:]]+//')"
+    command_text="${command_text//$'\n'/ }"
+    command_text="${command_text//$'\r'/ }"
+
+    if [ -z "${command_text}" ]; then
+        return 0
+    fi
+
+    __ANSIBLE_SSH_LAST_HISTCMD="${HISTCMD}"
+
+    read -r remote_ip remote_port local_ip local_port <<< "${SSH_CONNECTION}"
+    tty_value="${SSH_TTY:-$(tty 2>/dev/null || printf 'unknown')}"
+
+    logger -p {{ ssh_command_log_facility }}.{{ ssh_command_log_priority }} -t {{ ssh_command_logger_tag }} -- \
+        "user=${USER:-unknown} uid=${UID:-unknown} remote_ip=${remote_ip:-unknown} remote_port=${remote_port:-unknown} local_ip=${local_ip:-unknown} local_port=${local_port:-unknown} tty=${tty_value} cwd=${PWD:-unknown} rc=${previous_rc} histcmd=${HISTCMD} cmd=${command_text}"
+
+    history -a
+}
+
+if [ -n "${PROMPT_COMMAND:-}" ]; then
+    case ";${PROMPT_COMMAND};" in
+        *";__ansible_ssh_command_log_prompt;"*) ;;
+        *) PROMPT_COMMAND="__ansible_ssh_command_log_prompt; ${PROMPT_COMMAND}" ;;
+    esac
+else
+    PROMPT_COMMAND="__ansible_ssh_command_log_prompt"
+fi
+
+export PROMPT_COMMAND
+shopt -s histappend

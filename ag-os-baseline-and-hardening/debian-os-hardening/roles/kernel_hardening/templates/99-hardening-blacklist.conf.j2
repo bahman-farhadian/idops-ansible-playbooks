@@ -1,0 +1,17 @@
+# Managed by Ansible - disable unnecessary protocol and storage modules
+{% for module in kernel_blacklisted_network_modules %}
+blacklist {{ module }}
+install {{ module }} /bin/false
+{% endfor %}
+{% if kernel_disable_usb_storage %}
+blacklist usb-storage
+install usb-storage /bin/false
+{% endif %}
+{% if kernel_disable_firewire_storage %}
+blacklist firewire-core
+install firewire-core /bin/false
+blacklist firewire-ohci
+install firewire-ohci /bin/false
+blacklist sbp2
+install sbp2 /bin/false
+{% endif %}

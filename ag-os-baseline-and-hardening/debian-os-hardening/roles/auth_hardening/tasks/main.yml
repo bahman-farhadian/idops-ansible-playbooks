@@ -1,0 +1,52 @@
+---
+- name: Install PAM password quality module
+  ansible.builtin.apt:
+    name: libpam-pwquality
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: auth_pwquality_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: auth_pwquality_install is succeeded
+
+- name: Configure password and umask policy in /etc/login.defs
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: "^{{ item.key }}\\s+"
+    line: "{{ item.key }} {{ item.value }}"
+  loop: "{{ auth_login_defs_settings | dict2items }}"
+
+- name: Configure inactive account lock policy for new users
+  ansible.builtin.lineinfile:
+    path: /etc/default/useradd
+    regexp: '^INACTIVE='
+    line: "INACTIVE={{ auth_useradd_inactive_days }}"
+
+- name: Enforce PAM password quality options
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/common-password
+    regexp: '^password\s+requisite\s+pam_pwquality\.so'
+    line: "password requisite pam_pwquality.so retry={{ auth_pwquality_retry }} minlen={{ auth_pwquality_minlen }} difok={{ auth_pwquality_difok }}"
+    insertbefore: '^password\s+\[success=1 default=ignore\]\s+pam_unix\.so'
+
+- name: Collect existing local interactive users
+  ansible.builtin.command: "awk -F: '($3 >= 1000) && ($1 != \"nobody\") && ($7 !~ /(nologin|false)$/) {print $1}' /etc/passwd"
+  register: auth_existing_users
+  changed_when: false
+  when: auth_apply_to_existing_local_users | bool
+
+- name: Build password aging target user list
+  ansible.builtin.set_fact:
+    auth_password_aging_users: "{{ (auth_existing_users.stdout_lines | default([])) + (['root'] if auth_apply_to_root | bool else []) }}"
+  when: auth_apply_to_existing_local_users | bool
+
+- name: Apply password aging to existing local users
+  ansible.builtin.command: >-
+    chage
+    -M {{ auth_login_defs_settings.PASS_MAX_DAYS }}
+    -m {{ auth_login_defs_settings.PASS_MIN_DAYS }}
+    -W {{ auth_login_defs_settings.PASS_WARN_AGE }}
+    {{ item }}
+  loop: "{{ (auth_password_aging_users | default([])) | difference(auth_skip_users) | unique }}"
+  changed_when: false
+  when: auth_apply_to_existing_local_users | bool

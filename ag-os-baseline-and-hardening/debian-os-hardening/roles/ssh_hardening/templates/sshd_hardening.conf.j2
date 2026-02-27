@@ -1,0 +1,25 @@
+Port {{ ssh_port }}
+Protocol 2
+PermitRootLogin {{ 'prohibit-password' if ssh_allow_root_login else 'no' }}
+PasswordAuthentication {{ 'yes' if ssh_allow_password_auth else 'no' }}
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+PubkeyAuthentication yes
+UsePAM yes
+DebianBanner no
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+MaxAuthTries 3
+MaxSessions 2
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LoginGraceTime 30
+TCPKeepAlive no
+LogLevel VERBOSE
+PrintMotd no
+PrintLastLog {{ 'yes' if ssh_print_last_log else 'no' }}
+Banner {{ ssh_banner_path }}
+{% if ssh_allowed_users | length > 0 %}
+AllowUsers {{ ssh_allowed_users | join(' ') }}
+{% endif %}

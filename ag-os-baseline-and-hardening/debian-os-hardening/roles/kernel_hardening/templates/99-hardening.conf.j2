@@ -1,0 +1,8 @@
+# Managed by Ansible - baseline sysctl hardening
+{% for key, value in kernel_sysctl_settings.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% if kernel_lock_module_loading %}
+# This setting is one-way until reboot; enable only after validation.
+kernel.modules_disabled = 1
+{% endif %}

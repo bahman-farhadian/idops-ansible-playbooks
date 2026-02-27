@@ -1,0 +1,2 @@
+# Forward logs to remote collector when enabled
+*.* {{ '@@' if remote_syslog_protocol == 'tcp' else '@' }}{{ remote_syslog_host }}:{{ remote_syslog_port }}

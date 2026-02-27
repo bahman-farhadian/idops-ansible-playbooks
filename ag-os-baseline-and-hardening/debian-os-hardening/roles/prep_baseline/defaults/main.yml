@@ -1,0 +1,53 @@
+---
+prep_enabled: true
+
+prep_global_bashrc_block: |
+  export HISTCONTROL=erasedups
+  export PATH=$PATH:/sbin:/usr/sbin
+
+  if [ -f /etc/bash_completion ]; then
+      . /etc/bash_completion
+  fi
+
+prep_required_packages:
+  - passwd
+  - sudo
+  - curl
+  - git
+  - rsync
+  - tmux
+  - tree
+  - vim
+  - wget
+  - jq
+prep_optional_packages:
+  - btop
+  - lshw
+  - progress
+  - unrar
+  - sshuttle
+
+prep_root_authorized_keys: []
+
+prep_manage_primary_user: true
+prep_primary_user_uid: "1000"
+prep_primary_user_desired_name: ""
+prep_replace_primary_user: false
+prep_enforce_single_login_user: false
+prep_user_cleanup_min_uid: 1000
+prep_user_cleanup_max_uid: 60000
+prep_user_cleanup_exempt_users: []
+prep_primary_user_home_base: "/home"
+prep_primary_user_authorized_keys: []
+prep_primary_user_sudo_policy: "ALL=(ALL:ALL) ALL"
+prep_primary_user_aliases:
+  - 'alias ls="ls --color=auto"'
+  - 'alias ll="ls -alF"'
+  - 'alias l="ls -A"'
+prep_primary_user_prompt_line: "export PS1='\\[\\033[01;32m\\]\\u\\[\\033[00m\\]@\\[\\033[01;34m\\]\\h\\[\\033[00m\\]:\\[\\033[01;33m\\]\\w\\[\\033[00m\\]\\$ '"
+
+prep_root_aliases:
+  - 'alias ls="ls --color=auto"'
+  - 'alias ll="ls -alF"'
+  - 'alias l="ls -A"'
+prep_root_prompt_line: "export PS1='\\[\\033[01;31m\\]\\u\\[\\033[00m\\]@\\[\\033[01;34m\\]\\h\\[\\033[00m\\]:\\[\\033[01;33m\\]\\w\\[\\033[00m\\]\\$ '"

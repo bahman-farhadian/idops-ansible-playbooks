@@ -1,0 +1,42 @@
+---
+- name: Check if /etc/ssh/sshd_config exists
+  ansible.builtin.stat:
+    path: /etc/ssh/sshd_config
+  register: file_permissions_sshd_config_stat
+  when: file_permissions_hardening_enabled | bool
+
+- name: Restrict /etc/ssh/sshd_config permissions
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: "0600"
+  when:
+    - file_permissions_hardening_enabled | bool
+    - file_permissions_sshd_config_stat.stat.exists
+
+- name: Check if /etc/crontab exists
+  ansible.builtin.stat:
+    path: /etc/crontab
+  register: file_permissions_crontab_stat
+  when: file_permissions_hardening_enabled | bool
+
+- name: Restrict /etc/crontab permissions
+  ansible.builtin.file:
+    path: /etc/crontab
+    owner: root
+    group: root
+    mode: "0600"
+  when:
+    - file_permissions_hardening_enabled | bool
+    - file_permissions_crontab_stat.stat.exists
+
+- name: Restrict cron directory permissions
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop: "{{ file_permissions_hardening_cron_dirs }}"
+  when: file_permissions_hardening_enabled | bool

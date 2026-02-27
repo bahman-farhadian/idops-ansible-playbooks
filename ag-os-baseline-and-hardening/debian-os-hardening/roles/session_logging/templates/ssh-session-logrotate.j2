@@ -1,0 +1,23 @@
+{{ ssh_session_log_file }} {
+    daily
+    rotate {{ ssh_session_logrotate_days }}
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 root adm
+}
+{% if ssh_command_logging_enabled | bool %}
+
+{{ ssh_command_log_file }} {
+    daily
+    rotate {{ ssh_command_logrotate_days }}
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    create 0640 root adm
+}
+{% endif %}

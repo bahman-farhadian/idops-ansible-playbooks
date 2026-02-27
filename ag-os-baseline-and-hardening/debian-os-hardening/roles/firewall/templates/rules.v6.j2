@@ -1,0 +1,31 @@
+*filter
+:INPUT {{ firewall_default_input_policy }} [0:0]
+:FORWARD {{ firewall_default_forward_policy }} [0:0]
+:OUTPUT {{ firewall_default_output_policy }} [0:0]
+
+-A INPUT -i lo -j ACCEPT
+-A INPUT -m conntrack --ctstate INVALID -j DROP
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+{% if firewall_allow_icmp_v6 %}
+-A INPUT -p ipv6-icmp -j ACCEPT
+{% endif %}
+{% if firewall_allow_ssh_from_anywhere | bool %}
+{% for port in firewall_effective_ssh_ports | default([ssh_port | int]) %}
+-A INPUT -p tcp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% else %}
+{% for cidr in firewall_allowed_ssh_cidrs if ':' in cidr %}
+{% for port in firewall_effective_ssh_ports | default([ssh_port | int]) %}
+-A INPUT -p tcp -s {{ cidr }} --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% endfor %}
+{% endif %}
+{% for port in firewall_allowed_tcp_ports_v6 %}
+-A INPUT -p tcp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% for port in firewall_allowed_udp_ports_v6 %}
+-A INPUT -p udp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+-A INPUT -j DROP
+
+COMMIT

@@ -1,0 +1,13 @@
+# Monitor identity and privilege related files
+-w /etc/passwd -p wa -k identity
+-w /etc/group -p wa -k identity
+-w /etc/shadow -p wa -k identity
+-w /etc/sudoers -p wa -k scope
+-w /etc/sudoers.d -p wa -k scope
+
+# Log authentication events
+-w /var/log/auth.log -p wa -k auth
+
+# Monitor executed privileged commands
+-a always,exit -F arch=b64 -S execve -C uid!=euid -F euid=0 -k priv_esc
+-a always,exit -F arch=b32 -S execve -C uid!=euid -F euid=0 -k priv_esc

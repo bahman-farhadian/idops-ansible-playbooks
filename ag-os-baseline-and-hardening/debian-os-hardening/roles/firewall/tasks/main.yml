@@ -1,0 +1,232 @@
+---
+- name: Install iptables-persistent
+  ansible.builtin.apt:
+    name:
+      - iptables
+      - iptables-persistent
+      - netfilter-persistent
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: firewall_packages_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: firewall_packages_install is succeeded
+
+- name: Build effective SSH port allow-list for firewall policy
+  ansible.builtin.set_fact:
+    firewall_effective_ssh_ports: >-
+      {{
+        (
+          [ssh_port | int]
+          + (
+            [(ansible_port | default(22)) | int]
+            if (firewall_allow_current_ansible_port | bool)
+            else []
+          )
+        ) | unique
+      }}
+
+- name: Validate IPv4 forwarding inputs
+  ansible.builtin.assert:
+    that:
+      - firewall_forward_ipv4_lan_interface | length > 0
+      - firewall_forward_ipv4_wan_interface | length > 0
+    fail_msg: >-
+      firewall_forward_ipv4_enabled=true requires firewall_forward_ipv4_lan_interface
+      and firewall_forward_ipv4_wan_interface to be set.
+  when: firewall_forward_ipv4_enabled | bool
+
+- name: Validate IPv4 NAT inputs
+  ansible.builtin.assert:
+    that:
+      - firewall_forward_ipv4_enabled | bool
+      - firewall_forward_ipv4_wan_interface | length > 0
+    fail_msg: >-
+      firewall_nat_ipv4_enabled=true requires firewall_forward_ipv4_enabled=true
+      and firewall_forward_ipv4_wan_interface to be set.
+  when: firewall_nat_ipv4_enabled | bool
+
+- name: Deploy IPv4 firewall policy
+  ansible.builtin.template:
+    src: rules.v4.j2
+    dest: /etc/iptables/rules.v4
+    owner: root
+    group: root
+    mode: "0644"
+  register: firewall_rules_v4
+
+- name: Deploy IPv6 firewall policy
+  ansible.builtin.template:
+    src: rules.v6.j2
+    dest: /etc/iptables/rules.v6
+    owner: root
+    group: root
+    mode: "0644"
+  register: firewall_rules_v6
+
+- name: Persist IPv4 forwarding setting
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/98-firewall-forwarding.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible - firewall forwarding mode
+      net.ipv4.ip_forward = {{ 1 if (firewall_forward_ipv4_enabled | bool) else 0 }}
+  register: firewall_ipv4_forwarding_file
+
+- name: Apply IPv4 forwarding setting at runtime
+  ansible.builtin.command: "sysctl -w net.ipv4.ip_forward={{ 1 if (firewall_forward_ipv4_enabled | bool) else 0 }}"
+  changed_when: false
+  failed_when: false
+
+- name: Reload sysctl settings when forwarding drop-in changed
+  ansible.builtin.command: sysctl --system
+  changed_when: false
+  failed_when: false
+  when: firewall_ipv4_forwarding_file.changed
+
+- name: Probe default IPv4 firewall backend
+  ansible.builtin.command: iptables-restore --test /etc/iptables/rules.v4
+  register: firewall_v4_probe
+  changed_when: false
+  failed_when: false
+
+- name: Decide firewall backend commands
+  ansible.builtin.set_fact:
+    firewall_use_legacy_backend: >-
+      {{
+        firewall_v4_probe.rc != 0
+        and 'Failed to initialize nft' in (firewall_v4_probe.stderr | default(''))
+      }}
+    firewall_iptables_cmd: >-
+      {{
+        'iptables-legacy'
+        if (firewall_v4_probe.rc != 0 and 'Failed to initialize nft' in (firewall_v4_probe.stderr | default('')))
+        else 'iptables'
+      }}
+    firewall_ip6tables_cmd: >-
+      {{
+        'ip6tables-legacy'
+        if (firewall_v4_probe.rc != 0 and 'Failed to initialize nft' in (firewall_v4_probe.stderr | default('')))
+        else 'ip6tables'
+      }}
+    firewall_iptables_restore_cmd: >-
+      {{
+        'iptables-legacy-restore'
+        if (firewall_v4_probe.rc != 0 and 'Failed to initialize nft' in (firewall_v4_probe.stderr | default('')))
+        else 'iptables-restore'
+      }}
+    firewall_ip6tables_restore_cmd: >-
+      {{
+        'ip6tables-legacy-restore'
+        if (firewall_v4_probe.rc != 0 and 'Failed to initialize nft' in (firewall_v4_probe.stderr | default('')))
+        else 'ip6tables-restore'
+      }}
+
+- name: Switch system iptables alternatives to legacy backend when nft backend is unsupported
+  ansible.builtin.command: "update-alternatives --set {{ item.name }} {{ item.path }}"
+  loop:
+    - { name: "iptables", path: "/usr/sbin/iptables-legacy" }
+    - { name: "ip6tables", path: "/usr/sbin/ip6tables-legacy" }
+    - { name: "iptables-restore", path: "/usr/sbin/iptables-legacy-restore" }
+    - { name: "ip6tables-restore", path: "/usr/sbin/ip6tables-legacy-restore" }
+  changed_when: false
+  failed_when: false
+  when: firewall_use_legacy_backend | bool
+
+- name: Validate selected IPv4 firewall policy syntax
+  ansible.builtin.command: "{{ firewall_iptables_restore_cmd }} --test /etc/iptables/rules.v4"
+  register: firewall_v4_validate
+  changed_when: false
+  failed_when: false
+
+- name: Record firewall runtime availability
+  ansible.builtin.set_fact:
+    firewall_runtime_available: "{{ firewall_v4_validate.rc == 0 }}"
+
+- name: Read kernel module lock state
+  ansible.builtin.command: sysctl -n kernel.modules_disabled
+  register: firewall_kernel_modules_disabled
+  changed_when: false
+  failed_when: false
+
+- name: Warn when firewall backend is unavailable
+  ansible.builtin.debug:
+    msg: >-
+      Firewall backend is not available on {{ inventory_hostname }} ({{ firewall_v4_validate.stderr | default('unknown error') }}).
+      kernel.modules_disabled={{ firewall_kernel_modules_disabled.stdout | default('unknown') }}.
+      If kernel module locking is enabled, set kernel_lock_module_loading=false, reboot, and re-run hardening.
+  when: not (firewall_runtime_available | bool)
+
+- name: Validate selected IPv6 firewall policy syntax
+  ansible.builtin.command: "{{ firewall_ip6tables_restore_cmd }} --test /etc/iptables/rules.v6"
+  register: firewall_v6_validate
+  changed_when: false
+  failed_when: false
+  when: firewall_runtime_available | bool
+
+- name: Check active IPv4 firewall rules
+  ansible.builtin.command: "{{ firewall_iptables_cmd }} -S"
+  register: firewall_ipv4_rules
+  changed_when: false
+  failed_when: false
+  when: firewall_runtime_available | bool
+
+- name: Count active IPv4 rules
+  ansible.builtin.set_fact:
+    firewall_ipv4_active_rule_count: "{{ firewall_ipv4_rules.stdout_lines | default([]) | select('match', '^-A ') | list | length }}"
+  when: firewall_runtime_available | bool
+
+- name: Force restore IPv4 rules when active rules are too few
+  ansible.builtin.command: "{{ firewall_iptables_restore_cmd }} /etc/iptables/rules.v4"
+  changed_when: true
+  when:
+    - firewall_runtime_available | bool
+    - firewall_rules_v4.changed or firewall_ipv4_active_rule_count | int < 6
+
+- name: Check active IPv6 firewall rules
+  ansible.builtin.command: "{{ firewall_ip6tables_cmd }} -S"
+  register: firewall_ipv6_rules
+  changed_when: false
+  failed_when: false
+  when: firewall_runtime_available | bool
+
+- name: Count active IPv6 rules
+  ansible.builtin.set_fact:
+    firewall_ipv6_active_rule_count: "{{ firewall_ipv6_rules.stdout_lines | default([]) | select('match', '^-A ') | list | length }}"
+  when: firewall_runtime_available | bool
+
+- name: Force restore IPv6 rules when active rules are too few
+  ansible.builtin.command: "{{ firewall_ip6tables_restore_cmd }} /etc/iptables/rules.v6"
+  changed_when: true
+  when:
+    - firewall_runtime_available | bool
+    - firewall_v6_validate.rc == 0
+    - firewall_rules_v6.changed or firewall_ipv6_active_rule_count | int < 6
+
+- name: Ensure netfilter-persistent service is enabled
+  ansible.builtin.service:
+    name: netfilter-persistent
+    enabled: true
+  failed_when: false
+  when: firewall_runtime_available | bool
+
+- name: Attempt to restart netfilter-persistent service
+  ansible.builtin.service:
+    name: netfilter-persistent
+    state: restarted
+  register: firewall_netfilter_restart
+  failed_when: false
+  when: firewall_runtime_available | bool
+
+- name: Warn when netfilter-persistent service restart fails
+  ansible.builtin.debug:
+    msg: >-
+      netfilter-persistent restart failed on {{ inventory_hostname }}.
+      Runtime firewall rules were still applied via iptables-restore/ip6tables-restore.
+      Check 'systemctl status netfilter-persistent' for persistence troubleshooting.
+  when:
+    - firewall_runtime_available | bool
+    - firewall_netfilter_restart is defined
+    - firewall_netfilter_restart.failed | default(false)

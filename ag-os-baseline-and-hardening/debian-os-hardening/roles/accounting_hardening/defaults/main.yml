@@ -1,0 +1,5 @@
+---
+accounting_packages:
+  - acct
+  - sysstat
+accounting_enable_sysstat: true

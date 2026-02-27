@@ -1,0 +1,46 @@
+---
+- name: Install auditd packages
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - audispd-plugins
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: auditd_packages_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: auditd_packages_install is succeeded
+
+- name: Deploy baseline audit rules
+  ansible.builtin.template:
+    src: hardening.rules.j2
+    dest: /etc/audit/rules.d/hardening.rules
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart auditd
+
+- name: Ensure auditd is enabled and running
+  ansible.builtin.service:
+    name: auditd
+    enabled: true
+    state: started
+
+- name: Load audit rules into kernel
+  ansible.builtin.command: augenrules --load
+  register: auditd_augenrules_load
+  changed_when: false
+  failed_when: false
+
+- name: Check active audit rules
+  ansible.builtin.command: auditctl -l
+  register: auditd_active_rules
+  changed_when: false
+  failed_when: false
+
+- name: Warn when audit daemon has empty active ruleset
+  ansible.builtin.debug:
+    msg: >-
+      auditctl returned an empty ruleset. Review /etc/audit/rules.d/hardening.rules
+      and ensure the kernel audit subsystem is enabled.
+  when: (auditd_active_rules.stdout_lines | default([]) | length) == 0

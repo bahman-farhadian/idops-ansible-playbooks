@@ -1,0 +1,10 @@
+venv/*
+!venv/.gitkeep
+wheelhouse/*
+!wheelhouse/.gitkeep
+.ansible/
+__pycache__/
+*.retry
+vars/local-secrets.yml
+artifacts/lynis/*
+!artifacts/lynis/.gitkeep

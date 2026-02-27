@@ -1,0 +1,41 @@
+---
+- name: Resolve compiler binary paths
+  ansible.builtin.command: "sh -c 'command -v {{ item }}'"
+  loop: "{{ compiler_hardening_binaries }}"
+  register: compiler_hardening_paths
+  changed_when: false
+  failed_when: false
+  when: compiler_hardening_enabled | bool
+
+- name: Discover compiler binaries via filesystem globs
+  ansible.builtin.shell: |
+    ls -1 {{ compiler_hardening_glob_patterns | join(' ') }} 2>/dev/null | sort -u || true
+  args:
+    executable: /bin/bash
+  register: compiler_hardening_glob_paths
+  changed_when: false
+  failed_when: false
+  when: compiler_hardening_enabled | bool
+
+- name: Build final compiler hardening path list
+  ansible.builtin.set_fact:
+    compiler_hardening_final_paths: >-
+      {{
+        ((compiler_hardening_paths.results | default([])) | map(attribute='stdout') | list)
+        + (compiler_hardening_glob_paths.stdout_lines | default([]))
+      | reject('equalto', '')
+      | unique
+      | list
+      }}
+  when: compiler_hardening_enabled | bool
+
+- name: Restrict compiler binaries to root only
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: root
+    group: root
+    mode: "{{ compiler_hardening_mode }}"
+  loop: "{{ compiler_hardening_final_paths | default([]) }}"
+  when:
+    - compiler_hardening_enabled | bool
+    - item | length > 0

@@ -1,0 +1,19 @@
+---
+compiler_hardening_enabled: true
+compiler_hardening_binaries:
+  - cc
+  - gcc
+  - g++
+  - make
+  - clang
+  - clang++
+compiler_hardening_glob_patterns:
+  - /usr/bin/gcc*
+  - /usr/bin/g++*
+  - /usr/bin/cc
+  - /usr/bin/c++
+  - /usr/bin/clang*
+  - /usr/bin/make
+  - /usr/bin/as
+  - /usr/bin/ld
+compiler_hardening_mode: "0700"

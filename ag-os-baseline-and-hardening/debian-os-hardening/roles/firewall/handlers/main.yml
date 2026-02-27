@@ -1,0 +1,8 @@
+---
+- name: Restore iptables rules
+  ansible.builtin.command: iptables-restore /etc/iptables/rules.v4
+  changed_when: true
+
+- name: Restore ip6tables rules
+  ansible.builtin.command: ip6tables-restore /etc/iptables/rules.v6
+  changed_when: true

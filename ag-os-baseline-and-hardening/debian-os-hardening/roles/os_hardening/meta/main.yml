@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: os_hardening
+  author: bahman
+  description: Baseline Debian-family OS hardening role orchestrating modular hardening sub-roles.
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - trixie
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+dependencies: []

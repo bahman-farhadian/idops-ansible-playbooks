@@ -1,0 +1,110 @@
+---
+- name: Install file integrity and malware detection packages
+  ansible.builtin.apt:
+    name: "{{ integrity_packages }}"
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: integrity_packages_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: integrity_packages_install is succeeded
+
+- name: Check AIDE config file candidates
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/aide/aide.conf
+    - /etc/aide.conf
+  register: integrity_aide_config_candidates
+
+- name: Select available AIDE config file
+  ansible.builtin.set_fact:
+    integrity_aide_config_file: >-
+      {{
+        (
+          integrity_aide_config_candidates.results
+          | selectattr('stat.exists', 'equalto', true)
+          | map(attribute='stat.path')
+          | list
+          | first
+        ) | default('')
+      }}
+
+- name: Configure AIDE checksum algorithm
+  ansible.builtin.lineinfile:
+    path: "{{ integrity_aide_config_file }}"
+    regexp: '^Checksums\s*='
+    line: "Checksums = {{ integrity_aide_checksum_algorithm }}"
+  when: integrity_aide_config_file | length > 0
+
+- name: Warn when no AIDE config file is present
+  ansible.builtin.debug:
+    msg: >-
+      AIDE config file was not found in /etc/aide/aide.conf or /etc/aide.conf on {{ inventory_hostname }}.
+      Skipping checksum algorithm override and AIDE initialization.
+  when: integrity_aide_config_file | length == 0
+
+- name: Check if AIDE database already exists (plain)
+  ansible.builtin.stat:
+    path: /var/lib/aide/aide.db
+  register: integrity_aide_db_plain
+
+- name: Check if AIDE database already exists (gzip)
+  ansible.builtin.stat:
+    path: /var/lib/aide/aide.db.gz
+  register: integrity_aide_db_gzip
+
+- name: Record whether AIDE database is already initialized
+  ansible.builtin.set_fact:
+    integrity_aide_db_exists: "{{ integrity_aide_db_plain.stat.exists or integrity_aide_db_gzip.stat.exists }}"
+
+- name: Initialize AIDE database
+  ansible.builtin.command: aideinit
+  changed_when: integrity_aide_init.rc == 0
+  register: integrity_aide_init
+  when:
+    - integrity_initialize_aide | bool
+    - integrity_aide_config_file | length > 0
+    - not integrity_aide_db_exists
+
+- name: Check for newly generated AIDE database file (plain)
+  ansible.builtin.stat:
+    path: /var/lib/aide/aide.db.new
+  register: integrity_aide_db_new_plain
+  when:
+    - integrity_initialize_aide | bool
+    - integrity_aide_config_file | length > 0
+
+- name: Check for newly generated AIDE database file (gzip)
+  ansible.builtin.stat:
+    path: /var/lib/aide/aide.db.new.gz
+  register: integrity_aide_db_new_gzip
+  when:
+    - integrity_initialize_aide | bool
+    - integrity_aide_config_file | length > 0
+
+- name: Activate generated AIDE database (plain)
+  ansible.builtin.copy:
+    src: /var/lib/aide/aide.db.new
+    dest: /var/lib/aide/aide.db
+    owner: root
+    group: root
+    mode: "0600"
+    remote_src: true
+  when:
+    - integrity_initialize_aide | bool
+    - integrity_aide_config_file | length > 0
+    - integrity_aide_db_new_plain.stat.exists | default(false)
+
+- name: Activate generated AIDE database (gzip)
+  ansible.builtin.copy:
+    src: /var/lib/aide/aide.db.new.gz
+    dest: /var/lib/aide/aide.db.gz
+    owner: root
+    group: root
+    mode: "0600"
+    remote_src: true
+  when:
+    - integrity_initialize_aide | bool
+    - integrity_aide_config_file | length > 0
+    - integrity_aide_db_new_gzip.stat.exists | default(false)

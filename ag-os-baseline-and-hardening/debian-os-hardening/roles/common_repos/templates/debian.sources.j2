@@ -1,0 +1,11 @@
+Types: deb
+URIs: {{ apt_repository_url }}
+Suites: {{ apt_debian_effective_release }} {{ apt_debian_effective_release }}-updates
+Components: {{ apt_debian_components | join(' ') }}
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: {{ apt_security_repository_url }}
+Suites: {{ apt_debian_effective_release }}-security
+Components: {{ apt_debian_components | join(' ') }}
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg

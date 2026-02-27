@@ -1,0 +1,20 @@
+---
+ssh_port: 22
+firewall_default_input_policy: "DROP"
+firewall_default_forward_policy: "DROP"
+firewall_default_output_policy: "ACCEPT"
+firewall_allow_ssh_from_anywhere: true
+firewall_allow_current_ansible_port: true
+firewall_allowed_ssh_cidrs: []
+firewall_allowed_tcp_ports: []
+firewall_allowed_udp_ports: []
+firewall_allowed_tcp_ports_v6: []
+firewall_allowed_udp_ports_v6: []
+firewall_allow_icmp_v4: true
+firewall_allow_icmp_v6: true
+firewall_enable_extra_input_hardening: true
+firewall_forward_ipv4_enabled: false
+firewall_forward_ipv4_lan_interface: ""
+firewall_forward_ipv4_wan_interface: ""
+firewall_forward_ipv4_lan_cidr: ""
+firewall_nat_ipv4_enabled: false

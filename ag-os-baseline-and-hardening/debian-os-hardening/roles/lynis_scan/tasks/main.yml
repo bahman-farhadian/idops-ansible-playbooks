@@ -1,0 +1,79 @@
+---
+- name: Ensure required packages for Lynis are present
+  ansible.builtin.apt:
+    name:
+      - git
+      - ca-certificates
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: lynis_packages_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: lynis_packages_install is succeeded
+
+- name: Clone or update Lynis under /opt
+  ansible.builtin.git:
+    repo: "{{ lynis_repo_url }}"
+    dest: "{{ lynis_install_path }}"
+    update: true
+    version: master
+
+- name: Check Lynis include directory exists
+  ansible.builtin.stat:
+    path: "{{ lynis_install_path }}/include"
+  register: lynis_include_dir
+
+- name: Assert Lynis installation is complete
+  ansible.builtin.assert:
+    that:
+      - lynis_include_dir.stat.exists
+      - lynis_include_dir.stat.isdir
+    fail_msg: "Lynis installation looks incomplete at {{ lynis_install_path }}. Re-run the clone task."
+
+- name: Run Lynis system audit
+  ansible.builtin.command: "./lynis audit system {{ '--quick' if lynis_quick_mode else '' }}"
+  args:
+    chdir: "{{ lynis_install_path }}"
+  environment:
+    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  register: lynis_run
+  changed_when: false
+
+- name: Ensure local artifact directory exists
+  ansible.builtin.file:
+    path: "{{ lynis_report_output_dir }}/{{ inventory_hostname }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  become: false
+
+- name: Fetch Lynis report data
+  ansible.builtin.fetch:
+    src: /var/log/lynis-report.dat
+    dest: "{{ lynis_report_output_dir }}/{{ inventory_hostname }}/lynis-report.dat"
+    flat: true
+
+- name: Fetch Lynis log
+  ansible.builtin.fetch:
+    src: /var/log/lynis.log
+    dest: "{{ lynis_report_output_dir }}/{{ inventory_hostname }}/lynis.log"
+    flat: true
+
+- name: Read hardening index from Lynis report file
+  ansible.builtin.command: "awk -F= '/^hardening_index=/{print $2}' /var/log/lynis-report.dat"
+  register: lynis_index_cmd
+  changed_when: false
+
+- name: Extract hardening index
+  ansible.builtin.set_fact:
+    lynis_hardening_index: "{{ lynis_index_cmd.stdout | trim | default('N/A', true) }}"
+
+- name: Print Lynis hardening index
+  ansible.builtin.debug:
+    msg: "Lynis hardening index for {{ inventory_hostname }}: {{ lynis_hardening_index }}"
+
+- name: Show suggestion extraction hint
+  ansible.builtin.debug:
+    msg: >-
+      Suggestions are in fetched file {{ lynis_report_output_dir }}/{{ inventory_hostname }}/lynis-report.dat
+      (lines starting with 'suggestion[]='). Use them to prioritize next hardening tasks.

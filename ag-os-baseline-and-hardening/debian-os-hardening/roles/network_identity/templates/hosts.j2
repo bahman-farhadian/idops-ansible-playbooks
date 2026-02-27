@@ -1,0 +1,16 @@
+# Managed by Ansible - network identity hardening
+127.0.0.1 localhost
+{% if network_identity_manage_loopback_fqdn | bool and network_identity_effective_fqdn | length > 0 %}
+127.0.1.1 {{ network_identity_effective_fqdn }} {{ network_identity_effective_short_hostname }}
+{% endif %}
+{% if network_identity_effective_ipv4 | length > 0 and network_identity_effective_fqdn | length > 0 %}
+{{ network_identity_effective_ipv4 }} {{ network_identity_effective_fqdn }} {{ network_identity_effective_short_hostname }}
+{% endif %}
+
+# The following lines are desirable for IPv6 capable hosts
+::1 localhost ip6-localhost ip6-loopback
+ff02::1 ip6-allnodes
+ff02::2 ip6-allrouters
+{% for entry in network_identity_effective_extra_hosts_entries | default(network_identity_extra_hosts_entries) %}
+{{ entry }}
+{% endfor %}

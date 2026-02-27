@@ -1,0 +1,4 @@
+---
+- name: Reboot hardening targets
+  ansible.builtin.reboot:
+    reboot_timeout: 900

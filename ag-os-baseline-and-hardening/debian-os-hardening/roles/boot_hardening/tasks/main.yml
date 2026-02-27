@@ -1,0 +1,102 @@
+---
+- name: Read current systemd default target
+  ansible.builtin.command: systemctl get-default
+  register: boot_current_default_target
+  changed_when: false
+  when:
+    - boot_hardening_enabled | bool
+    - boot_set_default_target | bool
+
+- name: Set systemd default target for server profile
+  ansible.builtin.command: "systemctl set-default {{ boot_default_target }}"
+  when:
+    - boot_hardening_enabled | bool
+    - boot_set_default_target | bool
+    - boot_current_default_target.stdout | trim != boot_default_target
+
+- name: Ensure Debian 13 runlevel compatibility services are enabled
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+  loop: "{{ boot_runlevel_update_services }}"
+  failed_when: false
+  when:
+    - boot_hardening_enabled | bool
+    - boot_fix_runlevel_debian13 | bool
+    - ansible_distribution == 'Debian'
+    - ansible_distribution_major_version == '13'
+
+- name: Run Debian 13 runlevel compatibility services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+  loop: "{{ boot_runlevel_update_services }}"
+  failed_when: false
+  when:
+    - boot_hardening_enabled | bool
+    - boot_fix_runlevel_debian13 | bool
+    - ansible_distribution == 'Debian'
+    - ansible_distribution_major_version == '13'
+
+- name: Check runlevel command output
+  ansible.builtin.command: runlevel
+  register: boot_runlevel_check
+  changed_when: false
+  failed_when: false
+  when:
+    - boot_hardening_enabled | bool
+    - boot_fix_runlevel_debian13 | bool
+    - ansible_distribution == 'Debian'
+    - ansible_distribution_major_version == '13'
+
+- name: Deploy Debian 13 runlevel compatibility wrapper when runlevel is unknown
+  ansible.builtin.template:
+    src: runlevel-compat.sh.j2
+    dest: "{{ boot_runlevel_compat_wrapper_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - boot_hardening_enabled | bool
+    - boot_fix_runlevel_debian13 | bool
+    - boot_runlevel_compat_wrapper_enabled | bool
+    - ansible_distribution == 'Debian'
+    - ansible_distribution_major_version == '13'
+    - boot_runlevel_check.stdout is search('unknown')
+
+- name: Remove runlevel compatibility wrapper when disabled or not needed
+  ansible.builtin.file:
+    path: "{{ boot_runlevel_compat_wrapper_path }}"
+    state: absent
+  when:
+    - not (
+        boot_hardening_enabled | bool
+        and boot_fix_runlevel_debian13 | bool
+        and boot_runlevel_compat_wrapper_enabled | bool
+        and ansible_distribution == 'Debian'
+        and ansible_distribution_major_version == '13'
+      )
+
+- name: Re-check runlevel command output after compatibility updates
+  ansible.builtin.command: runlevel
+  register: boot_runlevel_check_post
+  changed_when: false
+  failed_when: false
+  when:
+    - boot_hardening_enabled | bool
+    - boot_fix_runlevel_debian13 | bool
+    - ansible_distribution == 'Debian'
+    - ansible_distribution_major_version == '13'
+
+- name: Warn when runlevel still reports unknown
+  ansible.builtin.debug:
+    msg: >-
+      runlevel still reports unknown on {{ inventory_hostname }} after compatibility updates.
+      This can be a distro behavior in Debian 13; verify with:
+      runlevel; who -r; systemctl get-default; command -v runlevel; ls -l {{ boot_runlevel_compat_wrapper_path }}
+  when:
+    - boot_hardening_enabled | bool
+    - boot_fix_runlevel_debian13 | bool
+    - ansible_distribution == 'Debian'
+    - ansible_distribution_major_version == '13'
+    - boot_runlevel_check_post.stdout is search('unknown')

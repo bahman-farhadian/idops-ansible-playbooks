@@ -1,0 +1,18 @@
+---
+network_identity_manage_hosts: true
+network_identity_manage_resolv_conf: true
+network_identity_resolv_conf_path: /etc/resolv.conf
+network_identity_primary_ipv4: ""
+network_identity_nameservers:
+  - "8.8.8.8"
+  - "1.1.1.1"
+network_identity_search_domains: []
+network_identity_set_hostname: false
+network_identity_hostname: ""
+network_identity_fqdn: "{{ inventory_hostname if '.' in inventory_hostname else inventory_hostname ~ '.localdomain' }}"
+network_identity_manage_loopback_fqdn: true
+network_identity_manage_hosts_via_template: true
+network_identity_cleanup_stale_hostname_entries: true
+network_identity_extra_hosts_entries: []
+network_identity_local_repo_hosts_enabled: false
+network_identity_local_repo_hosts_entries: []

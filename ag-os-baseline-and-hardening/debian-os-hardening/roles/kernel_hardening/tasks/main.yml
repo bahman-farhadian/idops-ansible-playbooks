@@ -1,0 +1,112 @@
+---
+- name: Configure sysctl hardening values
+  ansible.builtin.template:
+    src: 99-hardening.conf.j2
+    dest: "{{ kernel_sysctl_dropin_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: kernel_sysctl_file
+
+- name: Remove legacy hardening sysctl file name
+  ansible.builtin.file:
+    path: /etc/sysctl.d/99-hardening.conf
+    state: absent
+  register: kernel_legacy_sysctl_file
+  when: kernel_sysctl_dropin_path != '/etc/sysctl.d/99-hardening.conf'
+
+- name: Remove conflicting sysctl entries from /etc/sysctl.conf
+  ansible.builtin.lineinfile:
+    path: /etc/sysctl.conf
+    regexp: '^\s*{{ item.key | regex_escape }}\s*=.*$'
+    state: absent
+  loop: "{{ kernel_sysctl_settings | dict2items }}"
+  register: kernel_sysctl_conf_cleanup
+
+- name: Enforce runtime sysctl hardening values
+  ansible.builtin.command: "sysctl -w {{ item.key }}={{ item.value }}"
+  loop: "{{ kernel_sysctl_settings | dict2items }}"
+  changed_when: false
+  failed_when: false
+  register: kernel_sysctl_runtime
+
+- name: Apply persisted sysctl file when needed
+  ansible.builtin.command: sysctl --system
+  register: kernel_sysctl_apply
+  changed_when: false
+  failed_when: false
+  when: >-
+    kernel_sysctl_file.changed
+    or kernel_sysctl_conf_cleanup.changed
+    or (kernel_legacy_sysctl_file is defined and kernel_legacy_sysctl_file.changed)
+
+- name: Show sysctl apply warnings when present
+  ansible.builtin.debug:
+    msg: "sysctl --system returned rc={{ kernel_sysctl_apply.rc }}; review stderr if score is lower than expected."
+  when:
+    - >-
+      kernel_sysctl_file.changed
+      or kernel_sysctl_conf_cleanup.changed
+      or (kernel_legacy_sysctl_file is defined and kernel_legacy_sysctl_file.changed)
+    - kernel_sysctl_apply is defined
+    - kernel_sysctl_apply.rc != 0
+
+- name: Check effective fs.protected_fifos value
+  ansible.builtin.command: sysctl -n fs.protected_fifos
+  register: kernel_fs_protected_fifos
+  changed_when: false
+  failed_when: false
+
+- name: Warn when fs.protected_fifos target is not active
+  ansible.builtin.debug:
+    msg: >-
+      fs.protected_fifos is {{ kernel_fs_protected_fifos.stdout | trim }},
+      expected {{ kernel_sysctl_settings['fs.protected_fifos'] }}.
+      If this persists, another sysctl file may be overriding the value.
+  when:
+    - kernel_fs_protected_fifos.rc == 0
+    - (kernel_fs_protected_fifos.stdout | trim) != (kernel_sysctl_settings['fs.protected_fifos'] | string)
+
+- name: Configure kernel module blacklist policy
+  ansible.builtin.template:
+    src: 99-hardening-blacklist.conf.j2
+    dest: /etc/modprobe.d/99-hardening-blacklist.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Disable core dumps via limits policy
+  ansible.builtin.template:
+    src: 99-disable-coredump.conf.j2
+    dest: /etc/security/limits.d/99-disable-coredump.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: kernel_disable_core_dumps | bool
+
+- name: Ensure systemd coredump drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/coredump.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: kernel_disable_core_dumps | bool
+
+- name: Disable systemd coredump storage via drop-in
+  ansible.builtin.template:
+    src: 99-hardening-coredump.conf.j2
+    dest: /etc/systemd/coredump.conf.d/99-hardening.conf
+    owner: root
+    group: root
+    mode: "0644"
+  register: kernel_coredump_dropin
+  when: kernel_disable_core_dumps | bool
+
+- name: Reload systemd manager config
+  ansible.builtin.command: systemctl daemon-reload
+  changed_when: false
+  when:
+    - kernel_disable_core_dumps | bool
+    - kernel_coredump_dropin is defined
+    - kernel_coredump_dropin is changed

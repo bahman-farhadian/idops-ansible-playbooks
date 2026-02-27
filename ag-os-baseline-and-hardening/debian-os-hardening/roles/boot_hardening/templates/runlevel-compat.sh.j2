@@ -1,0 +1,22 @@
+#!/bin/sh
+# Managed by Ansible - Debian 13 runlevel compatibility shim
+# Provides SysV-style runlevel output where legacy utmp-based runlevel is unavailable.
+
+target="$(systemctl get-default 2>/dev/null || true)"
+case "$target" in
+  rescue.target|emergency.target)
+    echo "N 1"
+    ;;
+  graphical.target)
+    echo "N 5"
+    ;;
+  multi-user.target)
+    echo "N 3"
+    ;;
+  *)
+    # Server-safe fallback when default target is unknown.
+    echo "N 3"
+    ;;
+esac
+
+exit 0

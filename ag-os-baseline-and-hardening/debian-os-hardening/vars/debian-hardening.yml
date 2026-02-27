@@ -1,0 +1,193 @@
+---
+# Inventory target group used by playbook.yml.
+debian_hardening_target_group: "hardening_targets"
+
+# Stage switches
+run_lynis_scan: true
+run_os_hardening: false
+
+# APT repository settings
+apt_repository_url: "http://deb.debian.org/debian"
+apt_security_repository_url: "http://security.debian.org/debian-security"
+# Optional suite override (leave empty for fact-based mapping: Debian 12->bookworm, 13->trixie)
+apt_debian_release_override: ""
+# Managed Debian sources file path
+apt_debian_managed_sources_file: "/etc/apt/sources.list.d/debian.sources"
+# Disable conflicting default cloud image Debian source entries
+apt_debian_disable_conflicting_sources: true
+# Debian only; Ubuntu keeps distro defaults unless you add an Ubuntu role later.
+apt_debian_components:
+  - main
+  - contrib
+  - non-free
+  - non-free-firmware
+
+# Lynis settings
+lynis_repo_url: "https://github.com/CISOfy/lynis"
+lynis_install_path: "/opt/lynis"
+lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis"
+lynis_quick_mode: true
+
+# Preparation baseline (idempotent replacement for bootstrap script)
+prep_enabled: true
+prep_root_authorized_keys: []
+prep_manage_primary_user: true
+prep_primary_user_uid: "1000"
+# Optional rename for template default user (e.g. qwerty -> adminops).
+# Leave empty to keep detected UID user name unchanged.
+prep_primary_user_desired_name: "adminops"
+# If true, remove the detected UID user and recreate it with prep_primary_user_desired_name.
+# Keep false on production unless you explicitly want to replace template users (debian/qwerty).
+prep_replace_primary_user: false
+# If true, keep only prep_primary_user_desired_name as the non-root login user.
+# This removes other human login users (for example debian/qwerty). Disable on production if not desired.
+prep_enforce_single_login_user: false
+# SSH public keys for the primary non-root user.
+# Keep real keys in vars/local-secrets.yml.
+prep_primary_user_authorized_keys: []
+
+# Boot/runlevel hardening
+boot_hardening_enabled: true
+boot_set_default_target: true
+boot_default_target: "multi-user.target"
+boot_fix_runlevel_debian13: true
+boot_runlevel_compat_wrapper_enabled: true
+
+# Network identity hardening
+network_identity_manage_hosts: true
+# Keep DNS identity controls enabled by default to avoid Lynis NETW-2705/NAME-4028 regressions.
+network_identity_manage_resolv_conf: true
+network_identity_primary_ipv4: ""
+network_identity_nameservers:
+  - "8.8.8.8"
+  - "1.1.1.1"
+network_identity_search_domains: []
+network_identity_set_hostname: true
+network_identity_hostname: "{{ (network_identity_fqdn if (network_identity_fqdn | length > 0) else inventory_hostname).split('.')[0] }}"
+network_identity_fqdn: "{{ inventory_hostname if '.' in inventory_hostname else inventory_hostname ~ '.localdomain' }}"
+network_identity_manage_loopback_fqdn: true
+network_identity_manage_hosts_via_template: true
+network_identity_cleanup_stale_hostname_entries: true
+network_identity_extra_hosts_entries: []
+# Optional local repository host mapping in /etc/hosts (for private/local DNS gaps)
+network_identity_local_repo_hosts_enabled: false
+network_identity_local_repo_hosts_entries: []
+# Example:
+# network_identity_local_repo_hosts_entries:
+#   - "192.168.24.2 repo.idops.local"
+
+# Package/update hardening
+package_hardening_enable_unattended_upgrades: true
+package_hardening_run_dist_upgrade: true
+package_hardening_debsums_cron_check: "weekly"
+package_hardening_purge_removed_packages: true
+
+# Service hardening (systemd drop-ins)
+service_hardening_enabled: true
+service_hardening_units:
+  - ssh.service
+  - fail2ban.service
+  - rsyslog.service
+  - cron.service
+  - unattended-upgrades.service
+# Optional: disable services you do not use (example: exim4.service)
+service_hardening_disable_units: []
+
+# Authentication hardening
+auth_apply_to_existing_local_users: true
+auth_apply_to_root: true
+auth_skip_users: []
+
+# SSH hardening
+ssh_port: 2222
+ssh_allow_password_auth: false
+# Root SSH access is allowed by SSH key only (no password auth).
+ssh_allow_root_login: true
+ssh_allowed_users: []
+ssh_disable_pam_motd: true
+ssh_print_last_log: true
+ssh_clean_login_output: true
+ssh_disable_motd_news: true
+
+# Login banners
+banner_issue_text: |
+  +------------------------------------------------------------------+
+  | SECURITY NOTICE: AUTHORIZED ACCESS ONLY                          |
+  | This system is private property.                                 |
+  | Access is restricted to authorized users only.                   |
+  | All activity is monitored and recorded.                          |
+  | Unauthorized use is prohibited and may be prosecuted.            |
+  | Disconnect immediately if you are not authorized.                |
+  +------------------------------------------------------------------+
+banner_issue_net_text: |
+  +------------------------------------------------------------------+
+  | SECURITY NOTICE: AUTHORIZED SSH ACCESS ONLY                      |
+  | This SSH service is private property.                            |
+  | Access is restricted to authorized users only.                   |
+  | All activity is monitored and recorded.                          |
+  | Unauthorized use is prohibited and may be prosecuted.            |
+  | Disconnect immediately if you are not authorized.                |
+  +------------------------------------------------------------------+
+
+# Kernel/module hardening
+kernel_sysctl_dropin_path: /etc/sysctl.d/99-zz-hardening.conf
+kernel_disable_usb_storage: true
+kernel_disable_firewire_storage: true
+kernel_disable_core_dumps: true
+kernel_lock_module_loading: false
+
+# File permissions hardening
+file_permissions_hardening_enabled: true
+
+# Integrity tooling
+integrity_initialize_aide: true
+integrity_aide_checksum_algorithm: sha512
+
+# Optional external log forwarding
+remote_syslog_enabled: false
+remote_syslog_host: ""
+remote_syslog_port: 514
+remote_syslog_protocol: "tcp"
+
+# Firewall (iptables-persistent)
+firewall_default_input_policy: "DROP"
+firewall_default_forward_policy: "DROP"
+firewall_default_output_policy: "ACCEPT"
+firewall_allow_icmp_v4: true
+firewall_allow_icmp_v6: true
+firewall_enable_extra_input_hardening: true
+# If true, allow SSH from any source; set false and define firewall_allowed_ssh_cidrs to restrict.
+firewall_allow_ssh_from_anywhere: true
+# Populate with CIDRs only when firewall_allow_ssh_from_anywhere is false.
+firewall_allowed_ssh_cidrs: []
+# Optional service ports (ingress allow list)
+firewall_allowed_tcp_ports: []
+firewall_allowed_udp_ports: []
+firewall_allowed_tcp_ports_v6: []
+firewall_allowed_udp_ports_v6: []
+# Optional bastion/router mode (IPv4 forwarding + optional NAT masquerade)
+firewall_forward_ipv4_enabled: false
+firewall_forward_ipv4_lan_interface: ""
+firewall_forward_ipv4_wan_interface: ""
+firewall_forward_ipv4_lan_cidr: ""
+firewall_nat_ipv4_enabled: false
+
+# Fail2ban
+fail2ban_bantime: "1h"
+fail2ban_findtime: "10m"
+fail2ban_maxretry: 5
+
+# Session log retention
+ssh_session_log_file: "/var/log/ssh_sessions.log"
+ssh_session_logrotate_days: 30
+ssh_command_logging_enabled: true
+ssh_command_log_file: "/var/log/ssh_commands.log"
+ssh_command_logrotate_days: 30
+ssh_command_log_facility: "local6"
+ssh_command_log_priority: "notice"
+ssh_command_logger_tag: "ssh-command"
+
+# GRUB credentials (keep real secrets in vars/local-secrets.yml, which is git-ignored)
+grub_superuser: "root"
+grub_password_plaintext: ""
+grub_password_pbkdf2_hash: ""

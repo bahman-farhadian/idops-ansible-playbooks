@@ -1,0 +1,16 @@
+---
+- name: Deploy local login banner
+  ansible.builtin.template:
+    src: issue.j2
+    dest: /etc/issue
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Deploy remote login banner
+  ansible.builtin.template:
+    src: issue.net.j2
+    dest: /etc/issue.net
+    owner: root
+    group: root
+    mode: "0644"

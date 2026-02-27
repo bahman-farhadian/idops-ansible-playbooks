@@ -1,0 +1,7 @@
+---
+integrity_packages:
+  - aide
+  - rkhunter
+  - chkrootkit
+integrity_initialize_aide: true
+integrity_aide_checksum_algorithm: sha512

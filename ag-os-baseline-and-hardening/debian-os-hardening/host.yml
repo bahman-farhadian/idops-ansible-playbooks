@@ -1,0 +1,37 @@
+all:
+  children:
+    hardening_targets:
+      hosts:
+        target-node-01:
+          ansible_host: change-me-host-or-ip
+          ansible_user: change-me-ssh-user
+          ansible_port: 22
+        # To add more VMs, copy/paste a host block under hardening_targets.hosts
+        # target-node-02:
+        #   ansible_host: change-me-host-or-ip-2
+        #   ansible_user: change-me-ssh-user
+        #   ansible_port: 22
+
+# Group logic template (optional):
+# Replace hardening_targets.hosts with hardening_targets.children if you want role-based groups.
+#
+# all:
+#   children:
+#     hardening_targets:
+#       children:
+#         web_servers:
+#           vars:
+#             firewall_allowed_tcp_ports: [80, 443]
+#           hosts:
+#             web-01:
+#               ansible_host: change-me-web-host-or-ip
+#               ansible_user: change-me-ssh-user
+#               ansible_port: 22
+#         db_servers:
+#           vars:
+#             firewall_allowed_tcp_ports: [3306]
+#           hosts:
+#             db-01:
+#               ansible_host: change-me-db-host-or-ip
+#               ansible_user: change-me-ssh-user
+#               ansible_port: 22

@@ -1,0 +1,37 @@
+---
+- name: Install accounting packages
+  ansible.builtin.apt:
+    name: "{{ accounting_packages }}"
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: accounting_packages_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: accounting_packages_install is succeeded
+
+- name: Enable sysstat data collection
+  ansible.builtin.lineinfile:
+    path: /etc/default/sysstat
+    regexp: '^ENABLED='
+    line: 'ENABLED="true"'
+  when: accounting_enable_sysstat | bool
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Ensure sysstat service is enabled
+  ansible.builtin.service:
+    name: sysstat
+    enabled: true
+    state: started
+  when:
+    - accounting_enable_sysstat | bool
+    - "'sysstat.service' in ansible_facts.services"
+
+- name: Ensure process accounting service is enabled
+  ansible.builtin.service:
+    name: "{{ 'acct' if 'acct.service' in ansible_facts.services else 'psacct' }}"
+    enabled: true
+    state: started
+  when:
+    - "'acct.service' in ansible_facts.services or 'psacct.service' in ansible_facts.services"

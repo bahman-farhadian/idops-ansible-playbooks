@@ -1,0 +1,89 @@
+---
+- name: List available systemd service unit files
+  ansible.builtin.command: systemctl list-unit-files --type=service --no-legend --no-pager
+  register: service_hardening_unit_files
+  changed_when: false
+  failed_when: false
+  when: service_hardening_enabled | bool
+
+- name: Extract available service unit names
+  ansible.builtin.set_fact:
+    service_hardening_available_units: >-
+      {{
+        service_hardening_unit_files.stdout_lines
+        | default([])
+        | map('regex_replace', '^\\s*([^\\s]+)\\s+.*$', '\\1')
+        | list
+      }}
+  when: service_hardening_enabled | bool
+
+- name: Build service hardening target list
+  ansible.builtin.set_fact:
+    service_hardening_target_units: >-
+      {{
+        service_hardening_units
+        | select('in', service_hardening_available_units | default([]))
+        | list
+      }}
+  when: service_hardening_enabled | bool
+
+- name: Build optional service disable target list
+  ansible.builtin.set_fact:
+    service_hardening_disable_target_units: >-
+      {{
+        service_hardening_disable_units
+        | select('in', service_hardening_available_units | default([]))
+        | list
+      }}
+  when: service_hardening_enabled | bool
+
+- name: Ensure systemd drop-in directory exists for hardened services
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: "{{ service_hardening_target_units | default([]) }}"
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_target_units | default([]) | length > 0
+
+- name: Deploy systemd service hardening drop-ins
+  ansible.builtin.template:
+    src: hardening-dropin.conf.j2
+    dest: "/etc/systemd/system/{{ item }}.d/{{ service_hardening_dropin_name }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ service_hardening_target_units | default([]) }}"
+  register: service_hardening_dropins
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_target_units | default([]) | length > 0
+
+- name: Reload systemd daemon when service hardening drop-ins changed
+  ansible.builtin.command: systemctl daemon-reload
+  changed_when: false
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_dropins is defined
+    - service_hardening_dropins.changed
+
+- name: Show hardened service units
+  ansible.builtin.debug:
+    msg: "Service hardening drop-ins managed for units: {{ service_hardening_target_units | default([]) | join(', ') }}"
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_target_units | default([]) | length > 0
+
+- name: Disable optional unneeded services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ service_hardening_disable_target_units | default([]) }}"
+  failed_when: false
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_disable_target_units | default([]) | length > 0

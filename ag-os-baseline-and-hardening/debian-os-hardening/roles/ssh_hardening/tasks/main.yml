@@ -1,0 +1,109 @@
+---
+- name: Install OpenSSH server
+  ansible.builtin.apt:
+    name: openssh-server
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: ssh_server_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: ssh_server_install is succeeded
+
+- name: Ensure sshd loads drop-in directory
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^\s*Include\s+/etc/ssh/sshd_config\.d/\*\.conf\s*$'
+    line: 'Include /etc/ssh/sshd_config.d/*.conf'
+    insertbefore: BOF
+    state: present
+  notify: Restart ssh
+
+- name: Deploy hardened SSH include config
+  ansible.builtin.template:
+    src: sshd_hardening.conf.j2
+    dest: "{{ ssh_hardening_dropin_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart ssh
+
+- name: Remove legacy SSH hardening drop-in paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ ssh_hardening_legacy_dropin_files | default([]) }}"
+  when: item != ssh_hardening_dropin_file
+  notify: Restart ssh
+
+- name: Enforce SSH banner path in main config
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^\s*Banner\s+'
+    line: "Banner {{ ssh_banner_path }}"
+    insertbefore: '^Match\b'
+    state: present
+  notify: Restart ssh
+
+- name: Enforce PrintMotd setting in main config
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^\s*PrintMotd\s+'
+    line: 'PrintMotd no'
+    insertbefore: '^Match\b'
+    state: present
+  when: ssh_clean_login_output | bool
+  notify: Restart ssh
+
+- name: Enforce PrintLastLog setting in main config
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^\s*PrintLastLog\s+'
+    line: "PrintLastLog {{ 'yes' if ssh_print_last_log else 'no' }}"
+    insertbefore: '^Match\b'
+    state: present
+  notify: Restart ssh
+
+- name: Remove pam_motd entries for clear SSH login output
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sshd
+    regexp: '^\s*session\s+.*pam_motd\.so.*$'
+    state: absent
+  when: ssh_disable_pam_motd | bool
+  notify: Restart ssh
+
+- name: Keep /etc/motd empty for clean SSH login output
+  ansible.builtin.copy:
+    dest: /etc/motd
+    content: ""
+    owner: root
+    group: root
+    mode: "0644"
+  when: ssh_clean_login_output | bool
+
+- name: Check if motd-news defaults file exists
+  ansible.builtin.stat:
+    path: /etc/default/motd-news
+  register: ssh_motd_news_file
+  when: ssh_disable_motd_news | bool
+
+- name: Disable Ubuntu motd-news for cleaner login output
+  ansible.builtin.lineinfile:
+    path: /etc/default/motd-news
+    regexp: '^ENABLED='
+    line: 'ENABLED=0'
+  when:
+    - ssh_disable_motd_news | bool
+    - ssh_motd_news_file.stat.exists
+
+- name: Ensure SSH service is enabled and running
+  ansible.builtin.service:
+    name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+    enabled: true
+    state: started
+
+- name: Warn when inventory SSH port differs from hardened SSH port
+  ansible.builtin.debug:
+    msg: >-
+      SSH hardening is set to port {{ ssh_port }}, while Ansible currently connects with ansible_port={{ ansible_port | default(22) }}.
+      After this run, update host.yml ansible_port to {{ ssh_port }} and re-run hardening for idempotency.
+  when: (ansible_port | default(22) | int) != (ssh_port | int)

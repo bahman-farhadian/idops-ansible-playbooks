@@ -1,0 +1,90 @@
+---
+- name: Apply network identity hardening baseline
+  ansible.builtin.include_role:
+    name: network_identity
+  when: os_hardening_enabled | bool
+
+- name: Apply boot and runlevel hardening baseline
+  ansible.builtin.include_role:
+    name: boot_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply preparation baseline
+  ansible.builtin.include_role:
+    name: prep_baseline
+  when: os_hardening_enabled | bool
+
+- name: Apply repository baseline (Debian)
+  ansible.builtin.include_role:
+    name: common_repos
+  when: os_hardening_enabled | bool
+
+- name: Apply package hardening baseline
+  ansible.builtin.include_role:
+    name: package_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply service hardening baseline
+  ansible.builtin.include_role:
+    name: service_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply firewall baseline
+  ansible.builtin.include_role:
+    name: firewall
+  when: os_hardening_enabled | bool
+
+- name: Apply kernel hardening baseline
+  ansible.builtin.include_role:
+    name: kernel_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply authentication hardening baseline
+  ansible.builtin.include_role:
+    name: auth_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply legal banner baseline
+  ansible.builtin.include_role:
+    name: banner_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply SSH hardening baseline
+  ansible.builtin.include_role:
+    name: ssh_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply Fail2ban baseline
+  ansible.builtin.include_role:
+    name: fail2ban
+  when: os_hardening_enabled | bool
+
+- name: Apply auditd baseline
+  ansible.builtin.include_role:
+    name: auditd
+  when: os_hardening_enabled | bool
+
+- name: Apply process accounting baseline
+  ansible.builtin.include_role:
+    name: accounting_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply file integrity and malware baseline
+  ansible.builtin.include_role:
+    name: integrity_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply compiler hardening baseline
+  ansible.builtin.include_role:
+    name: compiler_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply file permissions hardening baseline
+  ansible.builtin.include_role:
+    name: file_permissions_hardening
+  when: os_hardening_enabled | bool
+
+- name: Apply SSH session logging baseline
+  ansible.builtin.include_role:
+    name: session_logging
+  when: os_hardening_enabled | bool

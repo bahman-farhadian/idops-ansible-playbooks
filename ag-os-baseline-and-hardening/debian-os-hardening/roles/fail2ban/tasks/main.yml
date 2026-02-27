@@ -1,0 +1,25 @@
+---
+- name: Install Fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: fail2ban_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: fail2ban_install is succeeded
+
+- name: Configure Fail2ban jail for SSH
+  ansible.builtin.template:
+    src: jail.local.j2
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+
+- name: Ensure Fail2ban service is enabled and running
+  ansible.builtin.service:
+    name: fail2ban
+    enabled: true
+    state: started

@@ -1,30 +1,10 @@
 # ag-os-baseline-and-hardening
 
-Domain status: scaffold
+Domain for operating-system baseline configuration and hardening workflows.
 
-## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ag-os-baseline-and-hardening domain.
+## Implemented Projects
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
-
-## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
-
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
-
-## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+- `debian-os-hardening/`
+  - Migrated from `old_playbooks/debian-based-hardening-ansible`
+  - Single-entrypoint structure (`playbook.yml`) aligned with contributor guide
+  - Debian/Ubuntu hardening roles and Lynis scan workflows

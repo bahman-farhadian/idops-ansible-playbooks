@@ -1,0 +1,4 @@
+---
+- name: Run Lynis scan role
+  ansible.builtin.include_role:
+    name: lynis_scan

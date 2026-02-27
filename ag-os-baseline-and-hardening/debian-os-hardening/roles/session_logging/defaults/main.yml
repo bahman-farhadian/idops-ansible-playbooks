@@ -1,0 +1,13 @@
+---
+ssh_session_log_file: "/var/log/ssh_sessions.log"
+ssh_session_logrotate_days: 30
+ssh_command_logging_enabled: true
+ssh_command_log_file: "/var/log/ssh_commands.log"
+ssh_command_logrotate_days: 30
+ssh_command_log_facility: "local6"
+ssh_command_log_priority: "notice"
+ssh_command_logger_tag: "ssh-command"
+remote_syslog_enabled: false
+remote_syslog_host: ""
+remote_syslog_port: 514
+remote_syslog_protocol: "tcp"

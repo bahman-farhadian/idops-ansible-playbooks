@@ -1,0 +1,10 @@
+---
+boot_hardening_enabled: true
+boot_set_default_target: true
+boot_default_target: "multi-user.target"
+boot_fix_runlevel_debian13: true
+boot_runlevel_compat_wrapper_enabled: true
+boot_runlevel_compat_wrapper_path: "/usr/local/sbin/runlevel"
+boot_runlevel_update_services:
+  - systemd-update-utmp.service
+  - systemd-update-utmp-runlevel.service

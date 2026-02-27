@@ -1,0 +1,19 @@
+---
+banner_issue_text: |
+  +------------------------------------------------------------------+
+  | SECURITY NOTICE: AUTHORIZED ACCESS ONLY                          |
+  | This system is private property.                                 |
+  | Access is restricted to authorized users only.                   |
+  | All activity is monitored and recorded.                          |
+  | Unauthorized use is prohibited and may be prosecuted.            |
+  | Disconnect immediately if you are not authorized.                |
+  +------------------------------------------------------------------+
+banner_issue_net_text: |
+  +------------------------------------------------------------------+
+  | SECURITY NOTICE: AUTHORIZED SSH ACCESS ONLY                      |
+  | This SSH service is private property.                            |
+  | Access is restricted to authorized users only.                   |
+  | All activity is monitored and recorded.                          |
+  | Unauthorized use is prohibited and may be prosecuted.            |
+  | Disconnect immediately if you are not authorized.                |
+  +------------------------------------------------------------------+

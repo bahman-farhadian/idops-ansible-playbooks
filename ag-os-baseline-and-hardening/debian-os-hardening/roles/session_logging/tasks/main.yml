@@ -1,0 +1,88 @@
+---
+- name: Ensure rsyslog is installed
+  ansible.builtin.apt:
+    name: rsyslog
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: session_logging_rsyslog_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: session_logging_rsyslog_install is succeeded
+
+- name: Configure dedicated SSH session log file
+  ansible.builtin.template:
+    src: ssh-session-rsyslog.conf.j2
+    dest: /etc/rsyslog.d/30-ssh-session-logging.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rsyslog
+
+- name: Ensure session log file exists
+  ansible.builtin.file:
+    path: "{{ ssh_session_log_file }}"
+    state: touch
+    access_time: preserve
+    modification_time: preserve
+    owner: root
+    group: adm
+    mode: "0640"
+
+- name: Deploy SSH command logging profile hook
+  ansible.builtin.template:
+    src: ssh-command-logging.sh.j2
+    dest: /etc/profile.d/99-ssh-command-logging.sh
+    owner: root
+    group: root
+    mode: "0644"
+  when: ssh_command_logging_enabled | bool
+
+- name: Remove SSH command logging profile hook when disabled
+  ansible.builtin.file:
+    path: /etc/profile.d/99-ssh-command-logging.sh
+    state: absent
+  when: not (ssh_command_logging_enabled | bool)
+
+- name: Ensure SSH command log file exists
+  ansible.builtin.file:
+    path: "{{ ssh_command_log_file }}"
+    state: touch
+    access_time: preserve
+    modification_time: preserve
+    owner: root
+    group: adm
+    mode: "0640"
+  when: ssh_command_logging_enabled | bool
+
+- name: Configure logrotate retention for SSH session log
+  ansible.builtin.template:
+    src: ssh-session-logrotate.j2
+    dest: /etc/logrotate.d/ssh-session-log
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Configure remote rsyslog forwarding
+  ansible.builtin.template:
+    src: 90-remote-forwarding.conf.j2
+    dest: /etc/rsyslog.d/90-remote-forwarding.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - remote_syslog_enabled | bool
+    - remote_syslog_host | length > 0
+  notify: Restart rsyslog
+
+- name: Remove remote rsyslog forwarding config when disabled
+  ansible.builtin.file:
+    path: /etc/rsyslog.d/90-remote-forwarding.conf
+    state: absent
+  when: not (remote_syslog_enabled | bool and remote_syslog_host | length > 0)
+  notify: Restart rsyslog
+
+- name: Ensure rsyslog service is enabled and running
+  ansible.builtin.service:
+    name: rsyslog
+    enabled: true
+    state: started

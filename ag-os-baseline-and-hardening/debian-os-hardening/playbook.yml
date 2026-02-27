@@ -1,0 +1,56 @@
+---
+- name: Validate requested hardening action
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/debian-hardening.yml
+  vars:
+    debian_hardening_action: "{{ debian_hardening_action | default('harden') }}"
+
+  tasks:
+    - name: Validate hardening action value
+      ansible.builtin.assert:
+        that:
+          - debian_hardening_action in ['ping', 'scan', 'harden', 'site', 'reboot']
+        fail_msg: "debian_hardening_action must be one of: ping, scan, harden, site, reboot."
+
+- name: Execute Debian hardening action
+  hosts: "{{ debian_hardening_target_group }}"
+  become: true
+  gather_facts: "{{ debian_hardening_action in ['scan', 'harden', 'site'] }}"
+  vars_files:
+    - vars/debian-hardening.yml
+  vars:
+    debian_hardening_action: "{{ debian_hardening_action | default('harden') }}"
+
+  pre_tasks:
+    - name: Load optional local secrets overrides
+      ansible.builtin.include_vars:
+        dir: "{{ playbook_dir }}/vars"
+        files_matching: '^local-secrets\.yml$'
+        ignore_unknown_extensions: true
+
+    - name: Run hardening preflight checks for OS support
+      ansible.builtin.include_tasks: tasks/preflight.yml
+      when: debian_hardening_action in ['scan', 'harden', 'site']
+
+  tasks:
+    - name: Run connectivity workflow
+      ansible.builtin.include_tasks: tasks/ping.yml
+      when: debian_hardening_action == 'ping'
+
+    - name: Run Lynis baseline scan workflow
+      ansible.builtin.include_tasks: tasks/scan.yml
+      when: debian_hardening_action == 'scan'
+
+    - name: Run OS hardening workflow
+      ansible.builtin.include_tasks: tasks/harden.yml
+      when: debian_hardening_action == 'harden'
+
+    - name: Run staged site workflow
+      ansible.builtin.include_tasks: tasks/site.yml
+      when: debian_hardening_action == 'site'
+
+    - name: Run reboot workflow
+      ansible.builtin.include_tasks: tasks/reboot.yml
+      when: debian_hardening_action == 'reboot'

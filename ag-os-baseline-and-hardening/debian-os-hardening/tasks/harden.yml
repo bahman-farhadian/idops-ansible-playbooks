@@ -1,0 +1,4 @@
+---
+- name: Apply orchestrated OS hardening role
+  ansible.builtin.include_role:
+    name: os_hardening

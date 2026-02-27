@@ -1,0 +1,14 @@
+---
+ssh_port: 22
+ssh_allow_password_auth: false
+ssh_allow_root_login: true
+ssh_allowed_users: []
+ssh_banner_path: "/etc/issue.net"
+ssh_hardening_dropin_file: "/etc/ssh/sshd_config.d/00-000-hardening.conf"
+ssh_hardening_legacy_dropin_files:
+  - "/etc/ssh/sshd_config.d/99-hardening.conf"
+  - "/etc/ssh/sshd_config.d/00-hardening.conf"
+ssh_disable_pam_motd: true
+ssh_print_last_log: true
+ssh_clean_login_output: true
+ssh_disable_motd_news: true

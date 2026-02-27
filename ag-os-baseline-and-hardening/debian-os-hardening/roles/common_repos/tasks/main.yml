@@ -1,0 +1,131 @@
+---
+- name: Derive effective Debian repository suite from gathered facts
+  ansible.builtin.set_fact:
+    apt_debian_effective_release: >-
+      {{
+        (apt_debian_release_override | default('') | trim)
+        if (apt_debian_release_override | default('') | trim | length > 0)
+        else (
+          apt_debian_release_map[ansible_distribution_major_version]
+          if (ansible_distribution_major_version in apt_debian_release_map)
+          else ansible_distribution_release
+        )
+      }}
+  when: ansible_distribution == 'Debian'
+
+- name: Ensure effective Debian repository suite is set
+  ansible.builtin.assert:
+    that:
+      - apt_debian_effective_release | length > 0
+    fail_msg: "Unable to determine Debian suite name from facts. Set apt_debian_release_override in vars/debian-hardening.yml."
+  when: ansible_distribution == 'Debian'
+
+- name: Check if /etc/apt/sources.list exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list
+  register: apt_sources_list_file
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+
+- name: Find one-line APT source files under /etc/apt/sources.list.d
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "*.list"
+    file_type: file
+  register: apt_sources_list_d_files
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+
+- name: Find deb822 APT source files under /etc/apt/sources.list.d
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "*.sources"
+    file_type: file
+  register: apt_sources_deb822_files
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+
+- name: Comment conflicting Debian entries in /etc/apt/sources.list
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list
+    regexp: >-
+      ^(deb(?:-src)?\s+(?:\[[^\]]*\]\s+)?(?:{{ apt_repository_url | regex_escape }}|{{ apt_security_repository_url | regex_escape }})\s+.*)$
+    replace: "# Disabled by Ansible common_repos (managed in {{ apt_debian_managed_sources_file }}): \\1"
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+    - apt_sources_list_file.stat.exists
+
+- name: Comment conflicting Debian entries in /etc/apt/sources.list.d/*.list
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: >-
+      ^(deb(?:-src)?\s+(?:\[[^\]]*\]\s+)?(?:{{ apt_repository_url | regex_escape }}|{{ apt_security_repository_url | regex_escape }})\s+.*)$
+    replace: "# Disabled by Ansible common_repos (managed in {{ apt_debian_managed_sources_file }}): \\1"
+  loop: "{{ apt_sources_list_d_files.files | default([]) }}"
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+
+- name: Check non-managed deb822 source files for conflicting Debian URIs
+  ansible.builtin.command: >-
+    grep -Eq '^\s*URIs:\s*(?:{{ apt_repository_url | regex_escape }}|{{ apt_security_repository_url | regex_escape }})\s*$' {{ item.path }}
+  register: apt_conflicting_deb822_checks
+  changed_when: false
+  failed_when: false
+  loop: "{{ apt_sources_deb822_files.files | default([]) }}"
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+    - item.path != apt_debian_managed_sources_file
+
+- name: Disable conflicting non-managed deb822 source files
+  ansible.builtin.command: >-
+    mv {{ item.item.path }} {{ item.item.path }}.disabled-by-hardening
+  args:
+    creates: "{{ item.item.path }}.disabled-by-hardening"
+  loop: "{{ apt_conflicting_deb822_checks.results | default([]) }}"
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+    - item.rc is defined
+    - item.rc == 0
+
+- name: Configure Debian repository components (main contrib non-free non-free-firmware)
+  ansible.builtin.template:
+    src: debian.sources.j2
+    dest: "{{ apt_debian_managed_sources_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_distribution == 'Debian'
+
+- name: Update apt cache
+  block:
+    - name: Update apt cache via apt module
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+      register: common_repos_apt_update
+      retries: "{{ apt_package_retries | default(6) }}"
+      delay: "{{ apt_package_retry_delay | default(10) }}"
+      until: common_repos_apt_update is succeeded
+  rescue:
+    - name: Allow release info change and refresh apt cache
+      ansible.builtin.command: apt-get update --allow-releaseinfo-change
+      changed_when: false
+
+    - name: Retry apt cache update via apt module
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+      register: common_repos_apt_update_retry
+      retries: "{{ apt_package_retries | default(6) }}"
+      delay: "{{ apt_package_retry_delay | default(10) }}"
+      until: common_repos_apt_update_retry is succeeded
+  when: ansible_distribution == 'Debian'

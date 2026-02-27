@@ -1,0 +1,5 @@
+# Managed by Ansible (service_hardening)
+[Service]
+{% for key, value in service_hardening_directives.items() %}
+{{ key }}={{ value }}
+{% endfor %}

@@ -1,0 +1,21 @@
+---
+service_hardening_enabled: true
+service_hardening_dropin_name: "90-hardening.conf"
+service_hardening_units:
+  - ssh.service
+  - fail2ban.service
+  - rsyslog.service
+  - cron.service
+  - unattended-upgrades.service
+service_hardening_disable_units: []
+service_hardening_directives:
+  NoNewPrivileges: "yes"
+  PrivateTmp: "yes"
+  ProtectControlGroups: "yes"
+  ProtectKernelTunables: "yes"
+  ProtectKernelModules: "yes"
+  ProtectKernelLogs: "yes"
+  RestrictSUIDSGID: "yes"
+  LockPersonality: "yes"
+  RestrictRealtime: "yes"
+  RestrictNamespaces: "yes"

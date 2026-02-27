@@ -1,0 +1,174 @@
+---
+- name: Build effective identity values
+  ansible.builtin.set_fact:
+    network_identity_effective_fqdn: >-
+      {{
+        network_identity_fqdn
+        if network_identity_fqdn | length > 0
+        else (
+          inventory_hostname
+          if '.' in inventory_hostname
+          else ansible_hostname
+        )
+      }}
+    network_identity_effective_short_hostname: >-
+      {{
+        (
+          network_identity_fqdn
+          if network_identity_fqdn | length > 0
+          else (
+            inventory_hostname
+            if '.' in inventory_hostname
+            else ansible_hostname
+          )
+        ).split('.')[0]
+      }}
+    network_identity_effective_search_domains: >-
+      {{
+        network_identity_search_domains
+        if network_identity_search_domains | length > 0
+        else (
+          [(
+            (
+              network_identity_fqdn
+              if network_identity_fqdn | length > 0
+              else (
+                inventory_hostname
+                if '.' in inventory_hostname
+                else ''
+              )
+            ).split('.', 1)[1]
+          )]
+          if '.' in (
+            network_identity_fqdn
+            if network_identity_fqdn | length > 0
+            else inventory_hostname
+          )
+          else []
+        )
+      }}
+
+- name: Build effective primary IPv4 value
+  ansible.builtin.set_fact:
+    network_identity_effective_ipv4: >-
+      {{
+        network_identity_primary_ipv4
+        if network_identity_primary_ipv4 | length > 0
+        else (
+          (ansible_default_ipv4.address | default(''))
+          if (ansible_default_ipv4 is defined and ansible_default_ipv4.address is defined)
+          else (ansible_all_ipv4_addresses | default([]) | first | default(''))
+        )
+      }}
+
+- name: Build effective extra hosts entries
+  ansible.builtin.set_fact:
+    network_identity_effective_extra_hosts_entries: >-
+      {{
+        (
+          network_identity_extra_hosts_entries
+          + (
+            network_identity_local_repo_hosts_entries
+            if (network_identity_local_repo_hosts_enabled | bool)
+            else []
+          )
+        ) | unique
+      }}
+
+- name: Set system hostname when explicitly requested
+  ansible.builtin.hostname:
+    name: "{{ network_identity_hostname }}"
+  when:
+    - network_identity_set_hostname | bool
+    - network_identity_hostname | length > 0
+
+- name: Manage /etc/hosts with template
+  ansible.builtin.template:
+    src: hosts.j2
+    dest: /etc/hosts
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - network_identity_manage_hosts | bool
+    - network_identity_manage_hosts_via_template | bool
+
+- name: Remove stale non-loopback hosts entries for previous hostname
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^(?!127\.0\.0\.1|127\.0\.1\.1|::1)\S+\s+.*\b{{ ansible_hostname | regex_escape }}\b.*$'
+    state: absent
+  when:
+    - network_identity_manage_hosts | bool
+    - not (network_identity_manage_hosts_via_template | bool)
+    - network_identity_cleanup_stale_hostname_entries | bool
+    - ansible_hostname != network_identity_effective_short_hostname
+    - ansible_hostname != network_identity_effective_fqdn
+
+- name: Ensure loopback FQDN host mapping exists in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s+'
+    line: "127.0.1.1 {{ network_identity_effective_fqdn }} {{ network_identity_effective_short_hostname }}"
+    state: present
+  when:
+    - network_identity_manage_hosts | bool
+    - not (network_identity_manage_hosts_via_template | bool)
+    - network_identity_manage_loopback_fqdn | bool
+    - network_identity_effective_fqdn | length > 0
+
+- name: Ensure primary IPv4 host mapping exists in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^{{ network_identity_effective_ipv4 | regex_escape }}\s+'
+    line: >-
+      {{
+        network_identity_effective_ipv4 ~ ' ' ~
+        network_identity_effective_fqdn ~
+        ' ' ~
+        network_identity_effective_short_hostname
+      }}
+    state: present
+    insertafter: EOF
+  when:
+    - network_identity_manage_hosts | bool
+    - not (network_identity_manage_hosts_via_template | bool)
+    - network_identity_effective_ipv4 | length > 0
+    - network_identity_effective_fqdn | length > 0
+
+- name: Ensure extra hosts entries exist
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item }}"
+    state: present
+    insertafter: EOF
+  loop: "{{ network_identity_effective_extra_hosts_entries }}"
+  when:
+    - network_identity_manage_hosts | bool
+    - not (network_identity_manage_hosts_via_template | bool)
+
+- name: Check if resolv.conf is a symlink
+  ansible.builtin.stat:
+    path: "{{ network_identity_resolv_conf_path }}"
+  register: network_identity_resolv_stat
+  when: network_identity_manage_resolv_conf | bool
+
+- name: Manage resolv.conf when it is a regular file
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: "{{ network_identity_resolv_conf_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    network_identity_template_search_domains: "{{ network_identity_effective_search_domains }}"
+  when:
+    - network_identity_manage_resolv_conf | bool
+    - not network_identity_resolv_stat.stat.islnk
+
+- name: Warn when resolv.conf is symlink and not directly managed
+  ansible.builtin.debug:
+    msg: "Skipping direct resolv.conf management because {{ network_identity_resolv_conf_path }} is a symlink."
+  when:
+    - network_identity_manage_resolv_conf | bool
+    - network_identity_resolv_stat.stat.islnk
