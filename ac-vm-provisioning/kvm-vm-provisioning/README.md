@@ -109,39 +109,17 @@ make image-cache
 make provision
 ```
 
-## Stage Model
-
-`kvm_provision_stage` controls stage execution:
-
-- `full`: preflight -> image-cache -> provision -> runtime
-- `preflight`: validation only
-- `image-cache`: download/verify cache only
-- `provision`: create missing domains/disks only
-- `runtime`: start/wait/snapshot workflow only
-
-Important: stage mode is **selected-stage-only** when not `full`.
-
 ## Make Targets
 
 ```bash
 make help
 make image-cache
 make provision
-make provision-stage STAGE=image-cache
 make provision-check
 make cleanup
 make cleanup-force
 make cleanup-force-disks
 ```
-
-Difference between `make provision-stage` and `make provision`:
-
-- `make provision` always runs the full workflow (`kvm_provision_stage=full`):
-  preflight -> image-cache -> provision -> runtime.
-- `make provision-stage STAGE=<stage>` runs only one selected stage
-  (`preflight` | `image-cache` | `provision` | `runtime` | `full`).
-- Use `make provision-stage` for targeted debugging or partial operations,
-  and `make provision` for normal end-to-end provisioning.
 
 `make provision-check` runs `preflight` in Ansible check mode.
 
@@ -232,7 +210,6 @@ All user-editable settings are in `vars/kvm-provisioning.yml`.
 
 Core interface keys:
 
-- `kvm_provision_stage`
 - `kvm_image_cache_path`
 - `kvm_instance_disk_pool_path`
 - `kvm_image_cache_verify_on_run`

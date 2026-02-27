@@ -10,9 +10,8 @@ kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hyperviso
 kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
 
 # -----------------------------------------------------------------------------
-# Provision workflow stage control
+# Provision workflow behavior
 # -----------------------------------------------------------------------------
-kvm_provision_stage: "full"                      # Stage selector. Values: full | preflight | image-cache | provision | runtime.
 kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --check mode. Values: true | false.
 
 # -----------------------------------------------------------------------------
