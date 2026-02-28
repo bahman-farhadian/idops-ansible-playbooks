@@ -9,9 +9,6 @@ debian_hardening_target_group: "hardening_targets"      # Inventory group target
 debian_become_enabled: true                             # Run remote tasks with privilege escalation.
 debian_become_method: "sudo"                            # Privilege escalation method. Values: sudo | su | doas.
 debian_become_user: "root"                              # Privilege escalation target user.
-# Per-host become password must be set in host.yml (supports per-host unique values):
-# debian_become_password: ""
-# ansible_become_password: "{{ debian_become_password }}"
 
 # -----------------------------------------------------------------------------
 # APT repository settings
