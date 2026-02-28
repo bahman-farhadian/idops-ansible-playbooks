@@ -24,7 +24,6 @@
     - vars/debian-hardening.yml
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
-    ansible_become_password: "{{ debian_become_password | default('') }}"
 
   pre_tasks:
     - name: Load optional local secrets overrides

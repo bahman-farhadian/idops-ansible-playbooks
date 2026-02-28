@@ -43,6 +43,13 @@ make harden
 
 Edit `host.yml` and place targets under `hardening_targets`.
 
+Set become password per host in `host.yml`:
+
+- `debian_become_password: ""`
+- `ansible_become_password: "{{ debian_become_password }}"`
+
+Leave `debian_become_password` empty when connecting as root or when sudo is passwordless on that host.
+
 ## Primary User Rename (Cloud Images)
 
 Cloud images often start with a default user (for example `debian`) that is actively used by the SSH session.
