@@ -9,3 +9,7 @@ package_hardening_enable_unattended_upgrades: true
 package_hardening_run_dist_upgrade: true
 package_hardening_debsums_cron_check: "weekly"
 package_hardening_purge_removed_packages: true
+package_hardening_dist_upgrade_task_retries: 2
+package_hardening_dist_upgrade_task_retry_delay_seconds: 15
+package_hardening_apt_network_timeout_seconds: 120
+package_hardening_apt_network_retries: 2

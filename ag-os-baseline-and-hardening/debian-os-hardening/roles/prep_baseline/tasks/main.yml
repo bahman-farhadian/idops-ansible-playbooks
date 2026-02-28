@@ -34,6 +34,19 @@
     mode: "0700"
   when: prep_enabled | bool
 
+- name: Remove cloud-image forced-command guard from root authorized_keys
+  ansible.builtin.lineinfile:
+    path: /root/.ssh/authorized_keys
+    regexp: 'command="echo .*rather than the user \\"root\\".*'
+    state: absent
+    create: true
+    owner: root
+    group: root
+    mode: "0600"
+  when:
+    - prep_enabled | bool
+    - (prep_root_authorized_keys | length) > 0
+
 - name: Authorize provided root SSH public keys
   ansible.builtin.lineinfile:
     path: /root/.ssh/authorized_keys
@@ -240,8 +253,137 @@
     - prep_primary_user_name is defined
     - prep_primary_user_detected_name != prep_primary_user_name
 
+- name: Validate in-place rename safety for current SSH session
+  ansible.builtin.assert:
+    that:
+      - (ansible_user | default('')) != prep_primary_user_detected_name
+    fail_msg: >-
+      Refusing to rename currently connected SSH user {{ prep_primary_user_detected_name }}.
+      Connect as root or another admin account, then re-run.
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+
+- name: Detect active processes for detected primary user before in-place rename
+  ansible.builtin.command: "pgrep -u {{ prep_primary_user_detected_name }}"
+  register: prep_primary_user_active_pids_before_rename
+  changed_when: false
+  failed_when: false
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+
+- name: Terminate login sessions for detected primary user before in-place rename
+  ansible.builtin.command: "loginctl terminate-user {{ prep_primary_user_detected_name }}"
+  failed_when: false
+  changed_when: prep_primary_user_active_pids_before_rename.rc == 0
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+    - prep_primary_user_active_pids_before_rename.rc == 0
+
+- name: Send SIGTERM to detected primary user processes before in-place rename
+  ansible.builtin.command: "pkill -TERM -u {{ prep_primary_user_detected_name }}"
+  failed_when: false
+  changed_when: prep_primary_user_active_pids_before_rename.rc == 0
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+    - prep_primary_user_active_pids_before_rename.rc == 0
+
+- name: Wait for detected primary user processes to stop before in-place rename
+  ansible.builtin.command: "pgrep -u {{ prep_primary_user_detected_name }}"
+  register: prep_primary_user_wait_no_procs
+  changed_when: false
+  failed_when: false
+  retries: 10
+  delay: 1
+  until: prep_primary_user_wait_no_procs.rc != 0
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+    - prep_primary_user_active_pids_before_rename.rc == 0
+
+- name: Force-kill remaining detected primary user processes before in-place rename
+  ansible.builtin.command: "pkill -KILL -u {{ prep_primary_user_detected_name }}"
+  failed_when: false
+  changed_when: true
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+    - prep_primary_user_active_pids_before_rename.rc == 0
+    - prep_primary_user_wait_no_procs is defined
+    - prep_primary_user_wait_no_procs.rc == 0
+
+- name: Confirm no remaining detected primary user processes before in-place rename
+  ansible.builtin.command: "pgrep -u {{ prep_primary_user_detected_name }}"
+  register: prep_primary_user_final_no_procs
+  changed_when: false
+  failed_when: false
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+    - prep_primary_user_active_pids_before_rename.rc == 0
+
+- name: Fail when detected primary user is still active before in-place rename
+  ansible.builtin.fail:
+    msg: >-
+      Cannot rename user {{ prep_primary_user_detected_name }} because active processes remain
+      (for example: {{ prep_primary_user_final_no_procs.stdout_lines | default([]) | join(', ') }}).
+      Log out all sessions for this user, then retry hardening.
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - not (prep_replace_primary_user | bool)
+    - prep_primary_user_detected_name is defined
+    - prep_primary_user_name is defined
+    - prep_primary_user_detected_name != prep_primary_user_name
+    - prep_primary_user_desired_entry.rc != 0
+    - prep_primary_user_active_pids_before_rename.rc == 0
+    - prep_primary_user_final_no_procs is defined
+    - prep_primary_user_final_no_procs.rc == 0
+
 - name: Rename primary user account when requested
   ansible.builtin.command: "usermod -l {{ prep_primary_user_name }} {{ prep_primary_user_detected_name }}"
+  register: prep_primary_user_rename_result
+  retries: 3
+  delay: 2
+  until: prep_primary_user_rename_result.rc == 0
   when:
     - prep_enabled | bool
     - prep_manage_primary_user | bool

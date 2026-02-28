@@ -75,6 +75,16 @@ make reboot
 
 `scan` and `harden` are explicit, separate workflows.
 
+## Dist-Upgrade Network Retry Controls
+
+`package_hardening` uses bounded APT network timeouts and retries for `dist-upgrade`.
+Override these in `vars/debian-hardening.yml` when needed:
+
+- `package_hardening_apt_network_timeout_seconds` (default `120`)
+- `package_hardening_apt_network_retries` (default `2`)
+- `package_hardening_dist_upgrade_task_retries` (default `2`)
+- `package_hardening_dist_upgrade_task_retry_delay_seconds` (default `15`)
+
 ## Offline Lynis Bundle Mode
 
 For targets without internet access, enable offline Lynis delivery in `vars/debian-hardening.yml`:
