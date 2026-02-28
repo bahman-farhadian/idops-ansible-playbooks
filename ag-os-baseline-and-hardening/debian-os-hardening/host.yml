@@ -6,37 +6,8 @@ all:
           ansible_host: change-me-host-or-ip-01
           ansible_user: change-me-ssh-user
           ansible_port: 22
-          debian_become_password: "" # Optional per-host sudo password. Leave empty for root SSH or passwordless sudo.
-          ansible_become_password: "{{ debian_become_password }}"
-
-        target-node-02:
-          ansible_host: change-me-host-or-ip-02
-          ansible_user: change-me-ssh-user
-          ansible_port: 22
-          debian_become_password: ""
-          ansible_become_password: "{{ debian_become_password }}"
-
-        target-node-03:
-          ansible_host: change-me-host-or-ip-03
-          ansible_user: change-me-ssh-user
-          ansible_port: 22
-          debian_become_password: ""
-          ansible_become_password: "{{ debian_become_password }}"
-
-        target-node-04:
-          ansible_host: change-me-host-or-ip-04
-          ansible_user: change-me-ssh-user
-          ansible_port: 22
-          debian_become_password: ""
-          ansible_become_password: "{{ debian_become_password }}"
-
-        # To add more VMs, copy/paste a host block under hardening_targets.hosts.
-        # target-node-05:
-        #   ansible_host: change-me-host-or-ip-05
-        #   ansible_user: change-me-ssh-user
-        #   ansible_port: 22
-        #   debian_become_password: ""
-        #   ansible_become_password: "{{ debian_become_password }}"
+          debian_become_password: ""                              # Optional per-host sudo password. Leave empty for root SSH or passwordless sudo.
+          ansible_become_password: "{{ debian_become_password }}" # Pass host-specific sudo password to Ansible become.
 
 # Group logic template (optional):
 # Replace hardening_targets.hosts with hardening_targets.children if you want role-based groups.
