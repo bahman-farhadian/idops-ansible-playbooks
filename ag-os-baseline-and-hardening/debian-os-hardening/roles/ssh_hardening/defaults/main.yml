@@ -1,7 +1,5 @@
 ---
 ssh_port: 22
-ssh_allow_password_auth: false
-ssh_allow_root_login: true
 ssh_allowed_users: []
 ssh_banner_path: "/etc/issue.net"
 ssh_hardening_dropin_file: "/etc/ssh/sshd_config.d/99-zzz-idops-hardening.conf"

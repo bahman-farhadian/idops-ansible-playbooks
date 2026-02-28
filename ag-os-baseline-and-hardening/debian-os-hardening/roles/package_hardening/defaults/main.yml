@@ -1,10 +1,23 @@
 ---
 package_hardening_required_packages:
   - unattended-upgrades
+  - logrotate
+  - python3-systemd
+  - bsd-mailx
 package_hardening_optional_packages:
   - debsums
   - apt-show-versions
   - apt-listchanges
+package_hardening_enable_apparmor_when_supported: true
+package_hardening_apparmor_packages:
+  - apparmor
+  - apparmor-utils
+package_hardening_enable_lynis_dnssec_probe_support: false
+package_hardening_lynis_dnssec_probe_packages:
+  - systemd-resolved
+package_hardening_enable_lynis_exim_probe_support: false
+package_hardening_lynis_exim_probe_packages:
+  - exim4-daemon-light
 package_hardening_enable_unattended_upgrades: true
 package_hardening_run_dist_upgrade: true
 package_hardening_debsums_cron_check: "weekly"

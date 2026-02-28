@@ -1,6 +1,7 @@
 ---
 integrity_packages:
   - aide
+  - aide-common
   - rkhunter
   - chkrootkit
 integrity_initialize_aide: true

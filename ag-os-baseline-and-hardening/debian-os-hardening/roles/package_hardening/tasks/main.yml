@@ -16,6 +16,132 @@
     lock_timeout: "{{ apt_lock_timeout | default(600) }}"
   failed_when: false
 
+- name: Check AppArmor kernel support marker
+  ansible.builtin.stat:
+    path: /sys/module/apparmor/parameters/enabled
+  register: package_hardening_apparmor_kernel_marker
+  when: package_hardening_enable_apparmor_when_supported | bool
+
+- name: Read AppArmor kernel support state
+  ansible.builtin.slurp:
+    path: /sys/module/apparmor/parameters/enabled
+  register: package_hardening_apparmor_kernel_state_raw
+  when:
+    - package_hardening_enable_apparmor_when_supported | bool
+    - package_hardening_apparmor_kernel_marker.stat.exists | default(false)
+
+- name: Set AppArmor support fact
+  ansible.builtin.set_fact:
+    package_hardening_apparmor_supported: >-
+      {{
+        package_hardening_apparmor_kernel_marker.stat.exists | default(false)
+        and
+        (
+          package_hardening_apparmor_kernel_state_raw.content
+          | b64decode
+          | trim
+          | upper
+        ) in ['Y', 'YES', '1']
+      }}
+  when: package_hardening_enable_apparmor_when_supported | bool
+
+- name: Check if aa-status binary exists
+  ansible.builtin.stat:
+    path: /usr/sbin/aa-status
+  register: package_hardening_aa_status_binary
+  when:
+    - package_hardening_enable_apparmor_when_supported | bool
+    - package_hardening_apparmor_supported | default(false)
+
+- name: Install AppArmor userspace packages when kernel supports AppArmor
+  ansible.builtin.apt:
+    name: "{{ package_hardening_apparmor_packages }}"
+    state: present
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: package_hardening_apparmor_install
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: package_hardening_apparmor_install is succeeded
+  when:
+    - package_hardening_enable_apparmor_when_supported | bool
+    - package_hardening_apparmor_supported | default(false)
+    - not (package_hardening_aa_status_binary.stat.exists | default(false))
+
+- name: Ensure AppArmor service is enabled and running when supported
+  ansible.builtin.systemd:
+    name: apparmor.service
+    enabled: true
+    state: started
+  failed_when: false
+  when:
+    - package_hardening_enable_apparmor_when_supported | bool
+    - package_hardening_apparmor_supported | default(false)
+
+- name: Check if resolvectl binary exists
+  ansible.builtin.stat:
+    path: /usr/bin/resolvectl
+  register: package_hardening_resolvectl_binary
+  when: package_hardening_enable_lynis_dnssec_probe_support | bool
+
+- name: Install DNSSEC probe support packages for Lynis when explicitly enabled
+  block:
+    - name: Install DNSSEC probe support packages
+      ansible.builtin.apt:
+        name: "{{ package_hardening_lynis_dnssec_probe_packages }}"
+        state: present
+        lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+      register: package_hardening_dnssec_probe_install
+      retries: "{{ apt_package_retries | default(6) }}"
+      delay: "{{ apt_package_retry_delay | default(10) }}"
+      until: package_hardening_dnssec_probe_install is succeeded
+  rescue:
+    - name: Warn when DNSSEC probe support packages cannot be installed
+      ansible.builtin.debug:
+        msg: >-
+          Skipping optional DNSSEC probe support install due to package failure:
+          {{ package_hardening_dnssec_probe_install.msg | default('apt failure') }}
+  when:
+    - package_hardening_enable_lynis_dnssec_probe_support | bool
+    - not (package_hardening_resolvectl_binary.stat.exists | default(false))
+
+- name: Check whether Exim process is running
+  ansible.builtin.command: pgrep -x exim4
+  register: package_hardening_exim_process_check
+  changed_when: false
+  failed_when: false
+  when: package_hardening_enable_lynis_exim_probe_support | bool
+
+- name: Install local Exim packages for Lynis probe when explicitly enabled
+  block:
+    - name: Install local Exim packages
+      ansible.builtin.apt:
+        name: "{{ package_hardening_lynis_exim_probe_packages }}"
+        state: present
+        lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+      register: package_hardening_exim_probe_install
+      retries: "{{ apt_package_retries | default(6) }}"
+      delay: "{{ apt_package_retry_delay | default(10) }}"
+      until: package_hardening_exim_probe_install is succeeded
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+  rescue:
+    - name: Warn when local Exim packages cannot be installed
+      ansible.builtin.debug:
+        msg: >-
+          Skipping optional Exim probe support install due to package failure:
+          {{ package_hardening_exim_probe_install.msg | default('apt failure') }}
+  when:
+    - package_hardening_enable_lynis_exim_probe_support | bool
+    - package_hardening_exim_process_check.rc | default(1) != 0
+
+- name: Ensure Exim service is enabled and running when Lynis probe support is enabled
+  ansible.builtin.systemd:
+    name: exim4.service
+    enabled: true
+    state: started
+  failed_when: false
+  when: package_hardening_enable_lynis_exim_probe_support | bool
+
 - name: Gather package facts for optional package tuning
   ansible.builtin.package_facts:
     manager: auto

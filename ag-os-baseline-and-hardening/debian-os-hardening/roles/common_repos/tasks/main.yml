@@ -24,9 +24,23 @@
   ansible.builtin.stat:
     path: /etc/apt/sources.list
   register: apt_sources_list_file
+  when: ansible_distribution == 'Debian'
+
+- name: Ensure /etc/apt/sources.list exists for compatibility tools when missing
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Managed by Ansible common_repos for compatibility tools.
+      # Active Debian repositories are managed in:
+      # {{ apt_debian_managed_sources_file }}
   when:
     - ansible_distribution == 'Debian'
-    - apt_debian_disable_conflicting_sources | bool
+    - apt_debian_ensure_legacy_sources_list_file | bool
+    - apt_sources_list_file is defined
+    - not (apt_sources_list_file.stat.exists | default(false))
 
 - name: Find one-line APT source files under /etc/apt/sources.list.d
   ansible.builtin.find:

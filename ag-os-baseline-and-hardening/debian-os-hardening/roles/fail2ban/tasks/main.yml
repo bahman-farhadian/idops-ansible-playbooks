@@ -23,3 +23,9 @@
     name: fail2ban
     enabled: true
     state: started
+
+- name: Reset failed state for Fail2ban service in systemd
+  ansible.builtin.command: systemctl reset-failed fail2ban.service
+  changed_when: false
+  failed_when: false
+  when: ansible_service_mgr == 'systemd'

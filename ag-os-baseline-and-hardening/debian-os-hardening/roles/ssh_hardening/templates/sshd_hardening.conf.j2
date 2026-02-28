@@ -1,7 +1,7 @@
 Port {{ ssh_port }}
 Protocol 2
-PermitRootLogin {{ 'yes' if ssh_allow_root_login else 'no' }}
-PasswordAuthentication {{ 'yes' if ssh_allow_password_auth else 'no' }}
+PermitRootLogin prohibit-password
+PasswordAuthentication no
 KbdInteractiveAuthentication no
 ChallengeResponseAuthentication no
 PubkeyAuthentication yes
