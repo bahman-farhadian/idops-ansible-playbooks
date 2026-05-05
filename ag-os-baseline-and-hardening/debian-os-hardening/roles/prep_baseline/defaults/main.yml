@@ -20,6 +20,9 @@ prep_required_packages:
   - vim
   - wget
   - jq
+  - net-tools
+  - duf
+  - ipcalc
 prep_optional_packages:
   - btop
   - lshw
