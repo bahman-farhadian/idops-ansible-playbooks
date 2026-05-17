@@ -3,8 +3,8 @@ all:
     hardening_targets:
       hosts:
         target-node-01:
-          ansible_host: "change-me-host-or-ip"
-          ansible_user: "change-me-ssh-user"
+          ansible_host: "192.168.100.101"
+          ansible_user: "user"
           ansible_port: 22
           debian_become_password: ""                              # Optional per-host sudo password. Leave empty for root SSH or passwordless sudo.
           ansible_become_password: "{{ debian_become_password }}" # Alias used by ad-hoc make targets requiring become.
