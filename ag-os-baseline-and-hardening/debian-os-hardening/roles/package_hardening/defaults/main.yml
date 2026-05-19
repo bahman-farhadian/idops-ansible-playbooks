@@ -1,4 +1,5 @@
 ---
+package_hardening_enabled: true
 package_hardening_required_packages:
   - unattended-upgrades
   - logrotate

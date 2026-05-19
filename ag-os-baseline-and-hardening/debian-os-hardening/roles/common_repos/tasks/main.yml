@@ -20,34 +20,23 @@
     fail_msg: "Unable to determine Debian suite name from facts. Set apt_debian_release_override in vars/debian-hardening.yml."
   when: ansible_distribution == 'Debian'
 
-- name: Check if /etc/apt/sources.list exists
-  ansible.builtin.stat:
-    path: /etc/apt/sources.list
-  register: apt_sources_list_file
-  when: ansible_distribution == 'Debian'
-
-- name: Ensure /etc/apt/sources.list exists for compatibility tools when missing
-  ansible.builtin.copy:
-    dest: /etc/apt/sources.list
-    owner: root
-    group: root
-    mode: "0644"
-    content: |
-      # Managed by Ansible common_repos for compatibility tools.
-      # Active Debian repositories are managed in:
-      # {{ apt_debian_managed_sources_file }}
-  when:
-    - ansible_distribution == 'Debian'
-    - apt_debian_ensure_legacy_sources_list_file | bool
-    - apt_sources_list_file is defined
-    - not (apt_sources_list_file.stat.exists | default(false))
-
 - name: Find one-line APT source files under /etc/apt/sources.list.d
   ansible.builtin.find:
     paths: /etc/apt/sources.list.d
     patterns: "*.list"
     file_type: file
   register: apt_sources_list_d_files
+  when:
+    - ansible_distribution == 'Debian'
+    - apt_debian_disable_conflicting_sources | bool
+
+- name: Comment conflicting Debian entries in /etc/apt/sources.list.d/*.list
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: >-
+      ^(deb(?:-src)?\s+(?:\[[^\]]*\]\s+)?\S+\s+{{ apt_debian_effective_release }}(?:-\S+)?\s+.*)$
+    replace: "# Disabled by Ansible common_repos (managed in /etc/apt/sources.list): \\1"
+  loop: "{{ apt_sources_list_d_files.files | default([]) }}"
   when:
     - ansible_distribution == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
@@ -62,56 +51,19 @@
     - ansible_distribution == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
 
-- name: Comment conflicting Debian entries in /etc/apt/sources.list
-  ansible.builtin.replace:
-    path: /etc/apt/sources.list
-    regexp: >-
-      ^(deb(?:-src)?\s+(?:\[[^\]]*\]\s+)?(?:{{ apt_repository_url | regex_escape }}|{{ apt_security_repository_url | regex_escape }})\s+.*)$
-    replace: "# Disabled by Ansible common_repos (managed in {{ apt_debian_managed_sources_file }}): \\1"
-  when:
-    - ansible_distribution == 'Debian'
-    - apt_debian_disable_conflicting_sources | bool
-    - apt_sources_list_file.stat.exists
-
-- name: Comment conflicting Debian entries in /etc/apt/sources.list.d/*.list
-  ansible.builtin.replace:
+- name: Remove conflicting deb822 source files containing current Debian suite
+  ansible.builtin.file:
     path: "{{ item.path }}"
-    regexp: >-
-      ^(deb(?:-src)?\s+(?:\[[^\]]*\]\s+)?(?:{{ apt_repository_url | regex_escape }}|{{ apt_security_repository_url | regex_escape }})\s+.*)$
-    replace: "# Disabled by Ansible common_repos (managed in {{ apt_debian_managed_sources_file }}): \\1"
-  loop: "{{ apt_sources_list_d_files.files | default([]) }}"
-  when:
-    - ansible_distribution == 'Debian'
-    - apt_debian_disable_conflicting_sources | bool
-
-- name: Check non-managed deb822 source files for conflicting Debian URIs
-  ansible.builtin.command: >-
-    grep -Eq '^\s*URIs:\s*(?:{{ apt_repository_url | regex_escape }}|{{ apt_security_repository_url | regex_escape }})\s*$' {{ item.path }}
-  register: apt_conflicting_deb822_checks
-  changed_when: false
-  failed_when: false
+    state: absent
   loop: "{{ apt_sources_deb822_files.files | default([]) }}"
   when:
     - ansible_distribution == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
-    - item.path != apt_debian_managed_sources_file
 
-- name: Disable conflicting non-managed deb822 source files
-  ansible.builtin.command: >-
-    mv {{ item.item.path }} {{ item.item.path }}.disabled-by-hardening
-  args:
-    creates: "{{ item.item.path }}.disabled-by-hardening"
-  loop: "{{ apt_conflicting_deb822_checks.results | default([]) }}"
-  when:
-    - ansible_distribution == 'Debian'
-    - apt_debian_disable_conflicting_sources | bool
-    - item.rc is defined
-    - item.rc == 0
-
-- name: Configure Debian repository components (main contrib non-free non-free-firmware)
+- name: Configure Debian APT repositories in /etc/apt/sources.list
   ansible.builtin.template:
-    src: debian.sources.j2
-    dest: "{{ apt_debian_managed_sources_file }}"
+    src: sources.list.j2
+    dest: /etc/apt/sources.list
     owner: root
     group: root
     mode: "0644"
@@ -129,8 +81,10 @@
       delay: "{{ apt_package_retry_delay | default(10) }}"
       until: common_repos_apt_update is succeeded
   rescue:
-    - name: Allow release info change and refresh apt cache
-      ansible.builtin.command: apt-get update --allow-releaseinfo-change
+    - name: Allow release info change and bypass expired release files
+      ansible.builtin.command: >-
+        apt-get update --allow-releaseinfo-change
+        -o Acquire::Check-Valid-Until=false
       changed_when: false
 
     - name: Retry apt cache update via apt module

@@ -1,0 +1,4 @@
+# Managed by Ansible common_repos — do not edit manually.
+deb {{ apt_repository_url }} {{ apt_debian_effective_release }} {{ apt_debian_components | join(' ') }}
+deb {{ apt_repository_url }} {{ apt_debian_effective_release }}-updates {{ apt_debian_components | join(' ') }}
+deb {{ apt_security_repository_url }} {{ apt_debian_effective_release }}-security {{ apt_debian_components | join(' ') }}

@@ -48,6 +48,7 @@
     - name: Run OS hardening workflow
       ansible.builtin.include_tasks: tasks/harden.yml
       when: debian_hardening_action_effective == 'harden'
+      tags: always
 
     - name: Run reboot workflow
       ansible.builtin.include_tasks: tasks/reboot.yml

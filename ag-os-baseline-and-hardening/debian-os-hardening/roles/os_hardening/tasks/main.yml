@@ -17,28 +17,34 @@
   when: os_hardening_enabled | bool
   tags: [grub_hardening]
 
+- name: Apply repository baseline (Debian)
+  ansible.builtin.include_role:
+    name: common_repos
+  when:
+    - os_hardening_enabled | bool
+    - common_repos_enabled | bool
+  tags: [common_repos]
+
 - name: Apply preparation baseline
   ansible.builtin.include_role:
     name: prep_baseline
   when: os_hardening_enabled | bool
   tags: [prep_baseline]
 
-- name: Apply repository baseline (Debian)
-  ansible.builtin.include_role:
-    name: common_repos
-  when: os_hardening_enabled | bool
-  tags: [common_repos]
-
 - name: Apply package hardening baseline
   ansible.builtin.include_role:
     name: package_hardening
-  when: os_hardening_enabled | bool
+  when:
+    - os_hardening_enabled | bool
+    - package_hardening_enabled | bool
   tags: [package_hardening]
 
 - name: Apply service hardening baseline
   ansible.builtin.include_role:
     name: service_hardening
-  when: os_hardening_enabled | bool
+  when:
+    - os_hardening_enabled | bool
+    - service_hardening_enabled | bool
   tags: [service_hardening]
 
 - name: Apply firewall baseline
@@ -92,7 +98,9 @@
 - name: Apply file integrity and malware baseline
   ansible.builtin.include_role:
     name: integrity_hardening
-  when: os_hardening_enabled | bool
+  when:
+    - os_hardening_enabled | bool
+    - integrity_hardening_enabled | bool
   tags: [integrity_hardening]
 
 - name: Apply compiler hardening baseline
