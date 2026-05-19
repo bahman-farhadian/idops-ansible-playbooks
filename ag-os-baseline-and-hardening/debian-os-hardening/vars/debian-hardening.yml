@@ -69,7 +69,7 @@ network_identity_manage_resolv_conf: true                   # Manage /etc/resolv
 network_identity_manage_systemd_resolved_when_symlink: true # When resolv.conf is a symlink, manage DNS via systemd-resolved drop-in.
 network_identity_primary_ipv4: ""                           # Optional primary IPv4 for host mapping.
 network_identity_nameservers:                               # Resolver list for resolv.conf.
-  - "192.168.100.1"
+  - "8.8.8.8"
 network_identity_search_domains: [] # Search domain list.
 network_identity_set_hostname: true # Enforce hostname on target.
 network_identity_hostname: >-       # Computed short hostname (left-most label of FQDN).
