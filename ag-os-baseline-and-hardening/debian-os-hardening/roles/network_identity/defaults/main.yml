@@ -7,7 +7,6 @@ network_identity_systemd_resolved_dropin_path: /etc/systemd/resolved.conf.d/90-i
 network_identity_primary_ipv4: ""
 network_identity_nameservers:
   - "8.8.8.8"
-  - "1.1.1.1"
 network_identity_search_domains: []
 network_identity_set_hostname: false
 network_identity_hostname: ""

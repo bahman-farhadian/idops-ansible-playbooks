@@ -1,4 +1,5 @@
 ---
+integrity_hardening_enabled: true
 integrity_packages:
   - aide
   - aide-common

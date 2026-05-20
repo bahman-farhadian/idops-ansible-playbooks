@@ -13,12 +13,11 @@ debian_become_user: "root"                              # Privilege escalation t
 # -----------------------------------------------------------------------------
 # APT repository settings
 # -----------------------------------------------------------------------------
-apt_repository_url: "http://deb.debian.org/debian"                        # Debian base repository URI.
-apt_security_repository_url: "http://security.debian.org/debian-security" # Debian security repository URI.
+common_repos_enabled: true                                                # Set to false to skip the common_repos role entirely.
+apt_repository_url: "http://deb.debian.org/debian"                  # Debian base mirror URI (URL only — no deb/suite/components).
+apt_security_repository_url: "http://deb.debian.org/debian/debian-security" # Debian security mirror URI.
 apt_debian_release_override: ""                                           # Optional suite override (empty = fact-based map).
-apt_debian_managed_sources_file: "/etc/apt/sources.list.d/debian.sources" # Managed deb822 sources file path.
-apt_debian_disable_conflicting_sources: true                              # Disable conflicting Debian source entries.
-apt_debian_ensure_legacy_sources_list_file: true                          # Create /etc/apt/sources.list if missing (tool compatibility).
+apt_debian_disable_conflicting_sources: true                              # Disable conflicting Debian source entries in sources.list.d.
 apt_debian_components:                                                    # Repository components for Debian hosts.
   - main
   - contrib
@@ -71,7 +70,6 @@ network_identity_manage_systemd_resolved_when_symlink: true # When resolv.conf i
 network_identity_primary_ipv4: ""                           # Optional primary IPv4 for host mapping.
 network_identity_nameservers:                               # Resolver list for resolv.conf.
   - "8.8.8.8"
-  - "1.1.1.1"
 network_identity_search_domains: [] # Search domain list.
 network_identity_set_hostname: true # Enforce hostname on target.
 network_identity_hostname: >-       # Computed short hostname (left-most label of FQDN).
@@ -98,6 +96,7 @@ network_identity_local_repo_hosts_entries: []         # Local repo host mapping 
 # -----------------------------------------------------------------------------
 # Package and update hardening
 # -----------------------------------------------------------------------------
+package_hardening_enabled: true                    # Set to false to skip the package_hardening role entirely.
 package_hardening_enable_unattended_upgrades: true # Enable unattended-upgrades.
 package_hardening_run_dist_upgrade: true           # Run dist-upgrade as part of hardening.
 package_hardening_debsums_cron_check: "weekly"     # Debsums periodic check frequency.
@@ -108,7 +107,7 @@ package_hardening_enable_lynis_exim_probe_support: false   # Install/start local
 # -----------------------------------------------------------------------------
 # Service hardening
 # -----------------------------------------------------------------------------
-service_hardening_enabled: true     # Enable systemd service hardening drop-ins.
+service_hardening_enabled: true     # Set to false to skip the service_hardening role entirely.     # Enable systemd service hardening drop-ins.
 service_hardening_units:            # Services to harden.
   - ssh.service
   - fail2ban.service
@@ -180,6 +179,7 @@ file_permissions_hardening_enabled: true # Enable permissions hardening role.
 # -----------------------------------------------------------------------------
 # Integrity tooling
 # -----------------------------------------------------------------------------
+integrity_hardening_enabled: true            # Set to false to skip the integrity_hardening role entirely.
 integrity_initialize_aide: true             # Initialize AIDE database.
 integrity_aide_checksum_algorithm: "sha512" # AIDE checksum algorithm.
 

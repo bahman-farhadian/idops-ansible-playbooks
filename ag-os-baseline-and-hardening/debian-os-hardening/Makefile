@@ -1,7 +1,12 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check
+.PHONY: help venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
+        roles \
+        role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-common-repos \
+        role-package-hardening role-service-hardening role-firewall role-kernel-hardening role-auth-hardening \
+        role-banner-hardening role-ssh-hardening role-fail2ban role-auditd role-accounting-hardening \
+        role-integrity-hardening role-compiler-hardening role-file-permissions role-session-logging
 
 INVENTORY ?= host.yml
 PLAYBOOK_FILE ?= playbook.yml
@@ -50,6 +55,27 @@ help:
 	@printf "  %-24s %s\n" "make ssh-check" "inspect effective sshd hardening settings"
 	@printf "  %-24s %s\n" "make gap-report" "show focused Lynis warning/suggestion gaps"
 	@printf "  %-24s %s\n" "make runtime-check" "collect runtime state diagnostics from targets"
+	@printf "\nPer-role targets (run a single role from the harden workflow):\n"
+	@printf "  %-32s %s\n" "make roles" "list all available role targets"
+	@printf "  %-32s %s\n" "make role-network-identity" "apply network_identity role only"
+	@printf "  %-32s %s\n" "make role-boot-hardening" "apply boot_hardening role only"
+	@printf "  %-32s %s\n" "make role-grub-hardening" "apply grub_hardening role only"
+	@printf "  %-32s %s\n" "make role-prep-baseline" "apply prep_baseline role only"
+	@printf "  %-32s %s\n" "make role-common-repos" "apply common_repos role only"
+	@printf "  %-32s %s\n" "make role-package-hardening" "apply package_hardening role only"
+	@printf "  %-32s %s\n" "make role-service-hardening" "apply service_hardening role only"
+	@printf "  %-32s %s\n" "make role-firewall" "apply firewall role only"
+	@printf "  %-32s %s\n" "make role-kernel-hardening" "apply kernel_hardening role only"
+	@printf "  %-32s %s\n" "make role-auth-hardening" "apply auth_hardening role only"
+	@printf "  %-32s %s\n" "make role-banner-hardening" "apply banner_hardening role only"
+	@printf "  %-32s %s\n" "make role-ssh-hardening" "apply ssh_hardening role only"
+	@printf "  %-32s %s\n" "make role-fail2ban" "apply fail2ban role only"
+	@printf "  %-32s %s\n" "make role-auditd" "apply auditd role only"
+	@printf "  %-32s %s\n" "make role-accounting-hardening" "apply accounting_hardening role only"
+	@printf "  %-32s %s\n" "make role-integrity-hardening" "apply integrity_hardening role only"
+	@printf "  %-32s %s\n" "make role-compiler-hardening" "apply compiler_hardening role only"
+	@printf "  %-32s %s\n" "make role-file-permissions" "apply file_permissions_hardening role only"
+	@printf "  %-32s %s\n" "make role-session-logging" "apply session_logging role only"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LIMIT=<host_or_group>" "limit inventory scope"
 	@printf "  %-28s %s\n" "GROUP=<inventory_group>" "target inventory group for ad-hoc checks"
@@ -115,3 +141,86 @@ gap-report:
 
 runtime-check: venv
 	$(VENV_ACTIVATE) && ansible -i $(INVENTORY) $(ADHOC_ARGS) $(ADHOC_VARS_ARGS) $(GROUP) -b -m shell -a "echo '== sshd -T =='; sshd -T | egrep 'port|permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|maxauthtries|maxsessions|loglevel'; echo '== issue.net =='; sed -n '1,120p' /etc/issue.net; echo '== pam_motd refs =='; grep -n pam_motd /etc/pam.d/sshd || true; echo '== ssh command hook =='; ls -l /etc/profile.d/99-ssh-command-logging.sh 2>/dev/null || true; echo '== rsyslog ssh logging =='; sed -n '1,200p' /etc/rsyslog.d/30-ssh-session-logging.conf 2>/dev/null || true; echo '== last ssh command logs =='; tail -n 20 /var/log/ssh_commands.log 2>/dev/null || true; echo '== firewall v4 =='; iptables -S; echo '== firewall v6 =='; ip6tables -S; echo '== dns =='; cat /etc/resolv.conf; echo '== hosts =='; cat /etc/hosts; echo '== sysctl =='; sysctl fs.protected_fifos kernel.modules_disabled; echo '== audit rules =='; auditctl -l || true; echo '== residual rc packages =='; dpkg -l | awk '/^rc/{print $$2}'"
+
+# ── Per-role targets ──────────────────────────────────────────────────────────
+# Each target runs the full harden workflow scoped to a single role via --tags.
+# Accepts all standard runtime options: LIMIT, FORKS, CHECK, DIFF, EXTRA_ARGS.
+
+roles:
+	@printf "Available role targets:\n"
+	@printf "  make role-network-identity\n"
+	@printf "  make role-boot-hardening\n"
+	@printf "  make role-grub-hardening\n"
+	@printf "  make role-prep-baseline\n"
+	@printf "  make role-common-repos\n"
+	@printf "  make role-package-hardening\n"
+	@printf "  make role-service-hardening\n"
+	@printf "  make role-firewall\n"
+	@printf "  make role-kernel-hardening\n"
+	@printf "  make role-auth-hardening\n"
+	@printf "  make role-banner-hardening\n"
+	@printf "  make role-ssh-hardening\n"
+	@printf "  make role-fail2ban\n"
+	@printf "  make role-auditd\n"
+	@printf "  make role-accounting-hardening\n"
+	@printf "  make role-integrity-hardening\n"
+	@printf "  make role-compiler-hardening\n"
+	@printf "  make role-file-permissions\n"
+	@printf "  make role-session-logging\n"
+
+role-network-identity: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags network_identity $(PLAY_ARGS)
+
+role-boot-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags boot_hardening $(PLAY_ARGS)
+
+role-grub-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags grub_hardening $(PLAY_ARGS)
+
+role-prep-baseline: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags prep_baseline $(PLAY_ARGS)
+
+role-common-repos: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags common_repos $(PLAY_ARGS)
+
+role-package-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags package_hardening $(PLAY_ARGS)
+
+role-service-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags service_hardening $(PLAY_ARGS)
+
+role-firewall: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags firewall $(PLAY_ARGS)
+
+role-kernel-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags kernel_hardening $(PLAY_ARGS)
+
+role-auth-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags auth_hardening $(PLAY_ARGS)
+
+role-banner-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags banner_hardening $(PLAY_ARGS)
+
+role-ssh-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags ssh_hardening $(PLAY_ARGS)
+
+role-fail2ban: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags fail2ban $(PLAY_ARGS)
+
+role-auditd: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags auditd $(PLAY_ARGS)
+
+role-accounting-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags accounting_hardening $(PLAY_ARGS)
+
+role-integrity-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags integrity_hardening $(PLAY_ARGS)
+
+role-compiler-hardening: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags compiler_hardening $(PLAY_ARGS)
+
+role-file-permissions: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags file_permissions_hardening $(PLAY_ARGS)
+
+role-session-logging: venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags session_logging $(PLAY_ARGS)
