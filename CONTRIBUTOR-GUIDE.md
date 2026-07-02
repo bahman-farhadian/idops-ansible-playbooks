@@ -22,6 +22,8 @@ These rules apply to every implementation project inside this repository.
 7. Every implementation `Makefile` must include `make ping`.
 8. Every user-facing Make target must appear in `make help`.
 9. Keep `help` as default Make target.
+10. Never commit macOS `.DS_Store` files.
+11. Never commit Python virtual environment contents. `venv/` and `.venv/` are local-only paths.
 
 ## Best-Practice Project Structure
 
@@ -38,7 +40,7 @@ Minimum structure for each implementation project:
 
 Optional but recommended:
 
-- `venv/` (local environment path placeholder, not committed with binaries)
+- `venv/` (local environment path, ignored by Git and recreated with `make venv`)
 - `wheelhouse/` (local wheel cache directory)
 - `docs/` (operator runbooks and architecture notes)
 
@@ -54,11 +56,12 @@ Reference tree:
   requirements.txt
   Makefile
   README.md
-  venv/
-    .gitkeep
   wheelhouse/
     .gitkeep
 ```
+
+Do not add placeholder files under `venv/`. The full directory is ignored because
+virtual environments contain path-sensitive scripts and interpreter references.
 
 ## Naming Rules
 
@@ -86,8 +89,9 @@ Why it exists:
 Best practice:
 
 1. Do not commit full `venv` binaries.
-2. Keep only placeholders in `wheelhouse/` by default.
-3. If your team decides to commit wheel artifacts, treat them as managed release artifacts and document that policy in the project README.
+2. Do not commit any files under `venv/` or `.venv/`.
+3. Keep only placeholders in `wheelhouse/` by default.
+4. If your team decides to commit wheel artifacts, treat them as managed release artifacts and document that policy in the project README.
 
 ## Commit Practice
 

@@ -1,7 +1,8 @@
-venv/*
-!venv/.gitkeep
+venv/
+.venv/
 wheelhouse/*
 !wheelhouse/.gitkeep
+.DS_Store
 .ansible/
 __pycache__/
 *.retry

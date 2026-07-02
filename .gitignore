@@ -1,0 +1,21 @@
+# macOS filesystem metadata
+.DS_Store
+**/.DS_Store
+
+# Local Python virtual environments are machine/path specific.
+venv/
+.venv/
+**/venv/
+**/.venv/
+
+# Local Ansible/runtime artifacts
+.ansible/
+**/.ansible/
+*.retry
+__pycache__/
+**/__pycache__/
+
+# Local logs and secrets
+*.log
+vars/local-secrets.yml
+**/vars/local-secrets.yml

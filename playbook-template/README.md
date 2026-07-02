@@ -11,7 +11,7 @@ It follows repository standards:
 2. Workflow logic in `tasks/`
 3. User-editable settings in `vars/`
 4. Standard `Makefile` with `make help` and `make ping`
-5. `venv/` local environment path and optional `wheelhouse/` dependency cache
+5. Ignored `venv/` local environment path and optional `wheelhouse/` dependency cache
 
 ## How To Use
 
@@ -20,6 +20,9 @@ It follows repository standards:
 3. Rename `vars/template-config.yml` to a domain-specific config filename.
 4. Replace placeholder tasks in `tasks/provision.yml` and `tasks/cleanup.yml`.
 5. Keep commands discoverable through `make help`.
+
+Do not commit files under `venv/` or `.venv/`. Virtual environments are local,
+path-sensitive runtime artifacts and must be recreated with `make venv`.
 
 ## Security Note
 

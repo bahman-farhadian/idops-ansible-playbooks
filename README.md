@@ -91,3 +91,10 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - `playbook-template/` is the baseline scaffold for new implementation projects.
 - Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
 - Makefile standard: every project must provide `make ping`, and all user commands must appear in `make help`.
+
+## Ignore Policy
+
+- macOS `.DS_Store` files are ignored repository-wide and must never be committed.
+- Python virtual environments are ignored repository-wide: use project-local `venv/` for Makefile workflows, but do not commit any `venv/` or `.venv/` files.
+- Virtual environments are machine and path specific. Contributors must recreate them locally with each project Makefile, for example `make venv`.
+- Keep dependency caches separate from virtual environments. Use documented `wheelhouse/` directories for reusable wheel artifacts when a project supports them.
