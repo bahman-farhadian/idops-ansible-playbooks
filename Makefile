@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help venv deps-bundle checkin clean
+.PHONY: help venv deps-bundle clean
 
 PYTHON ?= python3
 VENV ?= venv
@@ -16,13 +16,10 @@ help:
 	@printf "Available targets:\n"
 	@printf "  %-18s %s\n" "make venv" "create the single project venv/ and install requirements.txt"
 	@printf "  %-18s %s\n" "make deps-bundle" "download dependency wheels into wheelhouse/ for offline use"
-	@printf "  %-18s %s\n" "make checkin" "validate, stage everything and commit (MSG=\"your message\")"
 	@printf "  %-18s %s\n" "make clean" "remove the project venv/"
 
-$(VENV)/bin/activate:
+venv: $(REQUIREMENTS)
 	$(PYTHON) -m venv $(VENV)
-
-venv: $(VENV)/bin/activate $(REQUIREMENTS)
 	$(PIP) install --upgrade pip
 	@if [ -d "$(WHEELHOUSE)" ] && find "$(WHEELHOUSE)" -maxdepth 1 -type f | grep -q .; then \
 		echo "Installing dependencies from local wheelhouse/ cache"; \
@@ -38,10 +35,6 @@ venv: $(VENV)/bin/activate $(REQUIREMENTS)
 
 deps-bundle: venv
 	$(VENV_ACTIVATE) && pip download -r "$(REQUIREMENTS)" -d "$(WHEELHOUSE)"
-
-checkin: venv
-	@git add -A
-	git commit -m "$(MSG)"
 
 clean:
 	rm -rf $(VENV)

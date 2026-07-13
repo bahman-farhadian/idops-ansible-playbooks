@@ -27,14 +27,14 @@
 - name: Assert every image profile pins image_version
   ansible.builtin.assert:
     that:
-      - kvm_cloud_image_catalog[item.0].image_version is defined
-      - (kvm_cloud_image_catalog[item.0].image_version | default('') | string) | length > 0
+      - kvm_cloud_image_catalog[item.key].image_version is defined
+      - (kvm_cloud_image_catalog[item.key].image_version | default('') | string) | length > 0
     fail_msg: >-
-      Profile {{ item.0 }} must set image_version (pin a Debian build token,
+      Profile {{ item.key }} must set image_version (pin a Debian build token,
       e.g. 20260706-2531). The workflow no longer follows 'latest'.
   loop: "{{ kvm_cloud_image_catalog | dict2items }}"
   loop_control:
-    label: "{{ item.0 }}"
+    label: "{{ item.key }}"
 
 - name: Expand cloud image catalog URLs from version pin
   ansible.builtin.set_fact:
@@ -42,16 +42,16 @@
       {{
         (expanded_cloud_image_catalog | default({}))
         | combine({
-            item.0: (item.1 | combine({
-              'image_filename': 'debian-' ~ item.1.image_major ~ '-' ~ item.1.image_variant ~ '-amd64-' ~ item.1.image_version ~ '.qcow2',
-              'image_url': 'https://cloud.debian.org/images/cloud/' ~ item.1.image_codename ~ '/' ~ item.1.image_version ~ '/debian-' ~ item.1.image_major ~ '-' ~ item.1.image_variant ~ '-amd64-' ~ item.1.image_version ~ '.qcow2',
-              'image_checksum_manifest_url': 'https://cloud.debian.org/images/cloud/' ~ item.1.image_codename ~ '/' ~ item.1.image_version ~ '/SHA512SUMS'
+            item.key: (item.value | combine({
+              'image_filename': 'debian-' ~ item.value.image_major ~ '-' ~ item.value.image_variant ~ '-amd64-' ~ item.value.image_version ~ '.qcow2',
+              'image_url': 'https://cloud.debian.org/images/cloud/' ~ item.value.image_codename ~ '/' ~ item.value.image_version ~ '/debian-' ~ item.value.image_major ~ '-' ~ item.value.image_variant ~ '-amd64-' ~ item.value.image_version ~ '.qcow2',
+              'image_checksum_manifest_url': 'https://cloud.debian.org/images/cloud/' ~ item.value.image_codename ~ '/' ~ item.value.image_version ~ '/SHA512SUMS'
             }, recursive=True))
           })
       }}
   loop: "{{ kvm_cloud_image_catalog | dict2items }}"
   loop_control:
-    label: "{{ item.0 }}"
+    label: "{{ item.key }}"
 
 - name: Fail when deprecated clone template variables are still used
   ansible.builtin.fail:
