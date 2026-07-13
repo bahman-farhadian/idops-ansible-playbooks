@@ -2,20 +2,36 @@
 .DS_Store
 **/.DS_Store
 
-# Local Python virtual environments are machine/path specific.
+# Python virtual environment (single, project-level)
 venv/
 .venv/
-**/venv/
-**/.venv/
+ENV/
+env/
 
-# Local Ansible/runtime artifacts
+# Python cache artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Ansible runtime artifacts
 .ansible/
 **/.ansible/
 *.retry
-__pycache__/
-**/__pycache__/
 
 # Local logs and secrets
 *.log
 vars/local-secrets.yml
 **/vars/local-secrets.yml
+group_vars/local_secrets.yml
+**/group_vars/local_secrets.yml
+.nexus_admin_password
+.nexus_db_password
+.nexus_secret_key
+.nexus_secret_salt
+.nexus_secret_iv
+
+# Offline dependency cache (populated by `make deps-bundle`)
+wheelhouse/
+
+# Local runtime artifacts (Lynis scan reports, etc.)
+ag-os-baseline-and-hardening/debian-os-hardening/artifacts/

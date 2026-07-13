@@ -1,10 +1,12 @@
 .DEFAULT_GOAL := help
 .PHONY: help venv deps-bundle lint check ping provision cleanup
 
+PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
+
 INVENTORY ?= inventory.ini
 PLAYBOOK_FILE ?= playbook.yml
-VENV ?= venv
-WHEELHOUSE ?= wheelhouse
+VENV := $(PROJECT_ROOT)/venv
+WHEELHOUSE := $(PROJECT_ROOT)/wheelhouse
 PYTHON ?= python3
 PIP := $(VENV)/bin/pip
 VENV_ACTIVATE := . $(VENV)/bin/activate
@@ -24,27 +26,11 @@ help:
 	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit inventory scope"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
-$(VENV)/bin/activate:
-	$(PYTHON) -m venv $(VENV)
-
-$(VENV)/.deps.installed: requirements.txt $(VENV)/bin/activate
-	$(PIP) install --upgrade pip
-	@if find $(WHEELHOUSE) -maxdepth 1 -type f ! -name '.gitkeep' | grep -q .; then \
-		echo "Installing dependencies from local wheelhouse/ cache"; \
-		if ! $(PIP) install --no-index --find-links $(WHEELHOUSE) -r requirements.txt; then \
-			echo "Wheelhouse cache is incomplete; falling back to remote package index"; \
-			$(PIP) install -r requirements.txt; \
-		fi; \
-	else \
-		echo "Installing dependencies from remote package index"; \
-		$(PIP) install -r requirements.txt; \
-	fi
-	@touch $(VENV)/.deps.installed
-
-venv: $(VENV)/.deps.installed
+venv:
+	@test -d $(VENV) || $(MAKE) -C $(PROJECT_ROOT) venv
 
 deps-bundle: venv
-	$(VENV_ACTIVATE) && pip download -r requirements.txt -d $(WHEELHOUSE)
+	$(VENV_ACTIVATE) && pip download -r $(PROJECT_ROOT)/requirements.txt -d $(WHEELHOUSE)
 
 lint: venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
