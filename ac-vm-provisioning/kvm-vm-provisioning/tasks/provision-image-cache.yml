@@ -40,13 +40,13 @@
     - item.stat.exists | default(false)
     - >-
       not (kvm_image_cache_verify_on_run | default(true) | bool)
-      or ((item.stat.checksum | default('') | lower) == (item.item.official_checksum | lower))
+      or ((item.stat.checksum | default('') | lower) == (item.item.expected_checksum | lower))
 
 - name: Fail on checksum mismatch when repair mode is disabled
   ansible.builtin.fail:
     msg: >-
       Cached image checksum mismatch for profile={{ item.item.profile_id }} file={{ item.item.cached_image_path }}.
-      expected={{ item.item.official_checksum }} got={{ item.stat.checksum | default('missing') }}.
+      expected={{ item.item.expected_checksum }} got={{ item.stat.checksum | default('missing') }}.
       By default this fails safely. To repair in place, set kvm_image_cache_repair_on_checksum_mismatch=true.
   loop: "{{ image_cache_stats.results }}"
   loop_control:
@@ -54,7 +54,7 @@
   when:
     - item.stat.exists | default(false)
     - kvm_image_cache_verify_on_run | default(true) | bool
-    - (item.stat.checksum | default('') | lower) != (item.item.official_checksum | lower)
+    - (item.stat.checksum | default('') | lower) != (item.item.expected_checksum | lower)
     - not (kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool)
 
 - name: Initialize image download list
@@ -72,7 +72,7 @@
       not (item.stat.exists | default(false))
       or (
         (kvm_image_cache_verify_on_run | default(true) | bool)
-        and ((item.stat.checksum | default('') | lower) != (item.item.official_checksum | lower))
+        and ((item.stat.checksum | default('') | lower) != (item.item.expected_checksum | lower))
         and (kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool)
       )
 
@@ -90,7 +90,7 @@
     url: "{{ item.image_url }}"
     dest: "{{ item.cached_image_path }}"
     mode: "0644"
-    checksum: "{{ item.image_checksum_algorithm }}:{{ item.official_checksum }}"
+    checksum: "{{ item.image_checksum_algorithm }}:{{ item.expected_checksum }}"
     force: "{{ kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool }}"
   loop: "{{ images_to_download | default([]) }}"
   loop_control:
@@ -100,16 +100,78 @@
     - kvm_run_mutation_phases | bool
     - (images_to_download | default([])) | length > 0
 
-- name: Ensure alias path points to current versioned image
-  ansible.builtin.file:
-    src: "{{ item.cached_image_path }}"
-    dest: "{{ item.cached_image_alias_path }}"
-    state: link
-    force: true
+- name: Compute actual checksum of cached images (once)
+  ansible.builtin.stat:
+    path: "{{ item.cached_image_path }}"
+    get_checksum: "{{ kvm_image_cache_verify_on_run | default(true) | bool }}"
+    checksum_algorithm: "{{ item.image_checksum_algorithm }}"
   loop: "{{ required_cloud_images_resolved }}"
   loop_control:
     label: "{{ item.profile_id }}"
-  when: kvm_run_mutation_phases | bool
+  register: image_computed_checksum_results
+  changed_when: false
+
+- name: Build computed checksum map
+  ansible.builtin.set_fact:
+    computed_checksum_by_profile: >-
+      {{
+        (computed_checksum_by_profile | default({}))
+        | combine({item.item.profile_id: (item.stat.checksum | default('') | lower)})
+      }}
+  loop: "{{ image_computed_checksum_results.results }}"
+  loop_control:
+    label: "{{ item.item.profile_id }}"
+
+- name: Double-check computed checksum against expected (web/user provided)
+  ansible.builtin.assert:
+    that:
+      - (computed_checksum_by_profile[item.profile_id] | default('')) == (item.expected_checksum | default('') | lower)
+    fail_msg: >-
+      Computed checksum mismatch for profile {{ item.profile_id }}.
+      expected={{ item.expected_checksum }} computed={{ computed_checksum_by_profile[item.profile_id] | default('missing') }}.
+      The downloaded image may be corrupted or tampered. Re-run with
+      kvm_force_manifest_refresh=true to re-seed the trusted checksum.
+  loop: "{{ required_cloud_images_resolved }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  when:
+    - (item.expected_checksum | default('') | length) > 0
+    - (item.trusted_checksum | default('') | length) == 0
+
+- name: Write trusted checksum to immutable local cache (first acquisition only)
+  block:
+    - name: Write trusted checksum file
+      ansible.builtin.copy:
+        dest: "{{ normalized_checksum_cache_path }}/{{ item.profile_id }}-{{ item.image_version }}.{{ item.image_checksum_algorithm }}"
+        content: "{{ computed_checksum_by_profile[item.profile_id] }}\n"
+        mode: "0444"
+    - name: Make trusted checksum file immutable
+      ansible.builtin.command: >-
+        chattr +i "{{ normalized_checksum_cache_path }}/{{ item.profile_id }}-{{ item.image_version }}.{{ item.image_checksum_algorithm }}"
+      when: kvm_checksum_file_immutable | default(true) | bool
+  loop: "{{ required_cloud_images_resolved }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - (item.trusted_checksum | default('') | length) == 0
+    - (computed_checksum_by_profile[item.profile_id] | default('') | length) > 0
+
+- name: Build trusted checksum map for verification
+  ansible.builtin.set_fact:
+    trusted_checksum_by_profile: >-
+      {{
+        (trusted_checksum_by_profile | default({}))
+        | combine({
+            item.profile_id: (
+              (item.trusted_checksum | default('')) if ((item.trusted_checksum | default('') | length) > 0)
+              else (computed_checksum_by_profile[item.profile_id] | default(''))
+            )
+          })
+      }}
+  loop: "{{ required_cloud_images_resolved }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
 
 - name: Verify cached image checksums after image-cache stage
   ansible.builtin.stat:
@@ -126,7 +188,7 @@
   ansible.builtin.fail:
     msg: >-
       Cached image verification failed for profile={{ item.item.profile_id }} path={{ item.item.cached_image_path }}.
-      expected={{ item.item.official_checksum }} got={{ item.stat.checksum | default('missing') }}.
+      expected={{ trusted_checksum_by_profile[item.item.profile_id] | default('unknown') }} got={{ item.stat.checksum | default('missing') }}.
   loop: "{{ image_cache_verify_results.results }}"
   loop_control:
     label: "{{ item.item.profile_id }}"
@@ -136,7 +198,7 @@
       or
       (
         (kvm_image_cache_verify_on_run | default(true) | bool)
-        and ((item.stat.checksum | default('') | lower) != (item.item.official_checksum | lower))
+        and ((item.stat.checksum | default('') | lower) != (trusted_checksum_by_profile[item.item.profile_id] | default('') | lower))
       )
 
 - name: Image cache summary

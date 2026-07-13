@@ -80,7 +80,11 @@ Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 2. Set `kvm_libvirt_connection_uri` (`qemu:///system` is the default and recommended value).
 3. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
 4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
-5. Confirm official checksum manifest URLs under `kvm_cloud_image_catalog[*].image_checksum_manifest_url`.
+5. Pin each profile in `kvm_cloud_image_catalog` to an explicit `image_version`
+   (Debian build token, e.g. `20260706-2531`). URLs, filenames, and the checksum
+   manifest are derived automatically from `image_codename` + `image_major` +
+   `image_variant` + `image_version`. Optionally set `image_checksum` per profile
+   to enable fully offline acquisition (one-time double-check only).
 6. Set cloud-init access defaults (plain user password, sudo policy, optional root password)
    and instance definitions.
 7. Optional: set `kvm_guest_network_interface_fallbacks` to expand NIC-name fallbacks
@@ -123,9 +127,21 @@ make cleanup-force-disks
 
 `make provision-check` runs `preflight` in Ansible check mode.
 
-`make image-cache` resolves checksums from official Debian manifests and stores
-images using checksum-versioned filenames. When Debian `latest` changes, a new
-versioned file is downloaded and old cached files are preserved.
+`make image-cache` pins each profile to an explicit `image_version` (a Debian
+build token, e.g. `20260706-2531`) and resolves a **trusted checksum** for it.
+
+The trusted checksum is resolved **once per version** and stored locally as an
+**immutable file** (`chattr +i`) under `kvm_image_checksum_cache_path`. Later runs
+read that local file and verify the cached image against it **without any web
+access** — this is required on servers that are not always online. The web
+manifest is only fetched the first time a version is seen, or when you force a
+refresh.
+
+If `image_checksum` is set for a profile, it is used as the expected checksum for
+a one-time double-check, but the locally computed checksum becomes the trusted
+source going forward. To re-seed a version's trusted checksum, run
+`make checksum-refresh` (sets `kvm_force_manifest_refresh=true`).
+
 By design, it caches all profiles defined in `kvm_cloud_image_catalog`.
 
 ## Safety And Performance Policy
@@ -215,6 +231,8 @@ Core interface keys:
 - `kvm_image_cache_verify_on_run`
 - `kvm_image_manifest_refresh_policy`
 - `kvm_force_manifest_refresh`
+- `kvm_image_checksum_cache_path`
+- `kvm_checksum_file_immutable`
 - `kvm_cloud_image_catalog`
 - `kvm_instance_definitions`
 - `kvm_parallel_instance_workers`

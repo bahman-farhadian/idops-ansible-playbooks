@@ -29,8 +29,14 @@ kvm_cleanup_workspace_path_after_run: true                        # Remove cloud
 kvm_image_cache_verify_on_run: true                # Verify cached image checksums on image-cache stage.
 kvm_image_cache_repair_on_checksum_mismatch: false # Re-download corrupted cached image file when checksum fails.
 kvm_image_manifest_refresh_policy: "on-demand"     # Manifest fetch policy in provision flow. Values: on-demand | always.
-kvm_force_manifest_refresh: false                  # Force manifest refresh regardless of policy. Values: true | false.
+kvm_force_manifest_refresh: false                  # Force checksum re-resolution (removes local immutable checksum, re-fetches). Values: true | false.
 kvm_allow_nocloud_images: false                    # Allow nocloud images. Values: false (recommended) | true (override).
+
+# -----------------------------------------------------------------------------
+# Trusted checksum cache (offline-first, immutable)
+# -----------------------------------------------------------------------------
+kvm_image_checksum_cache_path: "{{ kvm_image_cache_path }}/.checksums" # Store for the per-version trusted checksum files.
+kvm_checksum_file_immutable: true                  # Make the trusted checksum file immutable with chattr +i. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Instance defaults
@@ -132,10 +138,14 @@ kvm_libvirt_runtime_user: "libvirt-qemu" # Runtime disk-access user for libvirt/
 
 # -----------------------------------------------------------------------------
 # Cloud image catalog
-# Checksums are fetched from official Debian checksum manifests at runtime.
-# Versioned cached filenames are built from the resolved official checksum, so
-# old cached images are preserved when Debian latest changes.
-# This project is Debian-only: keep entries as Debian genericcloud qcow2 images.
+# Images are pinned by an explicit version token (image_version), NOT "latest".
+# The image_url / image_filename / image_checksum_manifest_url are derived from
+# image_codename + image_major + image_variant + image_version, e.g.:
+#   https://cloud.debian.org/images/cloud/trixie/20260706-2531/debian-13-generic-amd64-20260706-2531.qcow2
+# image_version is REQUIRED (no default): set it to a pinned Debian build token.
+# The trusted checksum is resolved once per version, stored locally as an
+# immutable (chattr +i) file, and reused on every later run without web access.
+# This project is Debian-only: keep entries as Debian generic qcow2 images.
 # make image-cache processes all profiles defined in this catalog.
 # To add/remove Debian variants (for example debian-14), edit this catalog and
 # update profile references in kvm_instance_definitions.
@@ -143,26 +153,30 @@ kvm_libvirt_runtime_user: "libvirt-qemu" # Runtime disk-access user for libvirt/
 # -----------------------------------------------------------------------------
 kvm_cloud_image_catalog:
   debian-12:
-    image_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2" # Source URL for base image.
-    image_filename: "debian-12-genericcloud-amd64.qcow2"                                                     # Canonical image filename.
-    image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/bookworm/latest/SHA512SUMS"       # Official checksum manifest.
-    image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
-    virt_install_os_variant: "debian12"                                                                      # OS variant for virt-install.
-    virt_install_machine_type: "q35"                                                                         # Keep aligned with Debian 13 profile.
-    seed_device_bus: "scsi"                                                                                  # Keep aligned with Debian 13 profile.
-    cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"                                                                               # Keep aligned with Debian 13 profile.
+    image_codename: "bookworm"                                   # Debian codename for this major.
+    image_major: "12"                                            # Major version used in the image filename.
+    image_variant: "generic"                                     # Cloud image variant (generic | genericcloud).
+    image_version: ""                                            # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_checksum_algorithm: "sha512"                           # Checksum algorithm used by the manifest.
+    # image_checksum: ""                                         # Optional operator-provided expected checksum (enables offline acquisition).
+    virt_install_os_variant: "debian12"                          # OS variant for virt-install.
+    virt_install_machine_type: "q35"                             # Keep aligned with Debian 13 profile.
+    seed_device_bus: "scsi"                                      # Keep aligned with Debian 13 profile.
+    cloud_init_user: "debian"                                    # Default cloud-init username for this profile.
+    firmware_boot_mode: "uefi"                                   # Keep aligned with Debian 13 profile.
 
   debian-13:
-    image_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2"   # Source URL for base image.
-    image_filename: "debian-13-genericcloud-amd64.qcow2"                                                     # Canonical image filename.
-    image_checksum_manifest_url: "https://cdimage.debian.org/cdimage/cloud/trixie/latest/SHA512SUMS"         # Official checksum manifest.
-    image_checksum_algorithm: "sha512"                                                                       # Checksum algorithm used by the manifest.
-    virt_install_os_variant: "debian13"                                                                      # OS variant for virt-install.
-    virt_install_machine_type: "q35"                                                                         # Debian 13 profile uses q35 machine.
-    seed_device_bus: "scsi"                                                                                  # Keep aligned with Debian 12 profile.
-    cloud_init_user: "debian"                                                                                # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"                                                                               # Keep aligned with Debian 12 profile.
+    image_codename: "trixie"                                     # Debian codename for this major.
+    image_major: "13"                                            # Major version used in the image filename.
+    image_variant: "generic"                                     # Cloud image variant (generic | genericcloud).
+    image_version: ""                                            # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_checksum_algorithm: "sha512"                           # Checksum algorithm used by the manifest.
+    # image_checksum: ""                                         # Optional operator-provided expected checksum (enables offline acquisition).
+    virt_install_os_variant: "debian13"                          # OS variant for virt-install.
+    virt_install_machine_type: "q35"                             # Debian 13 profile uses q35 machine.
+    seed_device_bus: "scsi"                                      # Keep aligned with Debian 12 profile.
+    cloud_init_user: "debian"                                    # Default cloud-init username for this profile.
+    firmware_boot_mode: "uefi"                                   # Keep aligned with Debian 12 profile.
 
 # -----------------------------------------------------------------------------
 # Instance definitions (managed scope for provision + cleanup)
