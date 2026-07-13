@@ -5,7 +5,7 @@
 # -----------------------------------------------------------------------------
 # Hypervisor connection
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "change-me-hypervisor"       # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_host: "change-me-hypervisor"           # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
 kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hypervisor. Values: absolute path.
 kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
 
@@ -17,11 +17,11 @@ kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --ch
 # -----------------------------------------------------------------------------
 # Storage paths
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/libvirt/images/base"               # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                            # Auto-create kvm_image_cache_path when missing.
+kvm_image_cache_path: "/var/lib/libvirt/images/base"             # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: true                           # Auto-create kvm_image_cache_path when missing.
 kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances" # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"        # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                        # Remove cloud-init workspace at end of provision stage.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"       # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-init workspace at end of provision stage.
 
 # -----------------------------------------------------------------------------
 # Image cache behavior
@@ -36,7 +36,7 @@ kvm_allow_nocloud_images: false                    # Allow nocloud images. Value
 # Trusted checksum cache (offline-first, immutable)
 # -----------------------------------------------------------------------------
 kvm_image_checksum_cache_path: "{{ kvm_image_cache_path }}/.checksums" # Store for the per-version trusted checksum files.
-kvm_checksum_file_immutable: true                  # Make the trusted checksum file immutable with chattr +i. Values: true | false.
+kvm_checksum_file_immutable: true                                      # Make the trusted checksum file immutable with chattr +i. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Instance defaults
@@ -49,7 +49,7 @@ kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance dis
 # -----------------------------------------------------------------------------
 # Network defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "default"               # Libvirt network name for guest NIC attach.
+kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
 kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
 kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
 kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
@@ -64,7 +64,7 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
 # -----------------------------------------------------------------------------
 # Cloud-init guest access defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_user: "debian"                        # Initial guest username created by cloud-init.
+kvm_default_cloud_init_user: "debian"                       # Initial guest username created by cloud-init.
 kvm_default_cloud_init_ssh_public_keys: []                  # Initial SSH authorized keys for cloud-init user.
 kvm_default_cloud_init_plain_password: "idopspassword"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
 kvm_default_cloud_init_root_plain_password: "idopspassword" # Optional root password (leave empty to keep root password locked).
@@ -153,30 +153,30 @@ kvm_libvirt_runtime_user: "libvirt-qemu" # Runtime disk-access user for libvirt/
 # -----------------------------------------------------------------------------
 kvm_cloud_image_catalog:
   debian-12:
-    image_codename: "bookworm"                                   # Debian codename for this major.
-    image_major: "12"                                            # Major version used in the image filename.
-    image_variant: "generic"                                     # Cloud image variant (generic | genericcloud).
-    image_version: ""                                            # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
-    image_checksum_algorithm: "sha512"                           # Checksum algorithm used by the manifest.
-    # image_checksum: ""                                         # Optional operator-provided expected checksum (enables offline acquisition).
-    virt_install_os_variant: "debian12"                          # OS variant for virt-install.
-    virt_install_machine_type: "q35"                             # Keep aligned with Debian 13 profile.
-    seed_device_bus: "scsi"                                      # Keep aligned with Debian 13 profile.
-    cloud_init_user: "debian"                                    # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"                                   # Keep aligned with Debian 13 profile.
+    image_codename: "bookworm"          # Debian codename for this major.
+    image_major: "12"                   # Major version used in the image filename.
+    image_variant: "generic"            # Cloud image variant (generic | genericcloud).
+    image_version: ""                   # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
+    # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
+    virt_install_os_variant: "debian12" # OS variant for virt-install.
+    virt_install_machine_type: "q35"    # Keep aligned with Debian 13 profile.
+    seed_device_bus: "scsi"             # Keep aligned with Debian 13 profile.
+    cloud_init_user: "debian"           # Default cloud-init username for this profile.
+    firmware_boot_mode: "uefi"          # Keep aligned with Debian 13 profile.
 
   debian-13:
-    image_codename: "trixie"                                     # Debian codename for this major.
-    image_major: "13"                                            # Major version used in the image filename.
-    image_variant: "generic"                                     # Cloud image variant (generic | genericcloud).
-    image_version: ""                                            # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
-    image_checksum_algorithm: "sha512"                           # Checksum algorithm used by the manifest.
-    # image_checksum: ""                                         # Optional operator-provided expected checksum (enables offline acquisition).
-    virt_install_os_variant: "debian13"                          # OS variant for virt-install.
-    virt_install_machine_type: "q35"                             # Debian 13 profile uses q35 machine.
-    seed_device_bus: "scsi"                                      # Keep aligned with Debian 12 profile.
-    cloud_init_user: "debian"                                    # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"                                   # Keep aligned with Debian 12 profile.
+    image_codename: "trixie"            # Debian codename for this major.
+    image_major: "13"                   # Major version used in the image filename.
+    image_variant: "generic"            # Cloud image variant (generic | genericcloud).
+    image_version: ""                   # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
+    # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
+    virt_install_os_variant: "debian13" # OS variant for virt-install.
+    virt_install_machine_type: "q35"    # Debian 13 profile uses q35 machine.
+    seed_device_bus: "scsi"             # Keep aligned with Debian 12 profile.
+    cloud_init_user: "debian"           # Default cloud-init username for this profile.
+    firmware_boot_mode: "uefi"          # Keep aligned with Debian 12 profile.
 
 # -----------------------------------------------------------------------------
 # Instance definitions (managed scope for provision + cleanup)
