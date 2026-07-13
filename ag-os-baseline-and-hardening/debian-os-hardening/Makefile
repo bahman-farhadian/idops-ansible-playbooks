@@ -44,6 +44,7 @@ ADHOC_VARS_ARGS := -e @$(HARDENING_VARS_FILE) $(if $(wildcard $(HARDENING_LOCAL_
 
 help:
 	@printf "Available targets:\n"
+	@printf "  %-24s %s\n" "make help" "show this help"
 	@printf "  %-24s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
 	@printf "  %-24s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-24s %s\n" "make check" "syntax-check playbook entrypoint"

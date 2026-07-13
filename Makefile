@@ -14,6 +14,7 @@ MSG ?= chore: project checkin
 help:
 	@printf "idops-ansible-playbooks - project-wide tooling\n\n"
 	@printf "Available targets:\n"
+	@printf "  %-18s %s\n" "make help" "show this help"
 	@printf "  %-18s %s\n" "make venv" "create the single project venv/ and install requirements.txt"
 	@printf "  %-18s %s\n" "make deps-bundle" "download dependency wheels into wheelhouse/ for offline use"
 	@printf "  %-18s %s\n" "make clean" "remove the project venv/"

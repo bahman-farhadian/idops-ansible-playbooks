@@ -18,6 +18,7 @@ EXTRA_ARGS ?=
 
 help:
 	@printf "Available targets:\n"
+	@printf "  %-28s %s\n" "make help" "show this help"
 	@printf "  %-28s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
 	@printf "  %-28s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "syntax-check playbook entrypoint"
