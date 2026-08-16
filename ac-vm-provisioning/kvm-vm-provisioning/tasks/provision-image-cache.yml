@@ -138,17 +138,11 @@
     - (item.expected_checksum | default('') | length) > 0
     - (item.trusted_checksum | default('') | length) == 0
 
-- name: Write trusted checksum to immutable local cache (first acquisition only)
-  block:
-    - name: Write trusted checksum file
-      ansible.builtin.copy:
-        dest: "{{ normalized_checksum_cache_path }}/{{ item.profile_id }}-{{ item.image_version }}.{{ item.image_checksum_algorithm }}"
-        content: "{{ computed_checksum_by_profile[item.profile_id] }}\n"
-        mode: "0444"
-    - name: Make trusted checksum file immutable
-      ansible.builtin.command: >-
-        chattr +i "{{ normalized_checksum_cache_path }}/{{ item.profile_id }}-{{ item.image_version }}.{{ item.image_checksum_algorithm }}"
-      when: kvm_checksum_file_immutable | default(true) | bool
+- name: Write trusted checksum file (first acquisition only)
+  ansible.builtin.copy:
+    dest: "{{ normalized_checksum_cache_path }}/{{ item.profile_id }}-{{ item.image_version }}.{{ item.image_checksum_algorithm }}"
+    content: "{{ computed_checksum_by_profile[item.profile_id] }}\n"
+    mode: "0444"
   loop: "{{ required_cloud_images_resolved }}"
   loop_control:
     label: "{{ item.profile_id }}"
@@ -156,6 +150,19 @@
     - kvm_run_mutation_phases | bool
     - (item.trusted_checksum | default('') | length) == 0
     - (computed_checksum_by_profile[item.profile_id] | default('') | length) > 0
+
+- name: Make trusted checksum file immutable
+  ansible.builtin.command: >-
+    chattr +i "{{ normalized_checksum_cache_path }}/{{ item.profile_id }}-{{ item.image_version }}.{{ item.image_checksum_algorithm }}"
+  changed_when: false
+  loop: "{{ required_cloud_images_resolved }}"
+  loop_control:
+    label: "{{ item.profile_id }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - (item.trusted_checksum | default('') | length) == 0
+    - (computed_checksum_by_profile[item.profile_id] | default('') | length) > 0
+    - kvm_checksum_file_immutable | default(true) | bool
 
 - name: Build trusted checksum map for verification
   ansible.builtin.set_fact:

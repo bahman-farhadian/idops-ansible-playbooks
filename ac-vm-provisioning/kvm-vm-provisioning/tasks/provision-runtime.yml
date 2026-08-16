@@ -1,683 +1,746 @@
 ---
 # =========================================================================
-# STAGE: runtime (start + TCP port checks + optional snapshot)
+# STAGE: runtime (observed-state reconciliation + mandatory baseline snapshot)
 # =========================================================================
 - name: Explain runtime stage skip in check mode
   ansible.builtin.debug:
     msg: >-
       Runtime stage is skipped because mutation phases are disabled in check mode.
-      Run make provision for actual start/port-check/snapshot actions.
+      Run make provision for start, readiness, seed cleanup, and snapshot actions.
   when: not (kvm_run_mutation_phases | bool)
 
-- name: No runtime targets selected
-  ansible.builtin.debug:
-    msg: "No runtime targets were selected for this run."
-  when: instance_runtime_targets | length == 0
-
-- name: Check runtime target instance states
-  ansible.builtin.command:
-    cmd: virsh domstate "{{ item.instance_name }}"
-  loop: "{{ instance_runtime_targets }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  register: runtime_target_state_results
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-
-- name: Fail when any runtime target instance does not exist
-  ansible.builtin.fail:
-    msg: >-
-      Runtime stage cannot continue because these requested instances do not exist:
-      {{
-      runtime_target_state_results.results
-      | rejectattr('rc', 'eq', 0)
-      | map(attribute='item.instance_name')
-      | join(', ')
-      }}.
-      Run stage=provision (or full run) first.
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-    - >-
-      (
-        runtime_target_state_results.results
-        | rejectattr('rc', 'eq', 0)
-        | list
-        | length
-      ) > 0
-
-- name: Build list of instances that need start
-  ansible.builtin.set_fact:
-    instances_to_start: >-
-      {{
-        instance_runtime_targets
-        | zip(runtime_target_state_results.results)
-        | rejectattr('1.stdout', 'equalto', 'running')
-        | map(attribute='0')
-        | list
-      }}
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-
-- name: Start instances that are not running
-  ansible.builtin.command:
-    cmd: virsh start "{{ item.instance_name }}"
-  loop: "{{ instances_to_start | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  async: 90
-  poll: 0
-  register: start_jobs
-  changed_when: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - (instances_to_start | default([])) | length > 0
-
-- name: Wait for instance start operations
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ start_jobs.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  register: start_job_status
-  until: (start_job_status.finished | default(false)) | bool
-  retries: 18
-  delay: 5
-  when:
-    - kvm_run_mutation_phases | bool
-    - item.ansible_job_id is defined
-
-- name: Confirm TCP SSH port on runtime targets
-  ansible.builtin.wait_for:
-    host: "{{ item.instance_ipv4_address }}"
-    port: "{{ item.ssh_port | int }}"
-    delay: 0
-    timeout: >-
-      {{
-        (
-          kvm_debian12_network_boot_wait_timeout_seconds
-          if (item.image_profile_id | default('')) == 'debian-12'
-          else (kvm_wait_for_ssh_timeout_seconds | default(180))
-        ) | int
-      }}
-    state: started
-  loop: "{{ instance_runtime_targets }}"
-  loop_control:
-    label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
-  register: ssh_wait_results
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - instance_runtime_targets | length > 0
-    - kvm_wait_for_instance_ssh | default(true) | bool
-
-- name: Build list of TCP SSH port timeout failures for runtime targets
-  ansible.builtin.set_fact:
-    runtime_ssh_timeout_instances: []
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-
-- name: Collect TCP SSH port timeout failures for runtime targets
-  ansible.builtin.set_fact:
-    runtime_ssh_timeout_instances: "{{ (runtime_ssh_timeout_instances + [item.item.instance_name]) | unique }}"
-  loop: "{{ ssh_wait_results.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - >-
-      (
-        item.failed | default(false) | bool
-      )
-      or
-      (
-        (
-          item.state is defined
-        )
-        and
-        (
-          (item.state | default('')) != 'started'
-        )
-      )
-      or
-      (
-        item.msg is defined
-        and
-        (
-          (item.msg | default('')) is search('Timeout when waiting')
-        )
-      )
-
-- name: Collect domiflist diagnostics for TCP SSH port timeout instances
-  ansible.builtin.command:
-    cmd: virsh domiflist "{{ item }}"
-  loop: "{{ runtime_ssh_timeout_instances | default([]) }}"
-  loop_control:
-    label: "{{ item }}"
-  register: runtime_ssh_timeout_domiflist
-  changed_when: false
-  failed_when: false
-  when:
-    - (runtime_ssh_timeout_instances | default([])) | length > 0
-
-- name: Build runtime timeout target model
-  ansible.builtin.set_fact:
-    runtime_ssh_timeout_targets: >-
-      {{
-        instance_runtime_targets
-        | selectattr('instance_name', 'in', runtime_ssh_timeout_instances | default([]))
-        | list
-      }}
-  when:
-    - (runtime_ssh_timeout_instances | default([])) | length > 0
-
-- name: Build Debian 12 timeout hint list
-  ansible.builtin.set_fact:
-    runtime_ssh_timeout_debian12_instances: >-
-      {{
-        runtime_ssh_timeout_targets
-        | selectattr('image_profile_id', 'equalto', 'debian-12')
-        | map(attribute='instance_name')
-        | list
-      }}
-  when:
-    - (runtime_ssh_timeout_instances | default([])) | length > 0
-
-- name: Probe ICMP reachability for TCP SSH port timeout instances
-  ansible.builtin.command:
-    argv:
-      - ping
-      - -c
-      - "1"
-      - -W
-      - "1"
-      - "{{ item.instance_ipv4_address }}"
-  loop: "{{ runtime_ssh_timeout_targets | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }})"
-  register: runtime_ssh_timeout_ping
-  changed_when: false
-  failed_when: false
-  when:
-    - (runtime_ssh_timeout_targets | default([])) | length > 0
-
-- name: Collect domifaddr diagnostics from lease/arp/agent sources
+- name: Check declared domain states
   ansible.builtin.command:
     argv:
       - virsh
-      - domifaddr
-      - "{{ item.0.instance_name }}"
-      - --source
-      - "{{ item.1 }}"
-  loop: >-
-    {{
-      (runtime_ssh_timeout_targets | default([]))
-      | product(['lease', 'arp', 'agent'])
-      | list
-    }}
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ instance_runtime_targets }}"
   loop_control:
-    label: "{{ item.0.instance_name }} source={{ item.1 }}"
-  register: runtime_ssh_timeout_domifaddr_by_source
+    label: "{{ item.instance_name }}"
+  register: runtime_domain_state_results
   changed_when: false
   failed_when: false
   when:
-    - (runtime_ssh_timeout_targets | default([])) | length > 0
+    - kvm_run_mutation_phases | bool
+    - instance_runtime_targets | length > 0
 
-- name: Collect domifaddr diagnostics for TCP SSH port timeout instances
-  ansible.builtin.command:
-    cmd: virsh domifaddr "{{ item }}"
-  loop: "{{ runtime_ssh_timeout_instances | default([]) }}"
+- name: Fail when a declared runtime domain is missing
+  ansible.builtin.assert:
+    that:
+      - (item.rc | int) == 0
+    fail_msg: >-
+      Declared domain {{ item.item.instance_name }} does not exist in
+      {{ kvm_libvirt_connection_uri }}. Run the full provision workflow first.
+  loop: "{{ runtime_domain_state_results.results | default([]) }}"
   loop_control:
-    label: "{{ item }}"
-  register: runtime_ssh_timeout_domifaddr
-  changed_when: false
-  failed_when: false
+    label: "{{ item.item.instance_name }}"
   when:
-    - (runtime_ssh_timeout_instances | default([])) | length > 0
+    - kvm_run_mutation_phases | bool
 
-- name: Fail with actionable diagnostics when TCP SSH port wait fails
-  ansible.builtin.fail:
-    msg: >-
-      TCP port {{ (instance_runtime_targets | first).ssh_port | default(22) }} wait timed out for instance(s): {{
-      runtime_ssh_timeout_instances | join(', ')
-      }}.
-      Verify guest network and cloud-init boot progress.
-      Note: this project uses libvirt URI '{{ kvm_libvirt_connection_uri | default('qemu:///system') }}'.
-      If plain 'virsh' shows "domain not found", check using the same URI:
-      virsh -c {{ kvm_libvirt_connection_uri | default('qemu:///system') }} domiflist <instance>
-      virsh -c {{ kvm_libvirt_connection_uri | default('qemu:///system') }} domifaddr <instance>
-      Suggested recovery:
-      1) make cleanup-force-disks
-      2) make provision
-      debian12_hint={{ runtime_ssh_timeout_debian12_instances | default([]) }}
-      ping_targets={{ runtime_ssh_timeout_targets | default([]) | map(attribute='instance_name') | list }}
-      ping_rc={{ runtime_ssh_timeout_ping.results | default([]) | map(attribute='rc') | list }}
-      domiflist={{ runtime_ssh_timeout_domiflist.results | default([]) | map(attribute='stdout') | join(' || ') }}
-      domifaddr_sources={{ runtime_ssh_timeout_domifaddr_by_source.results | default([]) | map(attribute='stdout') | join(' || ') }}
-      domifaddr={{ runtime_ssh_timeout_domifaddr.results | default([]) | map(attribute='stdout') | join(' || ') }}
-  when:
-    - (runtime_ssh_timeout_instances | default([])) | length > 0
-
-- name: Build runtime TCP-ready instance list
+- name: Build current running-domain name list
   ansible.builtin.set_fact:
-    runtime_tcp_ready_instances: >-
+    runtime_running_domain_names: >-
       {{
-        ssh_wait_results.results
+        runtime_domain_state_results.results
         | default([])
-        | selectattr('state', 'defined')
-        | selectattr('state', 'equalto', 'started')
+        | selectattr('stdout', 'equalto', 'running')
         | map(attribute='item.instance_name')
         | list
       }}
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
+  when: kvm_run_mutation_phases | bool
 
-- name: Build pre-snapshot TCP wait target list
-  ansible.builtin.set_fact:
-    instances_requiring_pre_snapshot_port_check: >-
-      {{
-        (
-          instances_to_create | default([])
-          if not (
-            (kvm_skip_pre_snapshot_port_recheck | default(true) | bool)
-            and (kvm_wait_for_instance_ssh | default(true) | bool)
-          )
-          else (
-            (instances_to_create | default([]))
-            | rejectattr('instance_name', 'in', runtime_tcp_ready_instances | default([]))
-            | list
-          )
-        )
-      }}
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-
-- name: Build effective cloud-init readiness timeout
-  ansible.builtin.set_fact:
-    kvm_effective_cloud_init_readiness_timeout_seconds: 600
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-
-- name: Wait for TCP SSH port on newly created instances before snapshot
-  ansible.builtin.wait_for:
-    host: "{{ item.instance_ipv4_address }}"
-    port: "{{ item.ssh_port | int }}"
-    delay: 0
-    timeout: >-
-      {{
-        (
-          kvm_debian12_network_boot_wait_timeout_seconds
-          if (item.image_profile_id | default('')) == 'debian-12'
-          else (kvm_effective_cloud_init_readiness_timeout_seconds | default(600))
-        ) | int
-      }}
-    state: started
-  loop: "{{ instances_requiring_pre_snapshot_port_check | default([]) }}"
+- name: Inspect mandatory QEMU Guest Agent channels
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - dumpxml
+      - "{{ item.instance_name }}"
+      - --inactive
+  loop: "{{ instance_runtime_targets }}"
   loop_control:
     label: "{{ item.instance_name }}"
-  register: cloud_init_port_wait_results
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_requiring_pre_snapshot_port_check | default([])) | length > 0
+  register: runtime_guest_agent_channel_results
+  changed_when: false
+  when: kvm_run_mutation_phases | bool
 
-- name: Build list of TCP SSH port timeout failures before snapshot
-  ansible.builtin.set_fact:
-    cloud_init_port_timeout_instances: []
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_requiring_pre_snapshot_port_check | default([])) | length > 0
-
-- name: Collect TCP SSH port timeout failures before snapshot
-  ansible.builtin.set_fact:
-    cloud_init_port_timeout_instances: "{{ (cloud_init_port_timeout_instances + [item.item.instance_name]) | unique }}"
-  loop: "{{ cloud_init_port_wait_results.results | default([]) }}"
+- name: Fail before boot wait when a guest-agent channel is missing
+  ansible.builtin.assert:
+    that:
+      - "'org.qemu.guest_agent.0' in item.stdout"
+      - >-
+        "target type='virtio'" in item.stdout
+        or
+        'target type="virtio"' in item.stdout
+    fail_msg: >-
+      Domain {{ item.item.instance_name }} does not contain the mandatory
+      org.qemu.guest_agent.0 virtio channel. Refusing a guaranteed timeout.
+      Rebuild this declared test domain with make cleanup-force-disks followed
+      by make provision so the corrected domain XML and cloud-init run from first boot.
+  loop: "{{ runtime_guest_agent_channel_results.results | default([]) }}"
   loop_control:
     label: "{{ item.item.instance_name }}"
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_requiring_pre_snapshot_port_check | default([])) | length > 0
-    - >-
-      (
-        item.failed | default(false) | bool
-      )
-      or
-      (
-        (
-          item.state is defined
-        )
-        and
-        (
-          (item.state | default('')) != 'started'
-        )
-      )
-      or
-      (
-        item.msg is defined
-        and
-        (
-          (item.msg | default('')) is search('Timeout when waiting')
-        )
-      )
+  when: kvm_run_mutation_phases | bool
 
-- name: Fail when TCP SSH port is not reachable before snapshot
-  ansible.builtin.fail:
-    msg: >-
-      TCP port {{ (instances_to_create | first).ssh_port | default(22) }} was not reachable
-      for instance(s): {{ cloud_init_port_timeout_instances | join(', ') }} before snapshot.
-      Check guest boot/network readiness before snapshot.
-  when:
-    - (cloud_init_port_timeout_instances | default([])) | length > 0
-
-- name: Check sshpass availability for optional password-based cloud-init wait
-  ansible.builtin.command:
-    cmd: bash -lc "command -v sshpass"
-  register: cloud_init_wait_sshpass_check
-  changed_when: false
-  failed_when: false
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-    - (cloud_init_port_timeout_instances | default([])) | length == 0
-
-- name: Confirm cloud-init boot-finished marker before snapshot
+- name: Resolve persistent root-disk sources
   ansible.builtin.shell: |
     set -euo pipefail
-    remote_cmd='cloud-init status --wait >/dev/null 2>&1 || while [ ! -f /var/lib/cloud/instance/boot-finished ]; do sleep 2; done'
-    if {{
-      (
-        (item.cloud_init_ssh_password_auth | default(false) | bool)
-        and (item.cloud_init_plain_password | default('') | length > 0)
-        and ((cloud_init_wait_sshpass_check.rc | default(1)) == 0)
-      ) | ternary('true', 'false')
-    }}; then
-      timeout "{{ kvm_effective_cloud_init_readiness_timeout_seconds | default(600) | int }}" \
-        sshpass -p {{ item.cloud_init_plain_password | quote }} \
-        ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
-          -o PreferredAuthentications=password -o PubkeyAuthentication=no \
-          -p "{{ item.ssh_port | int }}" \
-          "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}" \
-          "sh -lc \"$remote_cmd\""
-    else
-      timeout "{{ kvm_effective_cloud_init_readiness_timeout_seconds | default(600) | int }}" \
-        ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
-          -p "{{ item.ssh_port | int }}" \
-          "{{ item.cloud_init_user }}@{{ item.instance_ipv4_address }}" \
-          "sh -lc \"$remote_cmd\""
-    fi
+    virsh domblklist "{{ item.instance_name }}" --inactive --details \
+      | awk '$3 == "vda" {print $4}'
   args:
     executable: /bin/bash
-  loop: "{{ instances_to_create | default([]) }}"
+  loop: "{{ instance_runtime_targets }}"
   loop_control:
-    label: "{{ item.instance_name }}"
-  register: cloud_init_marker_wait_results
+    label: "{{ item.instance_name }}:vda"
+  register: runtime_root_disk_source_results
   changed_when: false
-  failed_when: false
-  no_log: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-    - (cloud_init_port_timeout_instances | default([])) | length == 0
+  when: kvm_run_mutation_phases | bool
 
-- name: Build list of cloud-init readiness failures before snapshot
-  ansible.builtin.set_fact:
-    cloud_init_marker_timeout_instances: []
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-    - (cloud_init_port_timeout_instances | default([])) | length == 0
-
-- name: Collect cloud-init readiness failures before snapshot
-  ansible.builtin.set_fact:
-    cloud_init_marker_timeout_instances: "{{ (cloud_init_marker_timeout_instances + [item.item.instance_name]) | unique }}"
-  loop: "{{ cloud_init_marker_wait_results.results | default([]) }}"
+- name: Validate persistent root-disk sources
+  ansible.builtin.assert:
+    that:
+      - (item.stdout_lines | default([]) | length) == 1
+      - >-
+        (item.stdout | trim) in [
+          kvm_instance_disk_pool_path
+          ~ '/'
+          ~ item.item.instance_name
+          ~ '-vda.'
+          ~ item.item.instance_disk_extension,
+          kvm_snapshot_overlay_path
+          ~ '/'
+          ~ item.item.instance_name
+          ~ '-'
+          ~ kvm_snapshot_name
+          ~ '-vda.qcow2'
+        ]
+    fail_msg: >-
+      Domain {{ item.item.instance_name }} has an unexpected persistent vda
+      source: {{ item.stdout | default('missing') }}. Refusing to mutate a
+      drifted or ambiguously named root-disk chain. Root disks must use
+      <instance>-vda.<format>. Rebuild declared legacy domains with
+      make cleanup-force-disks followed by make provision.
+  loop: "{{ runtime_root_disk_source_results.results | default([]) }}"
   loop_control:
-    label: "{{ item.item.instance_name }}"
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_wait_for_cloud_init_before_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-    - (cloud_init_port_timeout_instances | default([])) | length == 0
-    - (item.rc | default(0) | int) != 0
+    label: "{{ item.item.instance_name }}:vda"
+  when: kvm_run_mutation_phases | bool
 
-- name: Fail when cloud-init readiness check does not complete before snapshot
-  ansible.builtin.fail:
-    msg: >-
-      Cloud-init readiness check did not complete for instance(s): {{
-      cloud_init_marker_timeout_instances | join(', ')
-      }} before snapshot.
-      This gate waits on cloud-init completion (not a fixed sleep) and can run as key-based SSH or
-      password-based SSH when sshpass is available and cloud_init_plain_password is set.
-      If this environment is consistently slower than expected, review runtime wait logic in
-      tasks/provision-runtime.yml, or disable this gate with
-      kvm_wait_for_cloud_init_before_snapshot=false if you intentionally do not provide guest SSH auth.
-  when:
-    - (cloud_init_marker_timeout_instances | default([])) | length > 0
-
-- name: Shut down newly created instances for snapshot
-  ansible.builtin.command:
-    cmd: virsh shutdown "{{ item.instance_name }}"
-  loop: "{{ instances_to_create | default([]) }}"
+- name: Resolve persistent declared additional-disk sources
+  ansible.builtin.shell: |
+    set -euo pipefail
+    virsh domblklist "{{ item.0.instance_name }}" --inactive --details \
+      | awk -v target="{{ item.1.guest_device }}" '$3 == target {print $4}'
+  args:
+    executable: /bin/bash
+  loop: >-
+    {{
+      instance_runtime_targets
+      | subelements('instance_extra_disks', skip_missing=True)
+    }}
   loop_control:
-    label: "{{ item.instance_name }}"
-  async: 90
-  poll: 0
-  register: snapshot_shutdown_jobs
-  changed_when: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-
-- name: Wait for snapshot shutdown commands
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ snapshot_shutdown_jobs.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  register: snapshot_shutdown_status
-  until: (snapshot_shutdown_status.finished | default(false)) | bool
-  retries: 18
-  delay: 5
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - item.ansible_job_id is defined
-
-- name: Wait for newly created instances to be shut off
-  ansible.builtin.command:
-    cmd: virsh domstate "{{ item.instance_name }}"
-  loop: "{{ instances_to_create | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  register: snapshot_vm_state
-  until: snapshot_vm_state.stdout == 'shut off'
-  retries: 40
-  delay: 3
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  register: runtime_extra_disk_source_results
   changed_when: false
   when:
     - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
+    - item.0.instance_extra_disks_enabled | bool
 
-- name: Create snapshots for newly created instances
-  ansible.builtin.command:
-    cmd: >-
-      virsh snapshot-create-as "{{ item.instance_name }}"
-      --name "{{ kvm_snapshot_name }}"
-      --description "{{ kvm_snapshot_description }}"
-  loop: "{{ instances_to_create | default([]) }}"
+- name: Fail when an attached additional disk uses an unexpected source
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.stdout | trim | length == 0)
+        or
+        (
+          (item.stdout | trim)
+          ==
+          (
+            kvm_instance_disk_pool_path
+            ~ '/'
+            ~ item.item.0.instance_name
+            ~ '-'
+            ~ item.item.1.guest_device
+            ~ '.'
+            ~ (item.item.1.disk_extension | default(item.item.0.instance_disk_extension))
+          )
+        )
+        or
+        (
+          (item.stdout | trim)
+          ==
+          (
+            kvm_snapshot_overlay_path
+            ~ '/'
+            ~ item.item.0.instance_name
+            ~ '-'
+            ~ kvm_snapshot_name
+            ~ '-'
+            ~ item.item.1.guest_device
+            ~ '.qcow2'
+          )
+        )
+    fail_msg: >-
+      Domain {{ item.item.0.instance_name }} has an unexpected source for
+      {{ item.item.1.guest_device }}: {{ item.stdout }}. Refusing disk drift.
+  loop: "{{ runtime_extra_disk_source_results.results | default([]) }}"
   loop_control:
-    label: "{{ item.instance_name }}"
-  async: 180
-  poll: 0
-  register: snapshot_jobs
+    label: "{{ item.item.0.instance_name }}:{{ item.item.1.guest_device }}"
+  when: kvm_run_mutation_phases | bool
+
+- name: Fail when a running domain is missing a declared additional disk
+  ansible.builtin.assert:
+    that:
+      - item.item.0.instance_name not in (runtime_running_domain_names | default([]))
+    fail_msg: >-
+      Running domain {{ item.item.0.instance_name }} is missing declared disk
+      {{ item.item.1.guest_device }}. Shut it down and rerun provisioning so the
+      disk can be attached before cloud-init continues.
+  loop: "{{ runtime_extra_disk_source_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.0.instance_name }}:{{ item.item.1.guest_device }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - (item.stdout | trim | length) == 0
+
+- name: Attach missing declared additional disks to shut-off domains
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - attach-disk
+      - "{{ item.item.0.instance_name }}"
+      - >-
+        {{
+          kvm_instance_disk_pool_path
+          ~ '/'
+          ~ item.item.0.instance_name
+          ~ '-'
+          ~ item.item.1.guest_device
+          ~ '.'
+          ~ (item.item.1.disk_extension | default(item.item.0.instance_disk_extension))
+        }}
+      - "{{ item.item.1.guest_device }}"
+      - --targetbus
+      - virtio
+      - --subdriver
+      - "{{ item.item.1.disk_extension | default(item.item.0.instance_disk_extension) }}"
+      - --type
+      - disk
+      - --config
+  loop: "{{ runtime_extra_disk_source_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.0.instance_name }}:{{ item.item.1.guest_device }}"
   changed_when: true
   when:
     - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
+    - (item.stdout | trim | length) == 0
 
-- name: Wait for snapshot creation operations
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ snapshot_jobs.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  register: snapshot_status
-  until: (snapshot_status.finished | default(false)) | bool
-  retries: 36
-  delay: 5
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - item.ansible_job_id is defined
-
-- name: Start instances after snapshot
-  ansible.builtin.command:
-    cmd: virsh start "{{ item.instance_name }}"
-  loop: "{{ instances_to_create | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  async: 90
-  poll: 0
-  register: post_snapshot_start_jobs
-  changed_when: true
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_start_instances_after_snapshot | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
-
-- name: Wait for post-snapshot start operations
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ post_snapshot_start_jobs.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  register: post_snapshot_start_status
-  until: (post_snapshot_start_status.finished | default(false)) | bool
-  retries: 18
-  delay: 5
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_start_instances_after_snapshot | default(true) | bool
-    - item.ansible_job_id is defined
-
-- name: Confirm TCP SSH port after snapshot restart
-  ansible.builtin.wait_for:
-    host: "{{ item.instance_ipv4_address }}"
-    port: "{{ item.ssh_port | int }}"
-    delay: 5
-    timeout: >-
+- name: Build list of declared domains requiring start
+  ansible.builtin.set_fact:
+    runtime_domains_to_start: >-
       {{
-        (
-          kvm_debian12_network_boot_wait_timeout_seconds
-          if (item.image_profile_id | default('')) == 'debian-12'
-          else (kvm_wait_for_ssh_timeout_seconds | default(180))
-        ) | int
+        runtime_domain_state_results.results
+        | default([])
+        | rejectattr('stdout', 'equalto', 'running')
+        | map(attribute='item')
+        | list
       }}
-    state: started
-  loop: "{{ instances_to_create | default([]) }}"
+  when: kvm_run_mutation_phases | bool
+
+- name: Start declared domains that are not running
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - start
+      - "{{ item.instance_name }}"
+  loop: "{{ runtime_domains_to_start | default([]) }}"
   loop_control:
-    label: "{{ item.instance_name }} ({{ item.instance_ipv4_address }}:{{ item.ssh_port | int }})"
-  register: post_snapshot_ssh_results
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - (runtime_domains_to_start | default([])) | length > 0
+
+- name: Wait until started domains report running
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ runtime_domains_to_start | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_started_domain_state
+  until: (runtime_started_domain_state.stdout | trim) == 'running'
+  retries: 18
+  delay: 5
   changed_when: false
-  failed_when: false
   when:
     - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_start_instances_after_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - (instances_to_create | default([])) | length > 0
+    - (runtime_domains_to_start | default([])) | length > 0
 
-- name: Build list of post-snapshot TCP SSH port timeout failures
-  ansible.builtin.set_fact:
-    post_snapshot_ssh_timeout_instances: []
-  when:
-    - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_start_instances_after_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-
-- name: Collect post-snapshot TCP SSH port timeout failures
-  ansible.builtin.set_fact:
-    post_snapshot_ssh_timeout_instances: "{{ (post_snapshot_ssh_timeout_instances + [item.item.instance_name]) | unique }}"
-  loop: "{{ post_snapshot_ssh_results.results | default([]) }}"
+- name: Inspect mandatory snapshot metadata on declared domains
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - snapshot-list
+      - "{{ item.instance_name }}"
+      - --name
+  loop: "{{ instance_runtime_targets }}"
   loop_control:
-    label: "{{ item.item.instance_name }}"
+    label: "{{ item.instance_name }}"
+  register: runtime_snapshot_list_results
+  changed_when: false
   when:
     - kvm_run_mutation_phases | bool
-    - kvm_snapshot_enabled | default(true) | bool
-    - kvm_start_instances_after_snapshot | default(true) | bool
-    - kvm_wait_for_instance_ssh | default(true) | bool
-    - >-
-      (
-        item.failed | default(false) | bool
-      )
-      or
-      (
-        item.state is defined
-        and
-        (
-          (item.state | default('')) != 'started'
-        )
-      )
-      or
-      (
-        item.msg is defined
-        and
-        (
-          (item.msg | default('')) is search('Timeout when waiting')
-        )
-      )
+    - kvm_snapshot_enabled | bool
 
-- name: Fail when post-snapshot TCP SSH port is not reachable
-  ansible.builtin.fail:
-    msg: >-
-      Post-snapshot TCP port {{ (instances_to_create | first).ssh_port | default(22) }} wait timed out
-      for instance(s): {{ post_snapshot_ssh_timeout_instances | join(', ') }}.
-      Check guest boot/network before continuing.
+- name: Initialize snapshot reconciliation target lists
+  ansible.builtin.set_fact:
+    runtime_domains_with_snapshot: []
+    runtime_domains_requiring_snapshot: []
   when:
-    - (post_snapshot_ssh_timeout_instances | default([])) | length > 0
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
 
-- name: Runtime stage summary
+- name: Classify declared domains by snapshot state
+  ansible.builtin.set_fact:
+    runtime_domains_with_snapshot: >-
+      {{
+        runtime_domains_with_snapshot
+        + ([item.item] if kvm_snapshot_name in (item.stdout_lines | default([])) else [])
+      }}
+    runtime_domains_requiring_snapshot: >-
+      {{
+        runtime_domains_requiring_snapshot
+        + ([item.item] if kvm_snapshot_name not in (item.stdout_lines | default([])) else [])
+      }}
+  loop: "{{ runtime_snapshot_list_results.results | default([]) }}"
+  loop_control:
+    label: >-
+      {{
+        item.item.instance_name
+        ~ ': '
+        ~ ('complete' if kvm_snapshot_name in (item.stdout_lines | default([])) else 'resume required')
+      }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Report observed snapshot reconciliation state
   ansible.builtin.debug:
     msg: >-
-      Runtime stage complete: started={{ (instances_to_start | default([])) | length }}
-      requested_targets={{ instance_runtime_targets | length }}.
+      snapshot_complete={{ runtime_domains_with_snapshot | map(attribute='instance_name') | list }}
+      snapshot_resume={{ runtime_domains_requiring_snapshot | map(attribute='instance_name') | list }}
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Inspect active disk chains for domains with snapshot metadata
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domblklist
+      - "{{ item.instance_name }}"
+      - --details
+  loop: "{{ runtime_domains_with_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_snapshotted_disk_chain_results
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - (runtime_domains_with_snapshot | default([])) | length > 0
+
+- name: Fail when snapshot metadata and active root overlay disagree
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          kvm_snapshot_overlay_path
+          ~ '/'
+          ~ item.item.instance_name
+          ~ '-'
+          ~ kvm_snapshot_name
+          ~ '-vda.qcow2'
+        ) in item.stdout
+    fail_msg: >-
+      Domain {{ item.item.instance_name }} has {{ kvm_snapshot_name }} metadata,
+      but its active vda is not the expected external overlay. Refusing to
+      modify an inconsistent disk chain. Inspect with virsh snapshot-dumpxml
+      and virsh domblklist before recovery.
+  loop: "{{ runtime_snapshotted_disk_chain_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Check for stale root overlays without snapshot metadata
+  ansible.builtin.stat:
+    path: >-
+      {{
+        kvm_snapshot_overlay_path
+        ~ '/'
+        ~ item.instance_name
+        ~ '-'
+        ~ kvm_snapshot_name
+        ~ '-vda.qcow2'
+      }}
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}:vda"
+  register: runtime_stale_root_overlay_stats
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Fail when a stale root overlay blocks safe snapshot recovery
+  ansible.builtin.fail:
+    msg: >-
+      Stale snapshot overlay exists without matching libvirt metadata:
+      {{
+        kvm_snapshot_overlay_path
+        ~ '/'
+        ~ item.item.instance_name
+        ~ '-'
+        ~ kvm_snapshot_name
+        ~ '-vda.qcow2'
+      }}. Refusing to overwrite it. Inspect the domain disk
+      chain, then use make cleanup-force-disks for a full declared-instance rebuild.
+  loop: "{{ runtime_stale_root_overlay_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}:vda"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - item.stat.exists | default(false)
+
+- name: Check for stale additional-disk overlays without snapshot metadata
+  ansible.builtin.stat:
+    path: >-
+      {{
+        kvm_snapshot_overlay_path
+        ~ '/'
+        ~ item.0.instance_name
+        ~ '-'
+        ~ kvm_snapshot_name
+        ~ '-'
+        ~ item.1.guest_device
+        ~ '.qcow2'
+      }}
+  loop: >-
+    {{
+      runtime_domains_requiring_snapshot
+      | default([])
+      | subelements('instance_extra_disks', skip_missing=True)
+    }}
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  register: runtime_stale_extra_overlay_stats
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - item.0.instance_extra_disks_enabled | bool
+
+- name: Fail when a stale additional-disk overlay blocks safe snapshot recovery
+  ansible.builtin.fail:
+    msg: >-
+      Stale snapshot overlay exists without matching libvirt metadata:
+      {{
+        kvm_snapshot_overlay_path
+        ~ '/'
+        ~ item.item.0.instance_name
+        ~ '-'
+        ~ kvm_snapshot_name
+        ~ '-'
+        ~ item.item.1.guest_device
+        ~ '.qcow2'
+      }}. Refusing to overwrite it. Inspect the domain disk
+      chain, then use make cleanup-force-disks for a full declared-instance rebuild.
+  loop: "{{ runtime_stale_extra_overlay_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.0.instance_name }}:{{ item.item.1.guest_device }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - item.stat.exists | default(false)
+
+- name: Run visible guest readiness checkpoints before baseline snapshot
+  ansible.builtin.include_tasks: tasks/provision-runtime-readiness.yml
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    loop_var: runtime_readiness_instance
+    label: "{{ runtime_readiness_instance.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - kvm_wait_for_cloud_init_before_snapshot | bool
+    - (runtime_domains_requiring_snapshot | default([])) | length > 0
+
+- name: Request clean shutdown for snapshot reconciliation targets
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - shutdown
+      - "{{ item.instance_name }}"
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - (runtime_domains_requiring_snapshot | default([])) | length > 0
+
+- name: Wait for clean shutdown before snapshot creation
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_snapshot_shutdown_state
+  until: (runtime_snapshot_shutdown_state.stdout | trim) == 'shut off'
+  retries: "{{ kvm_shutdown_wait_retries | default(60) | int }}"
+  delay: "{{ kvm_shutdown_wait_delay_seconds | default(3) | int }}"
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - (runtime_domains_requiring_snapshot | default([])) | length > 0
+
+- name: Resolve attached cloud-init seed devices
+  ansible.builtin.shell: |
+    set -euo pipefail
+    virsh domblklist "{{ item.instance_name }}" --details \
+      | awk -v seed="{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-seed.img" '$4 == seed {print $3}'
+  args:
+    executable: /bin/bash
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}-seed.img"
+  register: runtime_seed_device_results
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Fail when multiple cloud-init seed devices resolve for one domain
+  ansible.builtin.assert:
+    that:
+      - (item.stdout_lines | default([]) | length) <= 1
+    fail_msg: >-
+      Multiple attached devices resolve to the declared seed path for
+      {{ item.item.instance_name }}. Refusing ambiguous detach operation.
+  loop: "{{ runtime_seed_device_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Detach attached cloud-init seed media from persistent domain XML
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - detach-disk
+      - "{{ item.item.instance_name }}"
+      - "{{ item.stdout | trim }}"
+      - --config
+  loop: "{{ runtime_seed_device_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}:{{ item.stdout | trim }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - (item.stdout_lines | default([]) | length) == 1
+
+- name: Verify cloud-init seed media is absent from persistent domain XML
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domblklist
+      - "{{ item.instance_name }}"
+      - --inactive
+      - --details
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_seed_detach_verification
+  changed_when: false
+  failed_when: >-
+    (kvm_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.img')
+    in runtime_seed_detach_verification.stdout
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Delete cloud-init seed files after verified detach
+  ansible.builtin.file:
+    path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-seed.img"
+    state: absent
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}-seed.img"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Ensure external snapshot overlay directory exists
+  ansible.builtin.file:
+    path: "{{ kvm_snapshot_overlay_path }}"
+    state: directory
+    owner: "{{ kvm_libvirt_runtime_user }}"
+    group: "{{ kvm_libvirt_runtime_user }}"
+    mode: "0750"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - (runtime_domains_requiring_snapshot | default([])) | length > 0
+
+- name: Render external snapshot definitions
+  ansible.builtin.copy:
+    dest: "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}.xml"
+    mode: "0600"
+    content: |
+      <domainsnapshot>
+        <name>{{ kvm_snapshot_name }}</name>
+        <description>{{ kvm_snapshot_description }}</description>
+        <disks>
+          <disk name='vda' snapshot='external'>
+            <source file='{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}-vda.qcow2'/>
+          </disk>
+      {% if item.instance_extra_disks_enabled | bool %}
+      {% for extra_disk in item.instance_extra_disks | default([]) %}
+          <disk name='{{ extra_disk.guest_device }}' snapshot='external'>
+            <source file='{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}-{{ extra_disk.guest_device }}.qcow2'/>
+          </disk>
+      {% endfor %}
+      {% endif %}
+        </disks>
+      </domainsnapshot>
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Create missing mandatory external snapshots atomically
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - snapshot-create
+      - "{{ item.instance_name }}"
+      - "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}.xml"
+      - --disk-only
+      - --atomic
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Verify mandatory snapshot metadata after reconciliation
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - snapshot-list
+      - "{{ item.instance_name }}"
+      - --name
+  loop: "{{ instance_runtime_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_snapshot_verification_results
+  changed_when: false
+  failed_when: kvm_snapshot_name not in runtime_snapshot_verification_results.stdout_lines
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Remove completed partial-provision ownership markers
+  ansible.builtin.file:
+    path: "{{ kvm_instance_disk_pool_path }}/.{{ item.instance_name }}.provisioning"
+    state: absent
+  loop: "{{ instance_runtime_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Remove stale cloud-init seed files after snapshot verification
+  ansible.builtin.file:
+    path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-seed.img"
+    state: absent
+  loop: "{{ instance_runtime_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}-seed.img"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+
+- name: Start reconciled domains after snapshot creation
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - start
+      - "{{ item.instance_name }}"
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - kvm_start_instances_after_snapshot | bool
+    - (runtime_domains_requiring_snapshot | default([])) | length > 0
+
+- name: Wait for reconciled domains to report running
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_reconciled_domain_state
+  until: (runtime_reconciled_domain_state.stdout | trim) == 'running'
+  retries: 18
+  delay: 5
+  changed_when: false
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - kvm_start_instances_after_snapshot | bool
+    - (runtime_domains_requiring_snapshot | default([])) | length > 0
+
+- name: Collect final declared domain states
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ instance_runtime_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: runtime_final_domain_states
+  changed_when: false
+  when: kvm_run_mutation_phases | bool
+
+- name: Runtime reconciliation summary
+  ansible.builtin.debug:
+    msg: >-
+      snapshot_created={{ runtime_domains_requiring_snapshot | default([]) | map(attribute='instance_name') | list }}
+      snapshot_already_present={{ runtime_domains_with_snapshot | default([]) | map(attribute='instance_name') | list }}
+      final_states={{ runtime_final_domain_states.results | default([]) | map(attribute='stdout') | map('trim') | list }}
+  when: kvm_run_mutation_phases | bool

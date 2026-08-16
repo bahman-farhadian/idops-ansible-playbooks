@@ -236,7 +236,40 @@
 
 - name: Remove declared instance disk files when enabled
   ansible.builtin.file:
+    path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-vda.{{ item.instance_disk_extension }}"
+    state: absent
+  loop: "{{ cleanup_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}:vda"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+
+- name: Remove legacy declared root disk files when disk removal is enabled
+  ansible.builtin.file:
     path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}.{{ item.instance_disk_extension }}"
+    state: absent
+  loop: "{{ cleanup_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}:legacy-root"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+
+- name: Remove declared external snapshot root-disk overlays when disk removal is enabled
+  ansible.builtin.file:
+    path: "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}-vda.qcow2"
+    state: absent
+  loop: "{{ cleanup_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}:vda"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+
+- name: Remove declared external snapshot definitions when disk removal is enabled
+  ansible.builtin.file:
+    path: "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}.xml"
     state: absent
   loop: "{{ cleanup_instance_definitions }}"
   loop_control:
@@ -245,9 +278,32 @@
     - kvm_cleanup_confirmed | bool
     - kvm_cleanup_remove_instance_disks | default(false) | bool
 
+- name: Remove declared external snapshot additional-disk overlays when disk removal is enabled
+  ansible.builtin.file:
+    path: "{{ kvm_snapshot_overlay_path }}/{{ item.0.instance_name }}-{{ kvm_snapshot_name }}-{{ item.1.guest_device }}.qcow2"
+    state: absent
+  loop: "{{ cleanup_instance_definitions | subelements('instance_extra_disks', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+    - item.0.instance_extra_disks_enabled | bool
+
 - name: Remove declared cloud-init seed disk files when disk removal is enabled
   ansible.builtin.file:
     path: "{{ kvm_instance_disk_pool_path }}/{{ item.instance_name }}-seed.img"
+    state: absent
+  loop: "{{ cleanup_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+
+- name: Remove declared partial-provision ownership markers when disk removal is enabled
+  ansible.builtin.file:
+    path: "{{ kvm_instance_disk_pool_path }}/.{{ item.instance_name }}.provisioning"
     state: absent
   loop: "{{ cleanup_instance_definitions }}"
   loop_control:

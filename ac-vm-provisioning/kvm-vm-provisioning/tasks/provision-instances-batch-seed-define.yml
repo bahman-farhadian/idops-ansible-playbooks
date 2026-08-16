@@ -29,97 +29,7 @@
   failed_when: (seed_build_status.rc | default(0) | int) != 0
   when: item.ansible_job_id is defined
 
-- name: Build BIOS define list for batch
-  ansible.builtin.set_fact:
-    bios_batch_instances: >-
-      {{
-        kvm_instance_batch
-        | selectattr('firmware_boot_mode', 'defined')
-        | selectattr('firmware_boot_mode', 'match', '(?i)^bios$')
-        | list
-      }}
-
-- name: Start BIOS virt-install import jobs for batch
-  ansible.builtin.command:
-    argv:
-      - virt-install
-      - --name
-      - "{{ item.instance_name }}"
-      - --memory
-      - "{{ item.memory_mb | int }}"
-      - --vcpus
-      - >-
-        {{
-          (
-            (item.vcpu_count | int | string)
-            ~ ',sockets=1,cores=' ~ (item.vcpu_count | int | string)
-            ~ ',threads=1'
-          )
-          if (item.force_single_socket_vcpu_topology | default(true) | bool)
-          else (item.vcpu_count | int | string)
-        }}
-      - --machine
-      - "{{ item.virt_install_machine_type }}"
-      - --import
-      - --disk
-      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
-      - --disk
-      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
-      - --os-variant
-      - "{{ item.virt_install_os_variant }}"
-      - --network
-      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
-      - --graphics
-      - none
-      - --noautoconsole
-      - --noreboot
-  loop: "{{ bios_batch_instances | default([]) }}"
-  loop_control:
-    label: "{{ item.instance_name }}"
-  async: 900
-  poll: 0
-  register: bios_define_jobs
-  changed_when: true
-  when: (bios_batch_instances | default([])) | length > 0
-
-- name: Wait for BIOS virt-install import jobs for batch
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ bios_define_jobs.results | default([]) }}"
-  loop_control:
-    label: "{{ item.item.instance_name }}"
-  register: bios_define_status
-  until: (bios_define_status.finished | default(false)) | bool
-  retries: 180
-  delay: 5
-  failed_when: (bios_define_status.rc | default(0) | int) != 0
-  when:
-    - (bios_batch_instances | default([])) | length > 0
-    - item.ansible_job_id is defined
-
-- name: Build UEFI define list for batch
-  ansible.builtin.set_fact:
-    uefi_batch_instances: >-
-      {{
-        kvm_instance_batch
-        | rejectattr('firmware_boot_mode', 'defined')
-        | list
-      }}
-
-- name: Extend UEFI define list with explicit UEFI firmware mode instances
-  ansible.builtin.set_fact:
-    uefi_batch_instances: >-
-      {{
-        uefi_batch_instances
-        + (
-          kvm_instance_batch
-          | selectattr('firmware_boot_mode', 'defined')
-          | selectattr('firmware_boot_mode', 'match', '(?i)^uefi$')
-          | list
-        )
-      }}
-
-- name: Start UEFI virt-install import jobs for batch
+- name: Render inactive UEFI domain XML for batch
   ansible.builtin.command:
     argv:
       - virt-install
@@ -152,30 +62,33 @@
       - "{{ item.virt_install_os_variant }}"
       - --network
       - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
+      - --channel
+      - "unix,target.type=virtio,target.name=org.qemu.guest_agent.0"
       - --graphics
       - none
-      - --noautoconsole
-      - --noreboot
-  loop: "{{ uefi_batch_instances | default([]) }}"
+      - --print-xml
+  loop: "{{ kvm_instance_batch }}"
   loop_control:
     label: "{{ item.instance_name }}"
-  async: 900
-  poll: 0
-  register: uefi_define_jobs
-  changed_when: true
-  when: (uefi_batch_instances | default([])) | length > 0
+  register: rendered_domain_xml_results
+  changed_when: false
 
-- name: Wait for UEFI virt-install import jobs for batch
-  ansible.builtin.async_status:
-    jid: "{{ item.ansible_job_id }}"
-  loop: "{{ uefi_define_jobs.results | default([]) }}"
+- name: Write rendered inactive domain XML for batch
+  ansible.builtin.copy:
+    dest: "{{ item.item.cloud_init_user_data_path | dirname }}/{{ item.item.instance_name }}-domain.xml"
+    content: "{{ item.stdout }}\n"
+    mode: "0600"
+  loop: "{{ rendered_domain_xml_results.results | default([]) }}"
   loop_control:
     label: "{{ item.item.instance_name }}"
-  register: uefi_define_status
-  until: (uefi_define_status.finished | default(false)) | bool
-  retries: 180
-  delay: 5
-  failed_when: (uefi_define_status.rc | default(0) | int) != 0
-  when:
-    - (uefi_batch_instances | default([])) | length > 0
-    - item.ansible_job_id is defined
+
+- name: Define inactive UEFI domains for batch
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - define
+      - "{{ item.cloud_init_user_data_path | dirname }}/{{ item.instance_name }}-domain.xml"
+  loop: "{{ kvm_instance_batch }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true

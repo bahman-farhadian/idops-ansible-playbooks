@@ -41,6 +41,8 @@
   changed_when: false
 
 - name: Force-refresh local checksum cache when requested
+  when:
+    - kvm_force_manifest_refresh | default(false) | bool
   block:
     - name: Clear immutable attribute before removal
       ansible.builtin.command: >-
@@ -60,8 +62,6 @@
       loop_control:
         label: "{{ item.item.profile_id }}"
       when: item.stat.exists | default(false)
-  when:
-    - kvm_force_manifest_refresh | default(false) | bool
 
 - name: Read local trusted checksum cache files
   ansible.builtin.command: >-

@@ -43,9 +43,20 @@
         (expanded_cloud_image_catalog | default({}))
         | combine({
             item.key: (item.value | combine({
-              'image_filename': 'debian-' ~ item.value.image_major ~ '-' ~ item.value.image_variant ~ '-amd64-' ~ item.value.image_version ~ '.qcow2',
-              'image_url': 'https://cloud.debian.org/images/cloud/' ~ item.value.image_codename ~ '/' ~ item.value.image_version ~ '/debian-' ~ item.value.image_major ~ '-' ~ item.value.image_variant ~ '-amd64-' ~ item.value.image_version ~ '.qcow2',
-              'image_checksum_manifest_url': 'https://cloud.debian.org/images/cloud/' ~ item.value.image_codename ~ '/' ~ item.value.image_version ~ '/SHA512SUMS'
+              'image_filename': (
+                'debian-' ~ item.value.image_major ~ '-' ~ item.value.image_variant
+                ~ '-amd64-' ~ item.value.image_version ~ '.qcow2'
+              ),
+              'image_url': (
+                'https://cloud.debian.org/images/cloud/' ~ item.value.image_codename
+                ~ '/' ~ item.value.image_version ~ '/debian-' ~ item.value.image_major
+                ~ '-' ~ item.value.image_variant ~ '-amd64-' ~ item.value.image_version
+                ~ '.qcow2'
+              ),
+              'image_checksum_manifest_url': (
+                'https://cloud.debian.org/images/cloud/' ~ item.value.image_codename
+                ~ '/' ~ item.value.image_version ~ '/SHA512SUMS'
+              )
             }, recursive=True))
           })
       }}
@@ -91,14 +102,19 @@
     that:
       - (kvm_parallel_instance_workers | default(4) | int) > 0
       - (kvm_image_manifest_refresh_policy | default('on-demand')) in ['on-demand', 'always']
-      - (kvm_debian12_network_boot_wait_timeout_seconds | default(360) | int) > 0
       - (kvm_default_cloud_init_networkd_wait_online_timeout_seconds | default(30) | int) > 0
+      - (kvm_qemu_guest_agent_wait_timeout_seconds | int) > 0
+      - (kvm_qemu_guest_agent_poll_interval_seconds | int) > 0
+      - (kvm_shutdown_wait_retries | int) > 0
+      - (kvm_shutdown_wait_delay_seconds | int) > 0
+      - kvm_snapshot_enabled | bool
+      - kvm_wait_for_cloud_init_before_snapshot | bool
     fail_msg: >-
       Invalid performance or manifest policy setting.
       Ensure kvm_parallel_instance_workers > 0,
       kvm_image_manifest_refresh_policy is on-demand|always,
-      kvm_debian12_network_boot_wait_timeout_seconds > 0,
-      and kvm_default_cloud_init_networkd_wait_online_timeout_seconds > 0.
+      readiness and shutdown retry values are > 0, and mandatory snapshot and
+      cloud-init readiness policies remain enabled.
 
 - name: Validate instance image profile references
   ansible.builtin.assert:
@@ -161,6 +177,15 @@
           instance_defaults
           | combine(expanded_cloud_image_catalog[item.image_profile_id], recursive=True)
           | combine(item, recursive=True)
+          | combine({
+              'cloud_init_packages': (
+                (
+                  kvm_default_cloud_init_packages
+                  + (item.cloud_init_packages | default([]))
+                  + ['openssh-server', 'qemu-guest-agent']
+                ) | unique
+              )
+            })
         ]
       }}
   loop: "{{ kvm_instance_definitions }}"
@@ -193,7 +218,7 @@
       - item.root_disk_size_gb is defined
       - (item.root_disk_size_gb | int) > 0
       - item.instance_disk_extension is match('^[A-Za-z0-9]+$')
-      - (item.firmware_boot_mode | default('uefi') | lower) in ['bios', 'uefi']
+      - (item.firmware_boot_mode | default('uefi') | lower) == 'uefi'
       - item.virt_install_machine_type is string
       - item.virt_install_machine_type | length > 0
       - item.seed_device_bus is defined
@@ -241,6 +266,7 @@
         )
     fail_msg: >-
       Instance {{ item.instance_name | default('unknown') }} has invalid or missing required fields.
+      This project requires firmware_boot_mode=uefi.
   loop: "{{ normalized_instances }}"
   loop_control:
     label: "{{ item.instance_name }}"
@@ -399,14 +425,34 @@
         | list
       }}
 
-- name: Build runtime target list
+- name: Initialize sanitized runtime target list
+  ansible.builtin.set_fact:
+    instance_runtime_targets: []
+
+- name: Build sanitized runtime target list
   ansible.builtin.set_fact:
     instance_runtime_targets: >-
       {{
-        normalized_instances
-        if (kvm_ensure_requested_instances_running | default(true) | bool)
-        else instances_to_create
+        instance_runtime_targets
+        + [
+            {
+              'instance_name': item.instance_name,
+              'instance_disk_extension': item.instance_disk_extension,
+              'instance_extra_disks_enabled': item.instance_extra_disks_enabled,
+              'instance_extra_disks': item.instance_extra_disks,
+              'ssh_port': item.ssh_port
+            }
+          ]
       }}
+  loop: "{{ normalized_instances }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  no_log: true
+  when:
+    - >-
+      (kvm_ensure_requested_instances_running | default(true) | bool)
+      or
+      item.instance_name in (instances_to_create | map(attribute='instance_name') | list)
 
 - name: Display stage and target summary
   ansible.builtin.debug:

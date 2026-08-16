@@ -1,0 +1,135 @@
+---
+- name: "Readiness | Explain checkpoints | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.debug:
+    msg: >-
+      Waiting up to {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds per checkpoint.
+      Checkpoints: QEMU Guest Agent, cloud-init completion, ssh.service active,
+      and TCP/{{ runtime_readiness_instance.ssh_port }} listening inside the guest.
+
+- name: "Readiness | Wait for QEMU Guest Agent | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - qemu-agent-command
+      - "{{ runtime_readiness_instance.instance_name }}"
+      - '{"execute":"guest-ping"}'
+  register: runtime_qga_ping_result
+  until: (runtime_qga_ping_result.rc | int) == 0
+  retries: >-
+    {{
+      (
+        (kvm_qemu_guest_agent_wait_timeout_seconds | int)
+        + (kvm_qemu_guest_agent_poll_interval_seconds | int)
+        - 1
+      )
+      // (kvm_qemu_guest_agent_poll_interval_seconds | int)
+    }}
+  delay: "{{ kvm_qemu_guest_agent_poll_interval_seconds | int }}"
+  changed_when: false
+  failed_when: false
+
+- name: "Readiness | Fail when QEMU Guest Agent is unavailable | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.fail:
+    msg: >-
+      QEMU Guest Agent did not become available for
+      {{ runtime_readiness_instance.instance_name }} within
+      {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds.
+      Last error: {{ runtime_qga_ping_result.stderr | default('no stderr') }}.
+      Confirm qemu-guest-agent installation, the org.qemu.guest_agent.0 channel,
+      and cloud-init package/network progress. Inspect:
+      virsh dumpxml {{ runtime_readiness_instance.instance_name }};
+      tail -n 200 /var/log/libvirt/qemu/{{ runtime_readiness_instance.instance_name }}.log
+  when: (runtime_qga_ping_result.rc | int) != 0
+
+- name: "Readiness | Run guest checkpoints | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.shell: |
+    set -euo pipefail
+    request="$(python3 -c \
+      'import json, os; print(json.dumps({"execute": "guest-exec", "arguments": {"path": "/bin/sh", "arg": ["-c", os.environ["QGA_CHECK"]]}}))')"
+    submit="$(virsh qemu-agent-command "$QGA_DOMAIN" "$request" 2>&1)" || {
+      printf 'guest-exec submission failed: %s\n' "$submit" >&2
+      exit 10
+    }
+    pid="$(python3 -c \
+      'import json, sys; print(json.loads(sys.argv[1])["return"]["pid"])' \
+      "$submit" 2>/dev/null)" || {
+      printf 'cannot parse guest-exec response: %s\n' "$submit" >&2
+      exit 11
+    }
+    for _ in {1..10}; do
+      status="$(virsh qemu-agent-command "$QGA_DOMAIN" \
+        "{\"execute\":\"guest-exec-status\",\"arguments\":{\"pid\":$pid}}" \
+        2>&1)" || {
+        printf 'guest-exec-status failed: %s\n' "$status" >&2
+        exit 12
+      }
+      result="$(python3 -c \
+        'import json, sys; value=json.loads(sys.argv[1])["return"]; print(int(value.get("exited", False)), value.get("exitcode", ""))' \
+        "$status" 2>/dev/null)" || {
+        printf 'cannot parse guest-exec-status response: %s\n' "$status" >&2
+        exit 13
+      }
+      if [[ "$result" == "1 0" ]]; then
+        exit 0
+      fi
+      if [[ "$result" == 1* ]]; then
+        decoder='import base64,json,sys; value=json.loads(sys.argv[1])["return"]; '
+        decoder+='keys=("out-data","err-data"); '
+        decoder+='[print(base64.b64decode(value[k]).decode(errors="replace"),file=sys.stderr,end="") for k in keys if value.get(k)]'
+        python3 -c "$decoder" "$status"
+        printf 'checkpoint not ready: %s\n' "$QGA_LABEL" >&2
+        exit 20
+      fi
+      sleep 1
+    done
+    printf 'guest command did not exit: %s\n' "$QGA_LABEL" >&2
+    exit 21
+  args:
+    executable: /bin/bash
+  environment:
+    QGA_DOMAIN: "{{ runtime_readiness_instance.instance_name }}"
+    QGA_CHECK: "{{ item.command }}"
+    QGA_LABEL: "{{ item.label }}"
+  loop:
+    - label: cloud-init completion marker
+      command: test -f /var/lib/cloud/instance/boot-finished
+    - label: ssh.service active
+      command: systemctl is-active --quiet ssh
+    - label: "TCP/{{ runtime_readiness_instance.ssh_port }} listening"
+      command: >-
+        ss -H -lnt 'sport = :{{ runtime_readiness_instance.ssh_port }}' | grep -q .
+  loop_control:
+    label: "{{ runtime_readiness_instance.instance_name }}: {{ item.label }}"
+  register: runtime_qga_checkpoint_result
+  until: (runtime_qga_checkpoint_result.rc | int) == 0
+  retries: >-
+    {{
+      (
+        (kvm_qemu_guest_agent_wait_timeout_seconds | int)
+        + (kvm_qemu_guest_agent_poll_interval_seconds | int)
+        - 1
+      )
+      // (kvm_qemu_guest_agent_poll_interval_seconds | int)
+    }}
+  delay: "{{ kvm_qemu_guest_agent_poll_interval_seconds | int }}"
+  changed_when: false
+  failed_when: false
+
+- name: "Readiness | Fail incomplete guest checkpoints | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.fail:
+    msg: >-
+      Guest readiness checkpoint '{{ item.item.label }}' did not complete for
+      {{ runtime_readiness_instance.instance_name }} within
+      {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds.
+      rc={{ item.rc }} stderr={{ item.stderr | default('') }}.
+      Provisioning did not shut down the guest, remove seed media, or create a snapshot.
+  loop: "{{ runtime_qga_checkpoint_result.results | default([]) }}"
+  loop_control:
+    label: "{{ runtime_readiness_instance.instance_name }}:{{ item.item.label }}"
+  when: (item.rc | int) != 0
+
+- name: "Readiness | Complete | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.debug:
+    msg: >-
+      QEMU Guest Agent, cloud-init, ssh.service, and the configured SSH listener
+      are ready. Snapshot reconciliation may continue.

@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help require-venv deps-bundle lint check ping image-cache provision-check provision cleanup cleanup-force cleanup-force-disks
+.PHONY: help venv require-venv deps-bundle lint check ping image-cache checksum-refresh provision-check provision cleanup cleanup-force cleanup-force-disks
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -9,9 +9,6 @@ INVENTORY ?= host.yml
 PLAYBOOK_FILE ?= playbook.yml
 VENV := $(PROJECT_ROOT)/venv
 WHEELHOUSE := $(PROJECT_ROOT)/wheelhouse
-PYTHON ?= python3
-PIP := $(VENV)/bin/pip
-ANSIBLE_PLAYBOOK := $(VENV)/bin/ansible-playbook
 VENV_ACTIVATE := . $(VENV)/bin/activate
 LIMIT ?=
 EXTRA_ARGS ?=
@@ -19,12 +16,13 @@ EXTRA_ARGS ?=
 help:
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
-	@printf "  %-28s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
+	@printf "  %-28s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-28s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "syntax-check playbook entrypoint"
 	@printf "  %-28s %s\n" "make lint" "run ansible-lint"
 	@printf "  %-28s %s\n" "make ping" "test connectivity to hypervisor"
 	@printf "  %-28s %s\n" "make image-cache" "download/verify cached cloud images for referenced profiles"
+	@printf "  %-28s %s\n" "make checksum-refresh" "refresh trusted checksum data for pinned images"
 	@printf "  %-28s %s\n" "make provision" "execute full provisioning workflow"
 	@printf "  %-28s %s\n" "make provision-check" "run preflight stage in --check mode (no mutation by default)"
 	@printf "  %-28s %s\n" "make cleanup" "preview cleanup scope (declared instance names only)"
@@ -33,6 +31,9 @@ help:
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit inventory scope"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
+
+venv:
+	$(MAKE) -C $(PROJECT_ROOT) venv
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \

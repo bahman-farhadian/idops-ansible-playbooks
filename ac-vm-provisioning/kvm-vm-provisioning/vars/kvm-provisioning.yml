@@ -64,7 +64,7 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
 # -----------------------------------------------------------------------------
 # Cloud-init guest access defaults (overridable per instance)
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_user: "debian"                       # Initial guest username created by cloud-init.
+kvm_default_cloud_init_user: "idops"                       # Initial guest username created by cloud-init.
 kvm_default_cloud_init_ssh_public_keys: []                  # Initial SSH authorized keys for cloud-init user.
 kvm_default_cloud_init_plain_password: "idopspassword"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
 kvm_default_cloud_init_root_plain_password: "idopspassword" # Optional root password (leave empty to keep root password locked).
@@ -79,7 +79,7 @@ kvm_default_cloud_init_manage_etc_hosts: true            # Manage /etc/hosts ent
 kvm_default_cloud_init_timezone: "UTC"                   # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
 kvm_default_cloud_init_locale: "en_US.UTF-8"             # Guest locale.
 kvm_default_cloud_init_package_update: true              # Run apt update during first boot.
-kvm_default_cloud_init_package_upgrade: true             # Run apt upgrade during first boot.
+kvm_default_cloud_init_package_upgrade: false             # Run apt upgrade during first boot.
 kvm_default_cloud_init_package_reboot_if_required: false # Reboot automatically if upgrades require it.
 kvm_default_cloud_init_apt_config:                       # Default Debian APT mirrors (cloud-init apt map).
   preserve_sources_list: true
@@ -89,7 +89,7 @@ kvm_default_cloud_init_apt_config:                       # Default Debian APT mi
   security:
     - arches: [default]
       uri: "http://deb.debian.org/debian-security"
-kvm_default_cloud_init_packages: []                                             # Package list to install on first boot.
+kvm_default_cloud_init_packages: [openssh-server, qemu-guest-agent]            # Package list to install on first boot; SSH and guest agent services are mandatory.
 kvm_default_cloud_init_bootcmd: []                                              # cloud-init bootcmd list.
 kvm_default_cloud_init_runcmd: []                                               # cloud-init runcmd list.
 kvm_default_cloud_init_write_files: []                                          # cloud-init write_files list.
@@ -109,25 +109,26 @@ kvm_default_instance_extra_disks: []            # Extra disk list. Values: [] | 
 # Runtime behavior
 # -----------------------------------------------------------------------------
 kvm_ensure_requested_instances_running: true        # Ensure requested instances are running in runtime stage.
-kvm_wait_for_instance_ssh: true                     # Wait for TCP reachability on ssh_port after start phases.
-kvm_wait_for_ssh_timeout_seconds: 180               # TCP wait timeout per instance in seconds.
-kvm_debian12_network_boot_wait_timeout_seconds: 360 # Debian 12 first-boot TCP wait timeout to absorb slower network bring-up.
-kvm_wait_for_cloud_init_before_snapshot: true       # Enforce pre-snapshot readiness gate for newly created instances.
-kvm_skip_pre_snapshot_port_recheck: true            # Skip duplicate pre-snapshot TCP wait when runtime TCP wait already passed.
+kvm_wait_for_cloud_init_before_snapshot: true       # Mandatory readiness gate for domains missing the baseline snapshot.
+kvm_qemu_guest_agent_wait_timeout_seconds: 600      # Maximum wait per visible guest readiness checkpoint.
+kvm_qemu_guest_agent_poll_interval_seconds: 5       # Delay between QEMU Guest Agent readiness retries.
+kvm_shutdown_wait_retries: 60                       # Maximum clean-shutdown state checks before snapshot creation.
+kvm_shutdown_wait_delay_seconds: 3                  # Delay between clean-shutdown state checks.
 
 # -----------------------------------------------------------------------------
 # Snapshot behavior
 # -----------------------------------------------------------------------------
-kvm_snapshot_enabled: true                        # Create snapshots after provisioning for newly created instances.
+kvm_snapshot_enabled: true                        # Mandatory external baseline snapshot reconciliation for declared domains.
 kvm_snapshot_name: "snapshot-a"                   # Snapshot name label.
 kvm_snapshot_description: "initial configuration" # Snapshot description.
-kvm_start_instances_after_snapshot: true          # Start newly created instances after snapshot phase.
+kvm_snapshot_overlay_path: "{{ kvm_instance_disk_pool_path }}/snapshots" # External snapshot qcow2 overlay directory.
+kvm_start_instances_after_snapshot: true          # Start reconciled instances after creating a missing snapshot.
 
 # -----------------------------------------------------------------------------
 # Cleanup safeguards
 # -----------------------------------------------------------------------------
 kvm_cleanup_confirmed: false             # Safety flag for cleanup action.
-kvm_cleanup_remove_instance_disks: false # Remove declared instance disks + seed disks during cleanup.
+kvm_cleanup_remove_instance_disks: false # Remove declared instance disks, snapshot overlays, and stale seed disks during cleanup.
 
 # -----------------------------------------------------------------------------
 # Runtime access behavior (libvirt/qemu user)
@@ -156,27 +157,25 @@ kvm_cloud_image_catalog:
     image_codename: "bookworm"          # Debian codename for this major.
     image_major: "12"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
-    image_version: ""                   # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_version: "20260806-2562"                   # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
     image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
     # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
     virt_install_os_variant: "debian12" # OS variant for virt-install.
     virt_install_machine_type: "q35"    # Keep aligned with Debian 13 profile.
     seed_device_bus: "scsi"             # Keep aligned with Debian 13 profile.
-    cloud_init_user: "debian"           # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"          # Keep aligned with Debian 13 profile.
+    firmware_boot_mode: "uefi"          # Required for the tested Debian cloud-image workflow.
 
   debian-13:
     image_codename: "trixie"            # Debian codename for this major.
     image_major: "13"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
-    image_version: ""                   # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_version: "20260810-2566"                   # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
     image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
     # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
     virt_install_os_variant: "debian13" # OS variant for virt-install.
     virt_install_machine_type: "q35"    # Debian 13 profile uses q35 machine.
     seed_device_bus: "scsi"             # Keep aligned with Debian 12 profile.
-    cloud_init_user: "debian"           # Default cloud-init username for this profile.
-    firmware_boot_mode: "uefi"          # Keep aligned with Debian 12 profile.
+    firmware_boot_mode: "uefi"          # Required for Debian 13 cloud-image boot on this hypervisor.
 
 # -----------------------------------------------------------------------------
 # Instance definitions (managed scope for provision + cleanup)

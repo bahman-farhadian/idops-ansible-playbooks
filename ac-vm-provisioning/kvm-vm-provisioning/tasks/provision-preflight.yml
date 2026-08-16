@@ -9,11 +9,13 @@
       - kvm_image_cache_path is match('^/')
       - kvm_instance_disk_pool_path is defined
       - kvm_instance_disk_pool_path is match('^/')
+      - kvm_snapshot_overlay_path is defined
+      - kvm_snapshot_overlay_path is match('^/')
       - kvm_cloud_init_workspace_path is defined
       - kvm_cloud_init_workspace_path is match('^/')
     fail_msg: >-
-      kvm_image_cache_path, kvm_instance_disk_pool_path, and kvm_cloud_init_workspace_path
-      must be absolute paths on the hypervisor.
+      kvm_image_cache_path, kvm_instance_disk_pool_path, kvm_snapshot_overlay_path,
+      and kvm_cloud_init_workspace_path must be absolute paths on the hypervisor.
 
 - name: Ensure image cache path exists when auto-create is enabled
   ansible.builtin.file:
@@ -87,6 +89,7 @@
     - qemu-img
     - cloud-localds
     - virt-install
+    - runuser
   loop_control:
     label: "{{ item }}"
   register: preflight_command_checks
@@ -108,9 +111,10 @@
       virsh -> libvirt-clients,
       qemu-img -> qemu-utils,
       cloud-localds -> cloud-image-utils,
-      virt-install -> virtinst.
+      virt-install -> virtinst,
+      runuser -> util-linux.
       Example:
-      sudo apt update && sudo apt install -y libvirt-clients qemu-utils cloud-image-utils virtinst acl
+      sudo apt update && sudo apt install -y libvirt-clients qemu-utils cloud-image-utils virtinst acl util-linux
   when: >-
     (
       preflight_command_checks.results

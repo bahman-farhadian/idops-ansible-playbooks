@@ -50,7 +50,19 @@
                   resolved_cloud_image_path_by_profile[item.image_profile_id]
                   | default(normalized_image_cache_path ~ '/' ~ item.image_filename)
                 ),
-                'instance_disk_path': (normalized_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '.' ~ item.instance_disk_extension),
+                'instance_disk_path': (
+                  normalized_instance_disk_pool_path
+                  ~ '/'
+                  ~ item.instance_name
+                  ~ '-vda.'
+                  ~ item.instance_disk_extension
+                ),
+                'provision_state_path': (
+                  normalized_instance_disk_pool_path
+                  ~ '/.'
+                  ~ item.instance_name
+                  ~ '.provisioning'
+                ),
                 'seed_disk_path': (normalized_instance_disk_pool_path ~ '/' ~ item.instance_name ~ '-seed.img'),
                 'cloud_init_user_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-user-data.yaml'),
                 'cloud_init_meta_data_path': (normalized_cloud_init_workspace_path ~ '/' ~ item.instance_name ~ '-meta-data.yaml'),
@@ -98,6 +110,7 @@
     - qemu-img
     - cloud-localds
     - virt-install
+    - runuser
   loop_control:
     label: "{{ item }}"
   register: provision_command_checks
@@ -212,9 +225,14 @@
 
 - name: Validate runtime user access to instance disk pool path
   ansible.builtin.command:
-    cmd: "stat {{ kvm_instance_disk_pool_path }}"
+    argv:
+      - runuser
+      - -u
+      - "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+      - --
+      - stat
+      - "{{ kvm_instance_disk_pool_path }}"
   become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
   register: runtime_pool_access_check
   changed_when: false
   failed_when: false
@@ -239,12 +257,17 @@
 
 - name: Validate runtime user access to base cloud images
   ansible.builtin.command:
-    cmd: "stat {{ item }}"
+    argv:
+      - runuser
+      - -u
+      - "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+      - --
+      - stat
+      - "{{ item }}"
   loop: "{{ provision_required_base_images | default([]) }}"
   loop_control:
     label: "{{ item }}"
   become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
   register: runtime_base_image_access_check
   changed_when: false
   failed_when: false
@@ -328,9 +351,14 @@
 
 - name: Re-check runtime user access to instance disk pool path
   ansible.builtin.command:
-    cmd: "stat {{ kvm_instance_disk_pool_path }}"
+    argv:
+      - runuser
+      - -u
+      - "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+      - --
+      - stat
+      - "{{ kvm_instance_disk_pool_path }}"
   become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
   register: runtime_pool_access_check_after_fix
   changed_when: false
   failed_when: false
@@ -341,12 +369,17 @@
 
 - name: Re-check runtime user access to base cloud images
   ansible.builtin.command:
-    cmd: "stat {{ item }}"
+    argv:
+      - runuser
+      - -u
+      - "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
+      - --
+      - stat
+      - "{{ item }}"
   loop: "{{ provision_required_base_images | default([]) }}"
   loop_control:
     label: "{{ item }}"
   become: true
-  become_user: "{{ kvm_libvirt_runtime_user | default('libvirt-qemu') }}"
   register: runtime_base_image_access_check_after_fix
   changed_when: false
   failed_when: false
@@ -403,6 +436,27 @@
   register: instance_disk_stats
   changed_when: false
 
+- name: Check partial-provision ownership markers
+  ansible.builtin.stat:
+    path: "{{ item.provision_state_path }}"
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: partial_provision_marker_stats
+  changed_when: false
+
+- name: Build list of workflow-owned partial provisions
+  ansible.builtin.set_fact:
+    workflow_owned_partial_instances: >-
+      {{
+        partial_provision_marker_stats.results
+        | default([])
+        | selectattr('stat.exists', 'defined')
+        | selectattr('stat.exists', 'equalto', true)
+        | map(attribute='item.instance_name')
+        | list
+      }}
+
 - name: Fail when target instance disk files already exist and reuse is disabled
   ansible.builtin.fail:
     msg: >-
@@ -417,6 +471,73 @@
   when:
     - item.stat.exists | default(false)
     - not (kvm_allow_reuse_existing_instance_disks | default(false) | bool)
+    - item.item.instance_name not in (workflow_owned_partial_instances | default([]))
+
+- name: Inspect workflow-owned partial root disks
+  ansible.builtin.command:
+    argv:
+      - qemu-img
+      - info
+      - --output=json
+      - "{{ item.item.instance_disk_path }}"
+  loop: "{{ instance_disk_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  register: partial_root_disk_info_results
+  changed_when: false
+  failed_when: false
+  when:
+    - item.stat.exists | default(false)
+    - item.item.instance_name in (workflow_owned_partial_instances | default([]))
+
+- name: Validate workflow-owned partial root disks
+  ansible.builtin.assert:
+    that:
+      - (item.rc | int) == 0
+      - (item.stdout | from_json).format == item.item.item.instance_disk_extension
+      - ((item.stdout | from_json)['virtual-size'] | int) <= ((item.item.item.root_disk_size_gb | int) * 1073741824)
+    fail_msg: >-
+      Workflow-owned partial root disk failed validation for
+      {{ item.item.item.instance_name }}: {{ item.item.item.instance_disk_path }}.
+      Refusing unsafe reuse; inspect the image or run make cleanup-force-disks.
+  loop: "{{ partial_root_disk_info_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.item.instance_name | default('skipped') }}"
+  when: not (item.skipped | default(false))
+
+- name: Create partial-provision ownership markers before disk mutation
+  ansible.builtin.copy:
+    dest: "{{ item.provision_state_path }}"
+    content: |
+      instance={{ item.instance_name }}
+      root_disk={{ item.instance_disk_path }}
+    mode: "0600"
+    force: false
+  loop: "{{ instances_to_create_materialized | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
+- name: Complete resize of workflow-owned partial root disks
+  ansible.builtin.command:
+    argv:
+      - qemu-img
+      - resize
+      - "{{ item.item.item.instance_disk_path }}"
+      - "{{ item.item.item.root_disk_size_gb }}G"
+  loop: "{{ partial_root_disk_info_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.item.instance_name | default('skipped') }}"
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - not (item.skipped | default(false))
+    - >-
+      ((item.stdout | from_json)['virtual-size'] | int)
+      <
+      ((item.item.item.root_disk_size_gb | int) * 1073741824)
 
 - name: Build list of instances requiring fresh disk creation
   ansible.builtin.set_fact:
@@ -470,7 +591,7 @@
     - kvm_run_mutation_phases | bool
     - (instances_requiring_disk_create | default([])) | length > 0
 
-- name: Check additional disk files for instances requiring creation
+- name: Check additional disk files for domains requiring creation
   ansible.builtin.stat:
     path: >-
       {{
@@ -482,14 +603,14 @@
         ~ '.'
         ~ (item.1.disk_extension | default(item.0.instance_disk_extension))
       }}
-  loop: "{{ (instances_requiring_disk_create | default([])) | subelements('instance_extra_disks', skip_missing=True) }}"
+  loop: "{{ (instances_to_create_materialized | default([])) | subelements('instance_extra_disks', skip_missing=True) }}"
   loop_control:
     label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
   register: additional_disk_stats
   changed_when: false
   when:
     - kvm_run_mutation_phases | bool
-    - (instances_requiring_disk_create | default([])) | length > 0
+    - (instances_to_create_materialized | default([])) | length > 0
     - item.0.instance_extra_disks_enabled | bool
 
 - name: Fail when additional disk files already exist and reuse is disabled
@@ -514,6 +635,59 @@
   when:
     - item.stat.exists | default(false)
     - not (kvm_allow_reuse_existing_instance_disks | default(false) | bool)
+    - item.item.0.instance_name not in (workflow_owned_partial_instances | default([]))
+
+- name: Inspect workflow-owned partial additional disks
+  ansible.builtin.command:
+    argv:
+      - qemu-img
+      - info
+      - --output=json
+      - >-
+        {{
+          normalized_instance_disk_pool_path
+          ~ '/'
+          ~ item.item.0.instance_name
+          ~ '-'
+          ~ item.item.1.guest_device
+          ~ '.'
+          ~ (item.item.1.disk_extension | default(item.item.0.instance_disk_extension))
+        }}
+  loop: "{{ additional_disk_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.0.instance_name }}:{{ item.item.1.guest_device }}"
+  register: partial_additional_disk_info_results
+  changed_when: false
+  failed_when: false
+  when:
+    - item.stat.exists | default(false)
+    - item.item.0.instance_name in (workflow_owned_partial_instances | default([]))
+
+- name: Validate workflow-owned partial additional disks
+  ansible.builtin.assert:
+    that:
+      - (item.rc | int) == 0
+      - >-
+        (item.stdout | from_json).format
+        ==
+        (item.item.item.1.disk_extension | default(item.item.item.0.instance_disk_extension))
+      - >-
+        ((item.stdout | from_json)['virtual-size'] | int)
+        ==
+        ((item.item.item.1.size_gb | int) * 1073741824)
+    fail_msg: >-
+      Workflow-owned partial additional disk failed validation for
+      {{ item.item.item.0.instance_name }}:{{ item.item.item.1.guest_device }}.
+      Refusing unsafe reuse; inspect the image or run make cleanup-force-disks.
+  loop: "{{ partial_additional_disk_info_results.results | default([]) }}"
+  loop_control:
+    label: >-
+      {{
+        item.item.item.0.instance_name
+        ~ ':'
+        ~ item.item.item.1.guest_device
+      }}
+  when: not (item.skipped | default(false))
 
 - name: Build list of additional disks requiring creation
   ansible.builtin.set_fact:
@@ -521,13 +695,14 @@
       {{
         additional_disk_stats.results
         | default([])
+        | selectattr('stat.exists', 'defined')
         | rejectattr('stat.exists', 'equalto', true)
         | map(attribute='item')
         | list
       }}
   when:
     - kvm_run_mutation_phases | bool
-    - (instances_requiring_disk_create | default([])) | length > 0
+    - (instances_to_create_materialized | default([])) | length > 0
 
 - name: Build additional-disk creation batches
   ansible.builtin.set_fact:
@@ -648,12 +823,12 @@
         - {{ boot_command | to_json }}
       {% endfor %}
       {% endif %}
-      {% if (item.cloud_init_runcmd | default([])) | length > 0 %}
       runcmd:
       {% for run_command in item.cloud_init_runcmd %}
         - {{ run_command | to_json }}
       {% endfor %}
-      {% endif %}
+        - [systemctl, enable, --now, qemu-guest-agent.service]
+        - [systemctl, enable, --now, ssh.service]
       {% if (item.instance_extra_disks_enabled | bool) and ((item.instance_extra_disks | default([])) | length > 0) %}
       disk_setup:
       {% for extra_disk in item.instance_extra_disks %}
@@ -723,7 +898,7 @@
           addresses:
             - {{ item.instance_ipv4_address }}/{{ item.guest_network_prefix }}
           routes:
-            - to: default
+            - to: 0.0.0.0/0
               via: {{ item.guest_network_gateway }}
           nameservers:
             addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
