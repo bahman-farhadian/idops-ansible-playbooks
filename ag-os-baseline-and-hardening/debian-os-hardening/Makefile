@@ -91,7 +91,7 @@ help:
 	@printf "  %-28s %s\n" "EXTRA_ARGS='<raw args>'" "pass raw ansible args"
 
 require-venv:
-	@test -x "$(VENV)/bin/activate" || { \
+	@test -f "$(VENV)/bin/activate" || { \
 		echo "Shared Python venv not found at $(VENV)."; \
 		echo "Create it once from the repository root with: make venv"; \
 		exit 1; \

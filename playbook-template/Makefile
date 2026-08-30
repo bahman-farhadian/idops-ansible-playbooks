@@ -28,7 +28,7 @@ help:
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
 require-venv:
-	@test -x "$(VENV)/bin/activate" || { \
+	@test -f "$(VENV)/bin/activate" || { \
 		echo "Shared Python venv not found at $(VENV)."; \
 		echo "Create it once from the repository root with: make venv"; \
 		exit 1; \
