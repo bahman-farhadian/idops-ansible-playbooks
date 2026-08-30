@@ -127,6 +127,129 @@
   ansible.builtin.set_fact:
     kvm_preflight_commands_validated: true
 
+- name: Build CPU share capped instance list
+  ansible.builtin.set_fact:
+    cpu_share_capped_instances: >-
+      {{
+        normalized_instances
+        | selectattr('cpu_share_enabled', 'equalto', true)
+        | list
+      }}
+
+# A hard vCPU cap is enforced through the kernel CFS bandwidth controller.
+# Without the cgroup cpu controller libvirt cannot honour <cputune> quota, so
+# the overcommit guarantee would silently degrade to plain time sharing.
+- name: Check cgroup CPU bandwidth controller support for CPU share
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
+      grep -qw cpu /sys/fs/cgroup/cgroup.controllers && echo supported || echo missing
+    elif [ -f /sys/fs/cgroup/cpu/cpu.cfs_quota_us ]; then
+      echo supported
+    else
+      echo missing
+    fi
+  args:
+    executable: /bin/bash
+  register: cpu_share_cgroup_support
+  changed_when: false
+  check_mode: false
+  when: (cpu_share_capped_instances | length) > 0
+
+- name: Fail when CPU share is requested but CFS bandwidth control is unavailable
+  ansible.builtin.fail:
+    msg: >-
+      CPU share is enabled for instance(s) {{
+      cpu_share_capped_instances | map(attribute='instance_name') | join(', ')
+      }}, but the hypervisor kernel does not expose the cgroup cpu controller.
+      libvirt cannot enforce a vCPU quota without CFS bandwidth control, so the
+      requested overcommit ratio could not be guaranteed.
+      Enable the cgroup cpu controller (kernel CONFIG_CFS_BANDWIDTH and, on
+      cgroup v2, the cpu controller in /sys/fs/cgroup/cgroup.controllers), or
+      set cpu_share_enabled=false on those instances.
+  when:
+    - (cpu_share_capped_instances | length) > 0
+    - (cpu_share_cgroup_support.stdout | default('missing') | trim) != 'supported'
+
+- name: Discover host CPU count for the CPU share capacity guard
+  ansible.builtin.shell: |
+    set -euo pipefail
+    virsh nodeinfo | awk -F':' '$1 ~ /^CPU\(s\)/ {gsub(/[[:space:]]/,"",$2); print $2}'
+  args:
+    executable: /bin/bash
+  register: cpu_share_host_cpu_result
+  changed_when: false
+  check_mode: false
+  when: kvm_cpu_share_validate_host_capacity | bool
+
+# Capped instances are counted at vcpu_count/ratio because their quota makes
+# that their true ceiling; uncapped instances are counted at full vcpu_count.
+- name: Build CPU share host capacity model
+  ansible.builtin.set_fact:
+    cpu_share_host_cpu_total: "{{ cpu_share_host_cpu_result.stdout | default('0') | trim | int }}"
+    cpu_share_host_cpu_usable: >-
+      {{
+        (cpu_share_host_cpu_result.stdout | default('0') | trim | int)
+        - (kvm_cpu_share_host_cpu_reserve | int)
+      }}
+    cpu_share_effective_demand: >-
+      {{
+        (
+          normalized_instances
+          | rejectattr('cpu_share_enabled', 'equalto', true)
+          | map(attribute='vcpu_count')
+          | map('int')
+          | sum
+        )
+        +
+        (
+          (
+            normalized_instances
+            | selectattr('cpu_share_enabled', 'equalto', true)
+            | map(attribute='vcpu_count')
+            | map('int')
+            | sum
+          )
+          / (kvm_cpu_share_vcpu_per_host_cpu | int)
+        )
+      }}
+  when: kvm_cpu_share_validate_host_capacity | bool
+
+- name: Report CPU share capacity model
+  ansible.builtin.debug:
+    msg: >-
+      host_cpus={{ cpu_share_host_cpu_total }}
+      reserved={{ kvm_cpu_share_host_cpu_reserve }}
+      usable={{ cpu_share_host_cpu_usable }}
+      effective_demand={{ cpu_share_effective_demand }}
+      capped={{ cpu_share_capped_instances | map(attribute='instance_name') | list }}
+      ratio={{ kvm_cpu_share_vcpu_per_host_cpu }}:1
+  when: kvm_cpu_share_validate_host_capacity | bool
+
+# Only enforced once at least one instance is capped: without a cap there is no
+# overcommit guarantee to protect and the host keeps its previous time-sharing
+# behaviour, so existing uncapped deployments are not newly rejected.
+- name: Fail when CPU share demand exceeds usable host CPUs
+  ansible.builtin.fail:
+    msg: >-
+      Total CPU demand {{ cpu_share_effective_demand }} exceeds the usable host
+      CPU budget {{ cpu_share_host_cpu_usable }}
+      ({{ cpu_share_host_cpu_total }} host CPUs minus
+      {{ kvm_cpu_share_host_cpu_reserve }} reserved).
+      Capped instances are counted at vcpu_count /
+      {{ kvm_cpu_share_vcpu_per_host_cpu }}; uncapped instances are counted at
+      full vcpu_count:
+      capped={{ cpu_share_capped_instances | map(attribute='instance_name') | join(', ') }}.
+      Lower vcpu_count, enable cpu_share_enabled on more instances, reduce
+      kvm_cpu_share_host_cpu_reserve, or accept the risk with
+      kvm_cpu_share_allow_capacity_overcommit=true.
+  when:
+    - kvm_cpu_share_validate_host_capacity | bool
+    - (cpu_share_capped_instances | length) > 0
+    - not (kvm_cpu_share_allow_capacity_overcommit | bool)
+    - (cpu_share_host_cpu_total | int) > 0
+    - (cpu_share_effective_demand | float) > (cpu_share_host_cpu_usable | float)
+
 - name: Check setfacl availability when runtime ACL auto-fix is enabled
   ansible.builtin.command:
     cmd: which setfacl

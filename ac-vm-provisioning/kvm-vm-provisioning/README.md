@@ -23,6 +23,8 @@ Scope: this playbook supports **Debian images only**.
   declared disks attached before the first cloud-init boot
 - Observed-state runtime reconciliation with mandatory external snapshots
 - Optional CPU topology policy to force `sockets=1,threads=1` per instance
+- Optional CPU share capping for controlled overcommit, where N vCPUs are
+  worth one host CPU (hard CFS quota, not a relative weight)
 - Strict cleanup scope to declared instance names only
 
 ## Directory Layout
@@ -30,6 +32,7 @@ Scope: this playbook supports **Debian images only**.
 - `playbook.yml` (single playbook entrypoint)
 - `tasks/provision.yml` (stage orchestrator)
 - `tasks/provision-preflight.yml`
+- `tasks/provision-cpu-share.yml`
 - `tasks/provision-resolve-checksum-cache.yml`
 - `tasks/provision-image-cache.yml`
 - `tasks/provision-instances.yml`
@@ -316,8 +319,88 @@ Core interface keys:
 - `kvm_qemu_guest_agent_wait_timeout_seconds`
 - `kvm_qemu_guest_agent_poll_interval_seconds`
 - `kvm_force_single_socket_vcpu_topology`
+- `kvm_default_cpu_share_enabled`
+- `kvm_cpu_share_vcpu_per_host_cpu`
+- `kvm_cpu_share_period_microseconds`
+- `kvm_cpu_share_validate_host_capacity`
+- `kvm_cpu_share_host_cpu_reserve`
+- `kvm_cpu_share_allow_capacity_overcommit`
 - `kvm_cleanup_confirmed`
 - `kvm_cleanup_remove_instance_disks`
+
+## CPU Share And Controlled Overcommit
+
+`cpu_share_enabled` caps an instance so that a fixed number of vCPUs are worth
+one host CPU. With the default ratio of `2`, a 4 vCPU guest can never consume
+more than 2 host CPUs, which is what makes it safe to place more vCPUs on a
+host than it has physical CPUs.
+
+Enable it globally or per instance:
+
+```yaml
+kvm_default_cpu_share_enabled: false   # global default
+kvm_cpu_share_vcpu_per_host_cpu: 2     # 2 vCPU == 1 host CPU
+
+kvm_instance_definitions:
+  - instance_name: "debian-13-b"
+    vcpu_count: 4
+    cpu_share_enabled: true            # capped at 2 host CPUs
+```
+
+### How The Cap Is Enforced
+
+The ratio is applied as a Linux CFS bandwidth quota, written to the domain as:
+
+```xml
+<cputune>
+  <period>100000</period>
+  <quota>50000</quota>
+</cputune>
+```
+
+`quota`/`period` is a **per-vCPU** ceiling, so `50000/100000` gives every vCPU
+half a host CPU. This is a hard cap enforced by the kernel scheduler, not a
+relative `shares` weight: a capped guest cannot exceed its budget no matter how
+idle the host is, so bursty guests cannot contend for the same physical time
+slices. The trade-off is deliberate — a capped guest will not use spare host
+capacity, which is what buys the predictability.
+
+`quota = kvm_cpu_share_period_microseconds / kvm_cpu_share_vcpu_per_host_cpu`
+and must stay inside the libvirt range `1000-17592186044415`; `period` must stay
+inside `1000-1000000`. Both are validated before anything is applied.
+
+### Reconciliation
+
+The cap is reconciled on every `provision` and `runtime` stage run, for existing
+domains as well as new ones:
+
+- Turning `cpu_share_enabled` on caps an already-defined domain in place
+- Turning it off clears the cap (`vcpu_quota=-1`)
+- Domains already at the requested values are left untouched (idempotent)
+- Changes are written to the persistent config, and also applied live to running
+  domains when `kvm_cpu_share_apply_to_running_domains` is true
+- Every applied change is read back and asserted, so a cap that silently fails
+  to take effect fails the run instead of passing quietly
+
+Toggling the flag therefore converges without recreating the domain.
+
+### Capacity Guard
+
+When at least one instance is capped, preflight refuses to proceed if total CPU
+demand exceeds the usable host budget:
+
+```
+demand  = sum(uncapped vcpu_count) + sum(capped vcpu_count) / ratio
+usable  = host CPUs - kvm_cpu_share_host_cpu_reserve
+```
+
+Capped instances count at their true ceiling; uncapped instances count at full
+`vcpu_count`. Set `kvm_cpu_share_allow_capacity_overcommit=true` to proceed
+anyway. The guard is skipped entirely when no instance is capped, so existing
+uncapped deployments keep their previous behavior.
+
+Preflight also verifies the hypervisor exposes the cgroup `cpu` controller,
+since libvirt cannot enforce a quota without CFS bandwidth control.
 
 ## Seed Configuration
 

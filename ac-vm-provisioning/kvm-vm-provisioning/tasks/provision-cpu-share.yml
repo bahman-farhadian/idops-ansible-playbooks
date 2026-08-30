@@ -1,0 +1,277 @@
+---
+# =========================================================================
+# CPU SHARE: controlled vCPU bandwidth capping
+# Reconciles <cputune><period>/<quota> on every declared domain so that
+# kvm_cpu_share_vcpu_per_host_cpu vCPUs are worth at most one host CPU.
+#
+# quota/period is a per-vCPU CFS bandwidth cap, so a ratio of 2 gives each
+# vCPU half a host CPU: a 4 vCPU guest can never exceed 2 host CPUs. Because
+# the ceiling is enforced by the kernel rather than negotiated between
+# guests, overcommitted instances cannot race for the same time slices.
+#
+# This runs for both freshly defined and pre-existing domains, and reverts
+# the cap (vcpu_quota=-1) when the flag is turned off, so toggling
+# cpu_share_enabled always converges without recreating the domain.
+# =========================================================================
+- name: Initialize CPU share reconciliation state
+  ansible.builtin.set_fact:
+    cpu_share_model: []
+    cpu_share_to_apply: []
+
+- name: Check which declared domains exist for CPU share reconciliation
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - dominfo
+      - "{{ item.instance_name }}"
+  loop: "{{ normalized_instances }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: cpu_share_domain_presence
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+- name: Build CPU share reconciliation target list
+  ansible.builtin.set_fact:
+    cpu_share_targets: >-
+      {{
+        normalized_instances
+        | zip(cpu_share_domain_presence.results)
+        | selectattr('1.rc', 'eq', 0)
+        | map(attribute='0')
+        | list
+      }}
+
+- name: Report domains skipped by CPU share reconciliation
+  ansible.builtin.debug:
+    msg: >-
+      CPU share reconciliation skipped for not-yet-defined domain(s):
+      {{
+        normalized_instances
+        | map(attribute='instance_name')
+        | difference(cpu_share_targets | map(attribute='instance_name') | list)
+        | join(', ')
+      }}
+  when:
+    - (cpu_share_targets | length) < (normalized_instances | length)
+
+- name: Read current CPU scheduler parameters for declared domains
+  ansible.builtin.shell: |
+    set -euo pipefail
+    virsh schedinfo "{{ item.instance_name }}" --config | awk -F':' '
+      BEGIN {p = 0; q = 0}
+      $1 ~ /vcpu_period/ {gsub(/[[:space:]]/, "", $2); p = $2}
+      $1 ~ /vcpu_quota/  {gsub(/[[:space:]]/, "", $2); q = $2}
+      END {print p "|" q}'
+  args:
+    executable: /bin/bash
+  loop: "{{ cpu_share_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: cpu_share_current_schedinfo
+  changed_when: false
+  check_mode: false
+
+- name: Read current run state for declared domains
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ cpu_share_targets }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: cpu_share_domain_states
+  changed_when: false
+  check_mode: false
+
+- name: Build CPU share reconciliation model
+  vars:
+    cpu_share_observed: "{{ (item.1.stdout | default('') | trim) or '0|0' }}"
+  ansible.builtin.set_fact:
+    cpu_share_model: >-
+      {{
+        cpu_share_model
+        + [
+            {
+              'instance_name': item.0.instance_name,
+              'enabled': (item.0.cpu_share_enabled | bool),
+              'vcpu_count': (item.0.vcpu_count | int),
+              'running': (((item.2.stdout | default('')) | trim) == 'running'),
+              'current_period': (cpu_share_observed.split('|')[0] | int),
+              'current_quota': (cpu_share_observed.split('|')[1] | int),
+              'desired_period': (kvm_cpu_share_period_microseconds | int),
+              'desired_quota': (
+                (kvm_cpu_share_quota_microseconds | int)
+                if (item.0.cpu_share_enabled | bool)
+                else -1
+              ),
+              'set_args': (
+                [
+                  '--set',
+                  'vcpu_period=' ~ (kvm_cpu_share_period_microseconds | int),
+                  '--set',
+                  'vcpu_quota=' ~ (kvm_cpu_share_quota_microseconds | int)
+                ]
+                if (item.0.cpu_share_enabled | bool)
+                else ['--set', 'vcpu_quota=-1']
+              )
+            }
+          ]
+      }}
+  loop: >-
+    {{
+      cpu_share_targets
+      | zip(
+          cpu_share_current_schedinfo.results | default([]),
+          cpu_share_domain_states.results | default([])
+        )
+      | list
+    }}
+  loop_control:
+    label: "{{ item.0.instance_name }}"
+
+# An uncapped domain reports quota 0 (never set) or -1 (explicitly cleared);
+# both already mean "no ceiling", so neither is rewritten.
+- name: Build CPU share drift list
+  ansible.builtin.set_fact:
+    cpu_share_to_apply: >-
+      {{
+        cpu_share_to_apply
+        + (
+            [item]
+            if (
+              (
+                item.enabled
+                and (
+                  (item.current_period | int) != (item.desired_period | int)
+                  or (item.current_quota | int) != (item.desired_quota | int)
+                )
+              )
+              or (
+                (not item.enabled)
+                and (item.current_quota | int) > 0
+              )
+            )
+            else []
+          )
+      }}
+  loop: "{{ cpu_share_model }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+
+- name: Report CPU share reconciliation plan
+  ansible.builtin.debug:
+    msg: >-
+      ratio={{ kvm_cpu_share_vcpu_per_host_cpu }}:1
+      period={{ kvm_cpu_share_period_microseconds }}us
+      quota={{ kvm_cpu_share_quota_microseconds }}us
+      capped={{ cpu_share_model | selectattr('enabled') | map(attribute='instance_name') | list }}
+      uncapped={{ cpu_share_model | rejectattr('enabled') | map(attribute='instance_name') | list }}
+      drift={{ cpu_share_to_apply | map(attribute='instance_name') | list }}
+
+- name: Apply CPU share to persistent domain configuration
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['virsh', 'schedinfo', item.instance_name, '--config']
+        + item.set_args
+      }}
+  loop: "{{ cpu_share_to_apply }}"
+  loop_control:
+    label: >-
+      {{ item.instance_name }}:{{ item.enabled | ternary('cap', 'uncap') }}
+  changed_when: true
+  when: kvm_run_mutation_phases | bool
+
+- name: Apply CPU share to running domains
+  ansible.builtin.command:
+    argv: >-
+      {{
+        ['virsh', 'schedinfo', item.instance_name, '--live']
+        + item.set_args
+      }}
+  loop: "{{ cpu_share_to_apply | selectattr('running') | list }}"
+  loop_control:
+    label: >-
+      {{ item.instance_name }}:{{ item.enabled | ternary('cap', 'uncap') }}
+  changed_when: true
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_cpu_share_apply_to_running_domains | bool
+
+- name: Verify CPU share state after reconciliation
+  ansible.builtin.shell: |
+    set -euo pipefail
+    virsh schedinfo "{{ item.instance_name }}" --config | awk -F':' '
+      BEGIN {p = 0; q = 0}
+      $1 ~ /vcpu_period/ {gsub(/[[:space:]]/, "", $2); p = $2}
+      $1 ~ /vcpu_quota/  {gsub(/[[:space:]]/, "", $2); q = $2}
+      END {print p "|" q}'
+  args:
+    executable: /bin/bash
+  loop: "{{ cpu_share_to_apply }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: cpu_share_verification
+  changed_when: false
+  check_mode: false
+  when: kvm_run_mutation_phases | bool
+
+# The cap is the whole point of the feature, so a silent no-op is treated as a
+# hard failure rather than trusting the exit status of virsh alone.
+- name: Fail when CPU share was not applied as requested
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.stdout | trim).split('|')[1] | int
+        ==
+        (item.item.desired_quota | int)
+      - >-
+        (not (item.item.enabled | bool))
+        or (
+          (item.stdout | trim).split('|')[0] | int
+          ==
+          (item.item.desired_period | int)
+        )
+    fail_msg: >-
+      CPU share reconciliation did not take effect on
+      {{ item.item.instance_name }}.
+      Requested period={{ item.item.desired_period }}us
+      quota={{ item.item.desired_quota }}us but libvirt reports
+      {{ item.stdout | trim }} (period|quota).
+      Verify the hypervisor kernel exposes the cgroup cpu controller.
+  loop: "{{ cpu_share_verification.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - item.stdout is defined
+
+- name: CPU share reconciliation summary
+  ansible.builtin.debug:
+    msg: >-
+      reconciled={{ cpu_share_to_apply | map(attribute='instance_name') | list }}
+      already_correct={{
+        cpu_share_model
+        | map(attribute='instance_name')
+        | difference(cpu_share_to_apply | map(attribute='instance_name') | list)
+      }}
+      host_cpu_cost={{
+        (
+          cpu_share_model
+          | selectattr('enabled')
+          | map(attribute='vcpu_count')
+          | map('int')
+          | sum
+        ) / (kvm_cpu_share_vcpu_per_host_cpu | int)
+        +
+        (
+          cpu_share_model
+          | rejectattr('enabled')
+          | map(attribute='vcpu_count')
+          | map('int')
+          | sum
+        )
+      }}

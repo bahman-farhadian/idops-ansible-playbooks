@@ -116,6 +116,48 @@
       readiness and shutdown retry values are > 0, and mandatory snapshot and
       cloud-init readiness policies remain enabled.
 
+- name: Validate CPU share policy settings
+  ansible.builtin.assert:
+    that:
+      - (kvm_cpu_share_vcpu_per_host_cpu | int) >= 1
+      - (kvm_cpu_share_period_microseconds | int) >= 1000
+      - (kvm_cpu_share_period_microseconds | int) <= 1000000
+      - (kvm_cpu_share_host_cpu_reserve | int) >= 0
+      - kvm_default_cpu_share_enabled is boolean
+      - kvm_cpu_share_validate_host_capacity is boolean
+      - kvm_cpu_share_allow_capacity_overcommit is boolean
+      - kvm_cpu_share_apply_to_running_domains is boolean
+    fail_msg: >-
+      Invalid CPU share policy. kvm_cpu_share_vcpu_per_host_cpu must be >= 1,
+      kvm_cpu_share_period_microseconds must be within the libvirt range
+      1000-1000000, kvm_cpu_share_host_cpu_reserve must be >= 0, and the
+      CPU share boolean switches must be true or false.
+
+# quota is per vCPU: each vCPU may burn quota out of every period, so a ratio of
+# 2 gives every vCPU half a host CPU and makes 2 vCPUs worth exactly 1 host CPU.
+- name: Build CPU share enforcement model
+  ansible.builtin.set_fact:
+    kvm_cpu_share_quota_microseconds: >-
+      {{
+        (
+          (kvm_cpu_share_period_microseconds | int)
+          // (kvm_cpu_share_vcpu_per_host_cpu | int)
+        ) | int
+      }}
+
+- name: Validate derived CPU share quota is within libvirt bounds
+  ansible.builtin.assert:
+    that:
+      - (kvm_cpu_share_quota_microseconds | int) >= 1000
+      - (kvm_cpu_share_quota_microseconds | int) <= 17592186044415
+    fail_msg: >-
+      Derived CPU share quota {{ kvm_cpu_share_quota_microseconds }}us is outside
+      the libvirt vcpu_quota range 1000-17592186044415.
+      quota = kvm_cpu_share_period_microseconds / kvm_cpu_share_vcpu_per_host_cpu
+      ({{ kvm_cpu_share_period_microseconds }} / {{ kvm_cpu_share_vcpu_per_host_cpu }}).
+      Raise kvm_cpu_share_period_microseconds or lower
+      kvm_cpu_share_vcpu_per_host_cpu.
+
 - name: Validate instance image profile references
   ansible.builtin.assert:
     that:
@@ -165,6 +207,7 @@
       cloud_init_networkd_wait_online_timeout_seconds: "{{ kvm_default_cloud_init_networkd_wait_online_timeout_seconds | default(30) }}"
       cloud_init_final_message: "{{ kvm_default_cloud_init_final_message }}"
       force_single_socket_vcpu_topology: "{{ kvm_force_single_socket_vcpu_topology | default(true) }}"
+      cpu_share_enabled: "{{ kvm_default_cpu_share_enabled | default(false) }}"
       instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
       instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
 
@@ -251,6 +294,7 @@
       - item.cloud_init_write_files is not string
       - item.cloud_init_final_message is string
       - item.force_single_socket_vcpu_topology is boolean
+      - item.cpu_share_enabled is boolean
       - item.instance_extra_disks_enabled is boolean
       - item.instance_extra_disks is sequence
       - item.instance_extra_disks is not string
@@ -473,6 +517,10 @@
 - name: Run instance provisioning stage
   ansible.builtin.include_tasks: tasks/provision-instances.yml
   when: kvm_run_stage_provision | bool
+
+- name: Reconcile CPU share on declared domains
+  ansible.builtin.include_tasks: tasks/provision-cpu-share.yml
+  when: kvm_run_stage_provision | bool or kvm_run_stage_runtime | bool
 
 - name: Run runtime stage
   ansible.builtin.include_tasks: tasks/provision-runtime.yml

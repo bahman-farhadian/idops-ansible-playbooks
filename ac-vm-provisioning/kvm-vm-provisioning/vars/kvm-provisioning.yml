@@ -100,6 +100,26 @@ kvm_allow_mount_var_on_extra_disk: false                                        
 kvm_force_single_socket_vcpu_topology: true                                     # CPU topology policy. true=sockets=1,threads=1; false=plain vcpu_count.
 
 # -----------------------------------------------------------------------------
+# CPU share / controlled overcommit (overridable per instance)
+# When cpu_share_enabled is true, every vCPU of the instance is capped by the
+# Linux CFS bandwidth controller so that kvm_cpu_share_vcpu_per_host_cpu vCPUs
+# are worth at most one host CPU. With the default ratio of 2, a 4 vCPU guest
+# can never consume more than 2 host CPUs, so guests can be overcommitted on a
+# host with fewer CPUs without competing for the same physical time slices.
+# This is a hard cap written to the domain as <cputune><period>/<quota>, not a
+# relative weight: a capped guest cannot starve its neighbours even under load.
+# The cap is reconciled on every provision run, so toggling the flag on an
+# existing domain converges without recreating it.
+# -----------------------------------------------------------------------------
+kvm_default_cpu_share_enabled: false            # Cap vCPU bandwidth by default. Values: true | false.
+kvm_cpu_share_vcpu_per_host_cpu: 2              # vCPUs worth one host CPU when capped. Values: integer >= 1.
+kvm_cpu_share_period_microseconds: 100000       # CFS enforcement period. Values: 1000-1000000.
+kvm_cpu_share_apply_to_running_domains: true    # Also apply the cap live to already-running domains.
+kvm_cpu_share_validate_host_capacity: true      # Preflight guard on total host CPU demand. Values: true | false.
+kvm_cpu_share_host_cpu_reserve: 1               # Host CPUs held back for the hypervisor itself. Values: integer >= 0.
+kvm_cpu_share_allow_capacity_overcommit: false  # Allow demand above usable host CPUs. Values: false | true.
+
+# -----------------------------------------------------------------------------
 # Optional additional instance disks (overridable per instance)
 # -----------------------------------------------------------------------------
 kvm_default_instance_extra_disks_enabled: false # Enable additional disk provisioning. Values: true | false.
@@ -189,6 +209,9 @@ kvm_cloud_image_catalog:
 # - instance_extra_disks_enabled
 # - instance_extra_disks
 # - instance_mac_address (format: xx:xx:xx:xx:xx:xx)
+# - cpu_share_enabled (true | false, default kvm_default_cpu_share_enabled)
+#   true caps this instance so kvm_cpu_share_vcpu_per_host_cpu vCPUs are
+#   worth one host CPU; false leaves its vCPUs uncapped.
 #
 # instance_extra_disks item keys:
 # - guest_device (required, vd[b-z], example: vdb)
@@ -247,6 +270,7 @@ kvm_instance_definitions:
     image_profile_id: "debian-13"            # Cloud image profile reference.
     instance_ipv4_address: "192.168.122.132" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
+    cpu_share_enabled: true                  # Cap vCPUs: 2 vCPU worth 1 host CPU.
     memory_mb: 2048                          # Memory allocation in MB.
     root_disk_size_gb: 20                    # Root disk target size in GiB.
     instance_extra_disks_enabled: true       # Enable additional disk for this instance.
