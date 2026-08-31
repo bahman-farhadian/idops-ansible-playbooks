@@ -287,7 +287,7 @@
     argv:
       - virsh
       - -c
-      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - "{{ kvm_effective_libvirt_uri }}"
       - net-list
       - --all
       - --name
@@ -301,7 +301,7 @@
     argv:
       - virsh
       - -c
-      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - "{{ kvm_effective_libvirt_uri }}"
       - net-list
       - --all
       - --name
@@ -371,7 +371,7 @@
     argv:
       - virsh
       - -c
-      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - "{{ kvm_effective_libvirt_uri }}"
       - net-list
       - --name
   register: libvirt_active_networks_cmd
@@ -384,7 +384,7 @@
     argv:
       - virsh
       - -c
-      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - "{{ kvm_effective_libvirt_uri }}"
       - net-list
       - --name
   register: libvirt_active_networks_cmd_become
@@ -439,7 +439,7 @@
     argv:
       - virsh
       - -c
-      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - "{{ kvm_effective_libvirt_uri }}"
       - net-start
       - "{{ item }}"
   loop: "{{ inactive_required_libvirt_networks | default([]) }}"
@@ -457,7 +457,7 @@
     argv:
       - virsh
       - -c
-      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - "{{ kvm_effective_libvirt_uri }}"
       - net-list
       - --name
   register: libvirt_active_networks_after_start_cmd
@@ -473,7 +473,7 @@
     argv:
       - virsh
       - -c
-      - "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+      - "{{ kvm_effective_libvirt_uri }}"
       - net-list
       - --name
   register: libvirt_active_networks_after_start_cmd_become

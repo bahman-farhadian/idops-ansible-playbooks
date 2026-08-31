@@ -8,6 +8,31 @@
   register: virsh_version
   changed_when: false
 
+# Reported per host so a multi-host run shows which hypervisors answered and
+# how the declared instances are distributed across them.
 - name: Display hypervisor connectivity summary
   ansible.builtin.debug:
-    msg: "Hypervisor reachable. virsh version: {{ virsh_version.stdout | default('unknown') }}"
+    msg: >-
+      hypervisor={{ kvm_hypervisor_name | default(inventory_hostname) }}
+      address={{ ansible_host | default(inventory_hostname) }}
+      uri={{ kvm_host_libvirt_uri | default(kvm_libvirt_connection_uri) }}
+      virsh={{ virsh_version.stdout | default('unknown') }}
+      assigned_instances={{
+        kvm_instance_definitions
+        | default([])
+        | selectattr(
+            'hypervisor',
+            'defined'
+          )
+        | selectattr(
+            'hypervisor',
+            'equalto',
+            kvm_hypervisor_name | default(inventory_hostname)
+          )
+        | map(attribute='instance_name')
+        | list
+      }}
+      unassigned_default_host={{
+        (kvm_hypervisor_name | default(inventory_hostname))
+        == (kvm_host_default_hypervisor | default(''))
+      }}

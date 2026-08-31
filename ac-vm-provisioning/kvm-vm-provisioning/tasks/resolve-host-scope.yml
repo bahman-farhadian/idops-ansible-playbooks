@@ -1,0 +1,58 @@
+---
+# =========================================================================
+# HOST SCOPE: narrow the declared instances down to this hypervisor
+# Every play target runs the same workflow, so each host must first work out
+# which declared instances belong to it. Instances without an explicit
+# `hypervisor` key fall to the default host, which keeps single-host
+# configurations behaving exactly as before.
+# =========================================================================
+- name: Resolve connection facts for this hypervisor
+  ansible.builtin.set_fact:
+    kvm_assigned_instances: []
+    kvm_effective_libvirt_uri: >-
+      {{ kvm_host_libvirt_uri | default(kvm_libvirt_connection_uri) }}
+    kvm_effective_hypervisor_name: >-
+      {{ kvm_hypervisor_name | default(inventory_hostname) }}
+    kvm_effective_default_hypervisor: >-
+      {{
+        kvm_host_default_hypervisor
+        | default(kvm_hypervisor_name | default(inventory_hostname))
+      }}
+
+- name: Assign declared instances to their hypervisor
+  ansible.builtin.set_fact:
+    kvm_assigned_instances: >-
+      {{
+        kvm_assigned_instances
+        + [
+            item
+            | combine({
+                'hypervisor': (
+                  item.hypervisor | default(kvm_effective_default_hypervisor)
+                )
+              })
+          ]
+      }}
+  loop: "{{ kvm_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name | default('unknown') }}"
+
+- name: Build hypervisor-scoped instance list
+  ansible.builtin.set_fact:
+    kvm_host_instance_definitions: >-
+      {{
+        kvm_assigned_instances
+        | selectattr('hypervisor', 'equalto', kvm_effective_hypervisor_name)
+        | list
+      }}
+
+- name: Report hypervisor instance scope
+  ansible.builtin.debug:
+    msg: >-
+      hypervisor={{ kvm_effective_hypervisor_name }}
+      uri={{ kvm_effective_libvirt_uri }}
+      instances={{ kvm_host_instance_definitions | map(attribute='instance_name') | list }}
+
+- name: End workflow for a hypervisor with no declared instances
+  ansible.builtin.meta: end_host
+  when: (kvm_host_instance_definitions | length) == 0

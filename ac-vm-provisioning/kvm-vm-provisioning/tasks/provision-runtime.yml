@@ -31,7 +31,7 @@
       - (item.rc | int) == 0
     fail_msg: >-
       Declared domain {{ item.item.instance_name }} does not exist in
-      {{ kvm_libvirt_connection_uri }}. Run the full provision workflow first.
+      {{ kvm_effective_libvirt_uri }}. Run the full provision workflow first.
   loop: "{{ runtime_domain_state_results.results | default([]) }}"
   loop_control:
     label: "{{ item.item.instance_name }}"

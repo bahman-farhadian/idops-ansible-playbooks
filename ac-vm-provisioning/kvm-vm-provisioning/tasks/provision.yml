@@ -16,6 +16,9 @@
       - kvm_instance_definitions | length > 0
     fail_msg: "Define at least one instance in vars/kvm-provisioning.yml under kvm_instance_definitions."
 
+- name: Resolve the instance scope for this hypervisor
+  ansible.builtin.include_tasks: tasks/resolve-host-scope.yml
+
 - name: Validate cloud image catalog is provided
   ansible.builtin.assert:
     that:
@@ -167,7 +170,7 @@
       Instance {{ item.instance_name | default('unknown') }} references undefined image_profile_id
       '{{ item.image_profile_id | default('missing') }}'. Valid profile ids:
       {{ kvm_cloud_image_catalog.keys() | list | join(', ') }}.
-  loop: "{{ kvm_instance_definitions }}"
+  loop: "{{ kvm_host_instance_definitions }}"
   loop_control:
     label: "{{ item.instance_name | default('unknown') }}"
 
@@ -231,7 +234,7 @@
             })
         ]
       }}
-  loop: "{{ kvm_instance_definitions }}"
+  loop: "{{ kvm_host_instance_definitions }}"
   loop_control:
     label: "{{ item.instance_name }}"
 

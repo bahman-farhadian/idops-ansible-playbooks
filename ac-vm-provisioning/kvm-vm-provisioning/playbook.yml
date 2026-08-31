@@ -1,5 +1,5 @@
 ---
-- name: Setup KVM host
+- name: Resolve KVM hypervisor fleet
   hosts: localhost
   gather_facts: false
   vars_files:
@@ -14,11 +14,132 @@
           - kvm_action in ['provision', 'cleanup', 'ping']
         fail_msg: "kvm_action must be 'provision', 'cleanup', or 'ping'."
 
-    - name: Add KVM hypervisor to inventory
+    # A single kvm_hypervisor_host is expressed as a one-entry fleet so every
+    # later stage only ever deals with the multi-host model.
+    - name: Build effective hypervisor fleet
+      ansible.builtin.set_fact:
+        kvm_resolved_hypervisors: >-
+          {{
+            (kvm_hypervisors | default([]))
+            if ((kvm_hypervisors | default([])) | length) > 0
+            else [{'name': kvm_hypervisor_host}]
+          }}
+
+    - name: Validate hypervisor fleet entries
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - (item.name | string | length) > 0
+          - item.name is match('^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$')
+          - (item.ssh_port | default(kvm_hypervisor_ssh_port) | int) > 0
+          - (item.ssh_port | default(kvm_hypervisor_ssh_port) | int) <= 65535
+          - (item.libvirt_connection_uri | default(kvm_libvirt_connection_uri)) is match('^qemu')
+        fail_msg: >-
+          Invalid hypervisor entry '{{ item.name | default('unnamed') }}'.
+          Each kvm_hypervisors entry needs a unique name matching
+          ^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$, an ssh_port within 1-65535, and a
+          libvirt_connection_uri starting with 'qemu'.
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Validate hypervisor names are unique
+      ansible.builtin.assert:
+        that:
+          - kvm_resolved_hypervisors | map(attribute='name') | list | length
+            ==
+            kvm_resolved_hypervisors | map(attribute='name') | list | unique | length
+        fail_msg: "Hypervisor names must be unique in kvm_hypervisors."
+
+    - name: Fail when the hypervisor host placeholder was not changed
+      ansible.builtin.fail:
+        msg: >-
+          kvm_hypervisor_host is still set to the placeholder
+          'change-me-hypervisor'. Set a real hypervisor target, or define the
+          kvm_hypervisors fleet for a multi-host deployment.
+      when: "'change-me-hypervisor' in (kvm_resolved_hypervisors | map(attribute='name') | list)"
+
+    - name: Resolve the default hypervisor for unassigned instances
+      ansible.builtin.set_fact:
+        kvm_effective_default_hypervisor: >-
+          {{
+            kvm_default_hypervisor
+            if ((kvm_default_hypervisor | default('')) | length) > 0
+            else kvm_resolved_hypervisors[0].name
+          }}
+
+    - name: Validate the default hypervisor exists in the fleet
+      ansible.builtin.assert:
+        that:
+          - kvm_effective_default_hypervisor in (kvm_resolved_hypervisors | map(attribute='name') | list)
+        fail_msg: >-
+          kvm_default_hypervisor '{{ kvm_effective_default_hypervisor }}' is not
+          a defined hypervisor. Known hypervisors:
+          {{ kvm_resolved_hypervisors | map(attribute='name') | join(', ') }}.
+
+    - name: Validate every instance names a hypervisor when required
+      ansible.builtin.assert:
+        that:
+          - item.hypervisor is defined
+        fail_msg: >-
+          Instance {{ item.instance_name | default('unknown') }} does not set
+          'hypervisor' and kvm_require_explicit_hypervisor is true.
+      loop: "{{ kvm_instance_definitions | default([]) }}"
+      loop_control:
+        label: "{{ item.instance_name | default('unknown') }}"
+      when: kvm_require_explicit_hypervisor | default(false) | bool
+
+    - name: Validate instance hypervisor references
+      ansible.builtin.assert:
+        that:
+          - >-
+            (item.hypervisor | default(kvm_effective_default_hypervisor))
+            in (kvm_resolved_hypervisors | map(attribute='name') | list)
+        fail_msg: >-
+          Instance {{ item.instance_name | default('unknown') }} references
+          undefined hypervisor
+          '{{ item.hypervisor | default(kvm_effective_default_hypervisor) }}'.
+          Known hypervisors:
+          {{ kvm_resolved_hypervisors | map(attribute='name') | join(', ') }}.
+      loop: "{{ kvm_instance_definitions | default([]) }}"
+      loop_control:
+        label: "{{ item.instance_name | default('unknown') }}"
+
+    # Empty user/key values collapse to omit so the SSH client keeps falling
+    # back to the operator's own ssh config instead of receiving a blank value.
+    - name: Add KVM hypervisors to inventory
       ansible.builtin.add_host:
-        name: "{{ kvm_hypervisor_host }}"
+        name: "{{ item.name }}"
         groups: hypervisor
-        ansible_python_interpreter: "{{ kvm_hypervisor_python_interpreter }}"
+        ansible_host: "{{ item.address | default(item.name) }}"
+        ansible_user: >-
+          {{ (item.user | default(kvm_hypervisor_user) | default('', true)) or omit }}
+        ansible_ssh_private_key_file: >-
+          {{
+            (
+              item.ssh_private_key_file
+              | default(kvm_hypervisor_ssh_private_key_file)
+              | default('', true)
+            ) or omit
+          }}
+        ansible_port: "{{ item.ssh_port | default(kvm_hypervisor_ssh_port) }}"
+        ansible_python_interpreter: >-
+          {{ item.python_interpreter | default(kvm_hypervisor_python_interpreter) }}
+        kvm_hypervisor_name: "{{ item.name }}"
+        kvm_host_libvirt_uri: >-
+          {{ item.libvirt_connection_uri | default(kvm_libvirt_connection_uri) }}
+        kvm_host_default_hypervisor: "{{ kvm_effective_default_hypervisor }}"
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: false
+
+    - name: Display resolved hypervisor fleet
+      ansible.builtin.debug:
+        msg: >-
+          hypervisors={{ kvm_resolved_hypervisors | map(attribute='name') | list }}
+          default={{ kvm_effective_default_hypervisor }}
+          instances={{ kvm_instance_definitions | default([]) | length }}
 
 - name: Execute KVM VM action
   hosts: hypervisor
@@ -26,7 +147,7 @@
   vars_files:
     - vars/kvm-provisioning.yml
   environment:
-    LIBVIRT_DEFAULT_URI: "{{ kvm_libvirt_connection_uri | default('qemu:///system') }}"
+    LIBVIRT_DEFAULT_URI: "{{ kvm_host_libvirt_uri | default(kvm_libvirt_connection_uri) }}"
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
 

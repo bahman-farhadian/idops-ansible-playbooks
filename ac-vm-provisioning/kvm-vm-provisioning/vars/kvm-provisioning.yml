@@ -3,11 +3,52 @@
 # Single source of user-editable settings.
 
 # -----------------------------------------------------------------------------
-# Hypervisor connection
+# Hypervisor connection (single host)
+# These settings describe one KVM host and stay the simplest way to run against
+# a single hypervisor. To drive several hosts in one run, populate
+# kvm_hypervisors below instead; when it is non-empty these single-host values
+# are used only as defaults for entries that omit them.
 # -----------------------------------------------------------------------------
-kvm_hypervisor_host: "change-me-hypervisor"           # SSH target for KVM host. Values: SSH alias | FQDN | IP | user@host.
+kvm_hypervisor_host: "change-me-hypervisor"           # SSH target for KVM host. Values: SSH alias | FQDN | IP.
+kvm_hypervisor_user: ""                               # SSH user. Values: "" (use SSH config/current user) | username.
+kvm_hypervisor_ssh_private_key_file: ""               # SSH private key. Values: "" (use SSH agent/config) | path to key file.
+kvm_hypervisor_ssh_port: 22                           # SSH port on the hypervisor. Values: integer 1-65535.
 kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Python path on hypervisor. Values: absolute path.
 kvm_libvirt_connection_uri: "qemu:///system"          # Libvirt URI. Values: qemu:///system | qemu:///session.
+
+# -----------------------------------------------------------------------------
+# Hypervisor fleet (multi-host)
+# Leave empty to run against the single host defined above. When non-empty each
+# entry becomes an Ansible target, all hosts are processed in the same run, and
+# every instance is provisioned on the host named by its `hypervisor` key.
+# Each host keeps its own credentials, so hosts may use different SSH keys.
+#
+# Entry keys:
+# - name (required)                 logical host name; instances reference it
+#                                   and it is the inventory name used by LIMIT
+# - address (optional)              FQDN/IP/SSH alias; defaults to name
+# - user (optional)                 SSH user; defaults to kvm_hypervisor_user
+# - ssh_private_key_file (optional) SSH key; defaults to
+#                                   kvm_hypervisor_ssh_private_key_file
+# - ssh_port (optional)             defaults to kvm_hypervisor_ssh_port
+# - python_interpreter (optional)   defaults to kvm_hypervisor_python_interpreter
+# - libvirt_connection_uri (opt.)   defaults to kvm_libvirt_connection_uri
+#
+# Example:
+# kvm_hypervisors:
+#   - name: "kvm-host-1"
+#     address: "192.168.10.11"
+#     user: "root"
+#     ssh_private_key_file: "~/.ssh/id_kvm_host_1"
+#   - name: "kvm-host-2"
+#     address: "192.168.10.12"
+#     user: "operator"
+#     ssh_private_key_file: "~/.ssh/id_kvm_host_2"
+#     libvirt_connection_uri: "qemu:///system"
+# -----------------------------------------------------------------------------
+kvm_hypervisors: []            # Hypervisor fleet. Values: [] (single host) | list of host maps.
+kvm_default_hypervisor: ""     # Host for instances with no `hypervisor` key. Values: "" (first host) | host name.
+kvm_require_explicit_hypervisor: false # Force every instance to name its hypervisor. Values: false | true.
 
 # -----------------------------------------------------------------------------
 # Provision workflow behavior
@@ -209,6 +250,8 @@ kvm_cloud_image_catalog:
 # - instance_extra_disks_enabled
 # - instance_extra_disks
 # - instance_mac_address (format: xx:xx:xx:xx:xx:xx)
+# - hypervisor (name of the kvm_hypervisors entry that hosts this instance;
+#   defaults to kvm_default_hypervisor, or the only/first host)
 # - cpu_share_enabled (true | false, default kvm_default_cpu_share_enabled)
 #   true caps this instance so kvm_cpu_share_vcpu_per_host_cpu vCPUs are
 #   worth one host CPU; false leaves its vCPUs uncapped.

@@ -9,6 +9,9 @@
       - kvm_instance_definitions | length > 0
     fail_msg: "Define at least one instance in vars/kvm-provisioning.yml under kvm_instance_definitions."
 
+- name: Resolve the instance scope for this hypervisor
+  ansible.builtin.include_tasks: tasks/resolve-host-scope.yml
+
 - name: Set cleanup instance defaults
   ansible.builtin.set_fact:
     cleanup_instance_defaults:
@@ -23,7 +26,7 @@
         (cleanup_instance_definitions | default([]))
         + [cleanup_instance_defaults | combine(item, recursive=True)]
       }}
-  loop: "{{ kvm_instance_definitions }}"
+  loop: "{{ kvm_host_instance_definitions }}"
   loop_control:
     label: "{{ item.instance_name | default('unknown') }}"
 

@@ -18,6 +18,8 @@ Scope: this playbook supports **Debian images only**.
   such as `/data` or `/var/lib/<service>`
 - Deterministic per-instance MAC assignment (or optional explicit `instance_mac_address`)
   for reliable cloud-init network matching
+- Multi-hypervisor deployment: instances are placed on the host named by their
+  `hypervisor` key, with per-host SSH credentials
 - UEFI firmware enforced for every guest
 - Inactive VM domain definition from `virt-install --import --print-xml`, with all
   declared disks attached before the first cloud-init boot
@@ -33,6 +35,7 @@ Scope: this playbook supports **Debian images only**.
 - `tasks/provision.yml` (stage orchestrator)
 - `tasks/provision-preflight.yml`
 - `tasks/provision-cpu-share.yml`
+- `tasks/resolve-host-scope.yml`
 - `tasks/provision-resolve-checksum-cache.yml`
 - `tasks/provision-image-cache.yml`
 - `tasks/provision-instances.yml`
@@ -89,7 +92,9 @@ Package mapping:
 
 Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 
-1. Set `kvm_hypervisor_host`.
+1. Set `kvm_hypervisor_host` (single host), or populate `kvm_hypervisors`
+   for a multi-host fleet. Set `kvm_hypervisor_ssh_private_key_file` if the
+   host needs a specific SSH key.
 2. Set `kvm_libvirt_connection_uri` (`qemu:///system` is the default and recommended value).
 3. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
 4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
@@ -312,6 +317,10 @@ Core interface keys:
 - `kvm_force_manifest_refresh`
 - `kvm_image_checksum_cache_path`
 - `kvm_checksum_file_immutable`
+- `kvm_hypervisors`
+- `kvm_hypervisor_ssh_private_key_file`
+- `kvm_default_hypervisor`
+- `kvm_require_explicit_hypervisor`
 - `kvm_cloud_image_catalog`
 - `kvm_instance_definitions`
 - `kvm_parallel_instance_workers`
@@ -327,6 +336,76 @@ Core interface keys:
 - `kvm_cpu_share_allow_capacity_overcommit`
 - `kvm_cleanup_confirmed`
 - `kvm_cleanup_remove_instance_disks`
+
+## Multiple Hypervisors And Host Credentials
+
+A single host stays the default. Set the connection once and every instance
+lands there:
+
+```yaml
+kvm_hypervisor_host: "kvm-host-1"
+kvm_hypervisor_user: "root"
+kvm_hypervisor_ssh_private_key_file: "~/.ssh/id_kvm"
+kvm_hypervisor_ssh_port: 22
+```
+
+Leave `kvm_hypervisor_user` or `kvm_hypervisor_ssh_private_key_file` empty to
+fall back to the operator's own SSH configuration and agent — an empty value is
+omitted rather than passed as a blank.
+
+### Fleet Mode
+
+Populate `kvm_hypervisors` to drive several hosts in one run. Each host carries
+its own credentials, so hosts may use different SSH keys and users:
+
+```yaml
+kvm_hypervisors:
+  - name: "kvm-host-1"
+    address: "192.168.10.11"
+    user: "root"
+    ssh_private_key_file: "~/.ssh/id_kvm_host_1"
+  - name: "kvm-host-2"
+    address: "192.168.10.12"
+    user: "operator"
+    ssh_private_key_file: "~/.ssh/id_kvm_host_2"
+    ssh_port: 2222
+
+kvm_instance_definitions:
+  - instance_name: "debian-13-a"
+    hypervisor: "kvm-host-1"
+  - instance_name: "debian-13-b"
+    hypervisor: "kvm-host-2"
+```
+
+Only `name` is required; every other key falls back to the single-host value of
+the same meaning. `name` is the inventory name, so it is what `LIMIT` matches.
+
+### Placement Rules
+
+- An instance runs on the host named by its `hypervisor` key
+- An instance with no `hypervisor` key falls to `kvm_default_hypervisor`, which
+  defaults to the first host in the fleet
+- Set `kvm_require_explicit_hypervisor=true` to reject any instance that does
+  not name its host, which is worth enabling once a fleet has more than one host
+- Referencing an undefined hypervisor fails preflight with the list of known
+  hosts, so a typo cannot silently place a VM on the wrong machine
+
+All hosts are processed in the same run. Each host resolves its own slice of
+`kvm_instance_definitions` and ignores the rest, so a VM is never created twice
+or provisioned on the wrong host. A host with no assigned instances ends its own
+run early instead of failing.
+
+### Targeting One Host
+
+`LIMIT` matches hypervisor names, so a run can be narrowed to a single host:
+
+```bash
+make provision LIMIT=kvm-host-2
+make cleanup-force LIMIT=kvm-host-2
+```
+
+Cleanup stays scoped to the declared instances of the hosts in the run, so
+limiting cleanup to one host cannot touch another host's VMs.
 
 ## CPU Share And Controlled Overcommit
 

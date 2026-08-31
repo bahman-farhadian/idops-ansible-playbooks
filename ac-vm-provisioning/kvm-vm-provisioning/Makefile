@@ -29,7 +29,7 @@ help:
 	@printf "  %-28s %s\n" "make cleanup-force" "execute cleanup for declared instance names only (keeps disks by default)"
 	@printf "  %-28s %s\n" "make cleanup-force-disks" "execute cleanup and remove declared instance disks"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit inventory scope"
+	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit run to named hypervisor(s)"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
 venv:
