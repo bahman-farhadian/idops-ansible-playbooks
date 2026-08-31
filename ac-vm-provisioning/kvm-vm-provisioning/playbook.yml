@@ -14,16 +14,18 @@
           - kvm_action in ['provision', 'cleanup', 'ping']
         fail_msg: "kvm_action must be 'provision', 'cleanup', or 'ping'."
 
-    # A single kvm_hypervisor_host is expressed as a one-entry fleet so every
-    # later stage only ever deals with the multi-host model.
+    - name: Validate at least one hypervisor is declared
+      ansible.builtin.assert:
+        that:
+          - kvm_hypervisors is defined
+          - (kvm_hypervisors | length) > 0
+        fail_msg: >-
+          Declare at least one KVM host in kvm_hypervisors
+          (section 1 of vars/kvm-provisioning.yml).
+
     - name: Build effective hypervisor fleet
       ansible.builtin.set_fact:
-        kvm_resolved_hypervisors: >-
-          {{
-            (kvm_hypervisors | default([]))
-            if ((kvm_hypervisors | default([])) | length) > 0
-            else [{'name': kvm_hypervisor_host}]
-          }}
+        kvm_resolved_hypervisors: "{{ kvm_hypervisors }}"
 
     - name: Validate hypervisor fleet entries
       ansible.builtin.assert:
@@ -64,23 +66,11 @@
         label: "{{ item.name }}"
       when: (item.address | default(item.name, true)) == 'change-me-hypervisor'
 
-    - name: Resolve the default hypervisor for unassigned instances
+    # An instance that does not name a hypervisor lands on the first declared
+    # host, so the fallback needs no setting of its own.
+    - name: Resolve the host for instances that name none
       ansible.builtin.set_fact:
-        kvm_effective_default_hypervisor: >-
-          {{
-            kvm_default_hypervisor
-            if ((kvm_default_hypervisor | default('')) | length) > 0
-            else kvm_resolved_hypervisors[0].name
-          }}
-
-    - name: Validate the default hypervisor exists in the fleet
-      ansible.builtin.assert:
-        that:
-          - kvm_effective_default_hypervisor in (kvm_resolved_hypervisors | map(attribute='name') | list)
-        fail_msg: >-
-          kvm_default_hypervisor '{{ kvm_effective_default_hypervisor }}' is not
-          a defined hypervisor. Known hypervisors:
-          {{ kvm_resolved_hypervisors | map(attribute='name') | join(', ') }}.
+        kvm_effective_default_hypervisor: "{{ kvm_resolved_hypervisors[0].name }}"
 
     - name: Validate every instance names a hypervisor when required
       ansible.builtin.assert:

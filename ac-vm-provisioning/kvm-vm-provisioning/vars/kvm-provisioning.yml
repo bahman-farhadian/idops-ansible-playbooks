@@ -31,7 +31,8 @@
 #
 # Only `name` is required. Any key left out, or left empty, falls back to the
 # matching value in section 2, exactly as instance keys fall back to the
-# kvm_default_* values.
+# kvm_default_* values. The first entry below is where an instance lands when it
+# does not name a hypervisor of its own.
 #
 # Keys:
 # - name (required)                 logical host name; instances target it and
@@ -68,14 +69,14 @@ kvm_hypervisors:
 # 2. KVM HOST DEFAULTS
 # Applied to any section 1 entry that omits the matching key or leaves it empty.
 # Set a value here once instead of repeating it on every host.
+# There is no separate "default host" setting: an instance that does not name a
+# hypervisor is deployed on the first entry of section 1.
 # -----------------------------------------------------------------------------
 kvm_hypervisor_user: ""                               # Default SSH user. Values: "" (SSH config/current user) | username.
 kvm_hypervisor_ssh_private_key_file: ""               # Default SSH key. Values: "" (SSH agent/config) | path to key file.
 kvm_hypervisor_ssh_port: 22                           # Default SSH port. Values: integer 1-65535.
 kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Default Python path on hosts. Values: absolute path.
 kvm_libvirt_connection_uri: "qemu:///system"          # Default libvirt URI. Values: qemu:///system | qemu:///session.
-kvm_hypervisor_host: "change-me-hypervisor"           # Fallback host, used only when kvm_hypervisors is empty.
-kvm_default_hypervisor: ""                            # Host for instances with an empty `hypervisor`. Values: "" (first host) | host name.
 kvm_require_explicit_hypervisor: false                # Force every instance to name its host. Values: false | true.
 
 # -----------------------------------------------------------------------------
@@ -105,7 +106,7 @@ kvm_require_explicit_hypervisor: false                # Force every instance to 
 #
 # The `hypervisor` key decides where the VM is created:
 #   hypervisor: "kvm-host-1"   deploy on that host
-#   hypervisor: ""             deploy on kvm_default_hypervisor (first host)
+#   hypervisor: ""             deploy on the first host in section 1
 # -----------------------------------------------------------------------------
 kvm_instance_definitions:
   - instance_name: "debian-12-a"             # Target libvirt domain name.
@@ -259,7 +260,7 @@ kvm_default_cloud_init_apt_config:                       # Default Debian APT mi
   security:
     - arches: [default]
       uri: "http://deb.debian.org/debian-security"
-kvm_default_cloud_init_packages: [openssh-server, qemu-guest-agent]            # Package list to install on first boot; SSH and guest agent services are mandatory.
+kvm_default_cloud_init_packages: [openssh-server, qemu-guest-agent]             # Package list to install on first boot; SSH and guest agent services are mandatory.
 kvm_default_cloud_init_bootcmd: []                                              # cloud-init bootcmd list.
 kvm_default_cloud_init_runcmd: []                                               # cloud-init runcmd list.
 kvm_default_cloud_init_write_files: []                                          # cloud-init write_files list.
@@ -321,11 +322,11 @@ kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-
 # 12. IMAGE CACHE POLICY AND TRUSTED CHECKSUMS
 # The trusted checksum cache is offline-first and immutable.
 # -----------------------------------------------------------------------------
-kvm_image_cache_verify_on_run: true                # Verify cached image checksums on image-cache stage.
-kvm_image_cache_repair_on_checksum_mismatch: false # Re-download corrupted cached image file when checksum fails.
-kvm_image_manifest_refresh_policy: "on-demand"     # Manifest fetch policy in provision flow. Values: on-demand | always.
-kvm_force_manifest_refresh: false                  # Force checksum re-resolution (removes local immutable checksum, re-fetches). Values: true | false.
-kvm_allow_nocloud_images: false                    # Allow nocloud images. Values: false (recommended) | true (override).
+kvm_image_cache_verify_on_run: true                                    # Verify cached image checksums on image-cache stage.
+kvm_image_cache_repair_on_checksum_mismatch: false                     # Re-download corrupted cached image file when checksum fails.
+kvm_image_manifest_refresh_policy: "on-demand"                         # Manifest fetch policy in provision flow. Values: on-demand | always.
+kvm_force_manifest_refresh: false                                      # Force checksum re-resolution (removes local immutable checksum, re-fetches). Values: true | false.
+kvm_allow_nocloud_images: false                                        # Allow nocloud images. Values: false (recommended) | true (override).
 kvm_image_checksum_cache_path: "{{ kvm_image_cache_path }}/.checksums" # Store for the per-version trusted checksum files.
 kvm_checksum_file_immutable: true                                      # Make the trusted checksum file immutable with chattr +i. Values: true | false.
 
@@ -342,11 +343,11 @@ kvm_shutdown_wait_delay_seconds: 3                  # Delay between clean-shutdo
 # -----------------------------------------------------------------------------
 # 14. SNAPSHOT BEHAVIOR
 # -----------------------------------------------------------------------------
-kvm_snapshot_enabled: true                        # Mandatory external baseline snapshot reconciliation for declared domains.
-kvm_snapshot_name: "snapshot-a"                   # Snapshot name label.
-kvm_snapshot_description: "initial configuration" # Snapshot description.
+kvm_snapshot_enabled: true                                               # Mandatory external baseline snapshot reconciliation for declared domains.
+kvm_snapshot_name: "snapshot-a"                                          # Snapshot name label.
+kvm_snapshot_description: "initial configuration"                        # Snapshot description.
 kvm_snapshot_overlay_path: "{{ kvm_instance_disk_pool_path }}/snapshots" # External snapshot qcow2 overlay directory.
-kvm_start_instances_after_snapshot: true          # Start reconciled instances after creating a missing snapshot.
+kvm_start_instances_after_snapshot: true                                 # Start reconciled instances after creating a missing snapshot.
 
 # -----------------------------------------------------------------------------
 # 15. HYPERVISOR RUNTIME ACCESS (libvirt/qemu user)

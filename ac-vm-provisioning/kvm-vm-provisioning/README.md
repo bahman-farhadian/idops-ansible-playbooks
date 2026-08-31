@@ -319,7 +319,6 @@ Core interface keys:
 - `kvm_checksum_file_immutable`
 - `kvm_hypervisors`
 - `kvm_hypervisor_ssh_private_key_file`
-- `kvm_default_hypervisor`
 - `kvm_require_explicit_hypervisor`
 - `kvm_cloud_image_catalog`
 - `kvm_instance_definitions`
@@ -390,6 +389,9 @@ kvm_hypervisor_ssh_private_key_file: ""      # "" = SSH agent / SSH config
 kvm_hypervisor_ssh_port: 22
 ```
 
+`kvm_hypervisors` is the only place a host is declared, so at least one entry is
+required and the run fails early if the list is empty.
+
 An empty user or key is omitted rather than passed as a blank, so leaving both
 empty keeps the operator's own SSH configuration and agent in charge.
 
@@ -421,8 +423,10 @@ kvm_instance_definitions:
 ### Placement Rules
 
 - An instance runs on the host named by its `hypervisor` key
-- `hypervisor: ""` (or omitting the key) falls to `kvm_default_hypervisor`,
-  which defaults to the first host in the fleet
+- `hypervisor: ""` (or omitting the key) deploys on the first host declared in
+  `kvm_hypervisors`. There is no separate "default host" setting to keep in
+  sync: with one host declared the fallback is that host, and once a second is
+  added each instance names the host it belongs to
 - Set `kvm_require_explicit_hypervisor=true` to reject any instance that does
   not name its host, which is worth enabling once a fleet has more than one
   host. An empty `hypervisor: ""` counts as unset and is rejected too, so the
