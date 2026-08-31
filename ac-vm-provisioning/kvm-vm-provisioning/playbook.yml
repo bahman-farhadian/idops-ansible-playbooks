@@ -81,6 +81,7 @@
       ansible.builtin.assert:
         that:
           - item.hypervisor is defined
+          - (item.hypervisor | default('') | string | length) > 0
         fail_msg: >-
           Instance {{ item.instance_name | default('unknown') }} does not set
           'hypervisor' and kvm_require_explicit_hypervisor is true.
@@ -93,12 +94,12 @@
       ansible.builtin.assert:
         that:
           - >-
-            (item.hypervisor | default(kvm_effective_default_hypervisor))
+            (item.hypervisor | default(kvm_effective_default_hypervisor, true))
             in (kvm_resolved_hypervisors | map(attribute='name') | list)
         fail_msg: >-
           Instance {{ item.instance_name | default('unknown') }} references
           undefined hypervisor
-          '{{ item.hypervisor | default(kvm_effective_default_hypervisor) }}'.
+          '{{ item.hypervisor | default(kvm_effective_default_hypervisor, true) }}'.
           Known hypervisors:
           {{ kvm_resolved_hypervisors | map(attribute='name') | join(', ') }}.
       loop: "{{ kvm_instance_definitions | default([]) }}"

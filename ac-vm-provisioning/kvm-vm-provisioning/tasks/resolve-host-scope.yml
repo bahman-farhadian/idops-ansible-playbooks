@@ -28,7 +28,8 @@
             item
             | combine({
                 'hypervisor': (
-                  item.hypervisor | default(kvm_effective_default_hypervisor)
+                  item.hypervisor
+                  | default(kvm_effective_default_hypervisor, true)
                 )
               })
           ]

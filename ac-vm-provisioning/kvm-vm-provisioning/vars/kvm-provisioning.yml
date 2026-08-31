@@ -250,8 +250,12 @@ kvm_cloud_image_catalog:
 # - instance_extra_disks_enabled
 # - instance_extra_disks
 # - instance_mac_address (format: xx:xx:xx:xx:xx:xx)
-# - hypervisor (name of the kvm_hypervisors entry that hosts this instance;
-#   defaults to kvm_default_hypervisor, or the only/first host)
+# - hypervisor (destination host for this instance)
+#   Values: "" (send to kvm_default_hypervisor, or the only/first host)
+#         | a name from kvm_hypervisors, for example "kvm-host-2"
+#   Example, pinning an instance to the second host of the fleet:
+#     - instance_name: "debian-13-b"
+#       hypervisor: "kvm-host-2"
 # - cpu_share_enabled (true | false, default kvm_default_cpu_share_enabled)
 #   true caps this instance so kvm_cpu_share_vcpu_per_host_cpu vCPUs are
 #   worth one host CPU; false leaves its vCPUs uncapped.
@@ -269,6 +273,7 @@ kvm_cloud_image_catalog:
 kvm_instance_definitions:
   - instance_name: "debian-12-a"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
+    hypervisor: ""                           # Destination host. "" = default host; e.g. "kvm-host-1".
     instance_ipv4_address: "192.168.122.121" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
@@ -283,6 +288,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-12-b"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
+    hypervisor: ""                           # Destination host. "" = default host; e.g. "kvm-host-1".
     instance_ipv4_address: "192.168.122.122" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
@@ -297,6 +303,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-13-a"             # Target libvirt domain name.
     image_profile_id: "debian-13"            # Cloud image profile reference.
+    hypervisor: ""                           # Destination host. "" = default host; e.g. "kvm-host-2".
     instance_ipv4_address: "192.168.122.131" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
@@ -311,6 +318,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-13-b"             # Target libvirt domain name.
     image_profile_id: "debian-13"            # Cloud image profile reference.
+    hypervisor: ""                           # Destination host. "" = default host; e.g. "kvm-host-2".
     instance_ipv4_address: "192.168.122.132" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     cpu_share_enabled: true                  # Cap vCPUs: 2 vCPU worth 1 host CPU.

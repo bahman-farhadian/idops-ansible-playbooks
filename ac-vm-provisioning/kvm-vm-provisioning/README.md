@@ -382,11 +382,25 @@ the same meaning. `name` is the inventory name, so it is what `LIMIT` matches.
 
 ### Placement Rules
 
+Every shipped instance carries an explicit `hypervisor` key so the destination
+is always visible in the definition:
+
+```yaml
+kvm_instance_definitions:
+  - instance_name: "debian-12-a"
+    hypervisor: ""                 # default host
+  - instance_name: "debian-13-b"
+    hypervisor: "kvm-host-2"       # pinned to a named host
+```
+
 - An instance runs on the host named by its `hypervisor` key
-- An instance with no `hypervisor` key falls to `kvm_default_hypervisor`, which
-  defaults to the first host in the fleet
+- `hypervisor: ""` (or omitting the key) falls to `kvm_default_hypervisor`,
+  which defaults to the first host in the fleet. This keeps a single-host
+  configuration working unchanged
 - Set `kvm_require_explicit_hypervisor=true` to reject any instance that does
-  not name its host, which is worth enabling once a fleet has more than one host
+  not name its host, which is worth enabling once a fleet has more than one
+  host. An empty `hypervisor: ""` counts as unset and is rejected too, so the
+  destination must be stated outright
 - Referencing an undefined hypervisor fails preflight with the list of known
   hosts, so a typo cannot silently place a VM on the wrong machine
 
