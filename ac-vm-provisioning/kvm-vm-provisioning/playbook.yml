@@ -31,9 +31,11 @@
           - item.name is defined
           - (item.name | string | length) > 0
           - item.name is match('^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$')
-          - (item.ssh_port | default(kvm_hypervisor_ssh_port) | int) > 0
-          - (item.ssh_port | default(kvm_hypervisor_ssh_port) | int) <= 65535
-          - (item.libvirt_connection_uri | default(kvm_libvirt_connection_uri)) is match('^qemu')
+          - (item.ssh_port | default(kvm_hypervisor_ssh_port, true) | int) > 0
+          - (item.ssh_port | default(kvm_hypervisor_ssh_port, true) | int) <= 65535
+          - >-
+            (item.libvirt_connection_uri | default(kvm_libvirt_connection_uri, true))
+            is match('^qemu')
         fail_msg: >-
           Invalid hypervisor entry '{{ item.name | default('unnamed') }}'.
           Each kvm_hypervisors entry needs a unique name matching
@@ -51,13 +53,16 @@
             kvm_resolved_hypervisors | map(attribute='name') | list | unique | length
         fail_msg: "Hypervisor names must be unique in kvm_hypervisors."
 
-    - name: Fail when the hypervisor host placeholder was not changed
+    - name: Fail when a hypervisor address is still the placeholder
       ansible.builtin.fail:
         msg: >-
-          kvm_hypervisor_host is still set to the placeholder
-          'change-me-hypervisor'. Set a real hypervisor target, or define the
-          kvm_hypervisors fleet for a multi-host deployment.
-      when: "'change-me-hypervisor' in (kvm_resolved_hypervisors | map(attribute='name') | list)"
+          Hypervisor '{{ item.name }}' still points at the placeholder address
+          'change-me-hypervisor'. Set its `address` in kvm_hypervisors to the
+          real KVM host.
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: (item.address | default(item.name, true)) == 'change-me-hypervisor'
 
     - name: Resolve the default hypervisor for unassigned instances
       ansible.builtin.set_fact:
@@ -112,23 +117,23 @@
       ansible.builtin.add_host:
         name: "{{ item.name }}"
         groups: hypervisor
-        ansible_host: "{{ item.address | default(item.name) }}"
+        ansible_host: "{{ item.address | default(item.name, true) }}"
         ansible_user: >-
-          {{ (item.user | default(kvm_hypervisor_user) | default('', true)) or omit }}
+          {{ (item.user | default(kvm_hypervisor_user, true) | default('', true)) or omit }}
         ansible_ssh_private_key_file: >-
           {{
             (
               item.ssh_private_key_file
-              | default(kvm_hypervisor_ssh_private_key_file)
+              | default(kvm_hypervisor_ssh_private_key_file, true)
               | default('', true)
             ) or omit
           }}
-        ansible_port: "{{ item.ssh_port | default(kvm_hypervisor_ssh_port) }}"
+        ansible_port: "{{ item.ssh_port | default(kvm_hypervisor_ssh_port, true) }}"
         ansible_python_interpreter: >-
-          {{ item.python_interpreter | default(kvm_hypervisor_python_interpreter) }}
+          {{ item.python_interpreter | default(kvm_hypervisor_python_interpreter, true) }}
         kvm_hypervisor_name: "{{ item.name }}"
         kvm_host_libvirt_uri: >-
-          {{ item.libvirt_connection_uri | default(kvm_libvirt_connection_uri) }}
+          {{ item.libvirt_connection_uri | default(kvm_libvirt_connection_uri, true) }}
         kvm_host_default_hypervisor: "{{ kvm_effective_default_hypervisor }}"
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:

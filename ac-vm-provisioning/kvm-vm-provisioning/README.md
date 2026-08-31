@@ -92,9 +92,9 @@ Package mapping:
 
 Before first provisioning run, edit `vars/kvm-provisioning.yml`:
 
-1. Set `kvm_hypervisor_host` (single host), or populate `kvm_hypervisors`
-   for a multi-host fleet. Set `kvm_hypervisor_ssh_private_key_file` if the
-   host needs a specific SSH key.
+1. Set the `address` of `kvm-host-1` in `kvm_hypervisors` (section 1) to your
+   KVM host, plus its `user` and `ssh_private_key_file` if it needs them. Add
+   more entries to deploy across several hosts.
 2. Set `kvm_libvirt_connection_uri` (`qemu:///system` is the default and recommended value).
 3. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
 4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
@@ -337,32 +337,71 @@ Core interface keys:
 - `kvm_cleanup_confirmed`
 - `kvm_cleanup_remove_instance_disks`
 
+## Configuration Layout
+
+`vars/kvm-provisioning.yml` is ordered so it reads as a deployment description,
+from where things run down to how the workflow behaves:
+
+| # | Section | Holds |
+|---|---------|-------|
+| 1 | KVM hypervisor hosts | where VMs are deployed |
+| 2 | KVM host defaults | fill-ins for keys omitted in section 1 |
+| 3 | VM instances | what is deployed, and onto which host |
+| 4 | Instance compute defaults | CPU, disk and topology fill-ins |
+| 5 | Instance CPU share | controlled overcommit policy |
+| 6 | Instance network defaults | libvirt network and guest addressing |
+| 7 | Instance extra disks | optional additional data disks |
+| 8 | Cloud-init guest access | users, passwords and SSH access |
+| 9 | Cloud-init seed content | locale, packages and first-boot commands |
+| 10 | Cloud image catalog | pinned Debian cloud images |
+| 11 | Storage paths | directories used on the hypervisor |
+| 12 | Image cache policy | download, verification and checksum trust |
+| 13 | Runtime and readiness | boot, guest agent and shutdown waits |
+| 14 | Snapshots | mandatory baseline snapshot policy |
+| 15 | Hypervisor runtime access | libvirt/qemu user and ACL handling |
+| 16 | Workflow and cleanup | check mode, concurrency and delete guards |
+
+Sections 1 and 3 are the two you edit to describe a deployment. Everything
+below them is defaults and policy that those two inherit.
+
 ## Multiple Hypervisors And Host Credentials
 
-A single host stays the default. Set the connection once and every instance
-lands there:
+A KVM host is declared the same way a VM is: one entry in a list, with its own
+settings. `vars/kvm-provisioning.yml` opens with the hosts (section 1), so the
+first thing the file answers is *where* things are deployed.
 
 ```yaml
-kvm_hypervisor_host: "kvm-host-1"
-kvm_hypervisor_user: "root"
-kvm_hypervisor_ssh_private_key_file: "~/.ssh/id_kvm"
+kvm_hypervisors:
+  - name: "kvm-host-1"                       # Host name referenced by instances.
+    address: "192.168.10.11"                 # Values: FQDN | IP | SSH alias.
+    user: "root"                             # SSH user.
+    ssh_private_key_file: "~/.ssh/id_kvm_host_1"
+    ssh_port: 22
+    python_interpreter: "/usr/bin/python3"
+    libvirt_connection_uri: "qemu:///system"
+```
+
+Only `name` is required. Any key omitted or left empty falls back to the host
+defaults in section 2, exactly as instance keys fall back to `kvm_default_*`:
+
+```yaml
+kvm_hypervisor_user: ""                      # "" = SSH config / current user
+kvm_hypervisor_ssh_private_key_file: ""      # "" = SSH agent / SSH config
 kvm_hypervisor_ssh_port: 22
 ```
 
-Leave `kvm_hypervisor_user` or `kvm_hypervisor_ssh_private_key_file` empty to
-fall back to the operator's own SSH configuration and agent — an empty value is
-omitted rather than passed as a blank.
+An empty user or key is omitted rather than passed as a blank, so leaving both
+empty keeps the operator's own SSH configuration and agent in charge.
 
-### Fleet Mode
+### Adding A Second Host
 
-Populate `kvm_hypervisors` to drive several hosts in one run. Each host carries
-its own credentials, so hosts may use different SSH keys and users:
+Append another entry, then point instances at it. Each host keeps its own
+credentials, so hosts may use different SSH keys and users:
 
 ```yaml
 kvm_hypervisors:
   - name: "kvm-host-1"
     address: "192.168.10.11"
-    user: "root"
     ssh_private_key_file: "~/.ssh/id_kvm_host_1"
   - name: "kvm-host-2"
     address: "192.168.10.12"
@@ -377,26 +416,13 @@ kvm_instance_definitions:
     hypervisor: "kvm-host-2"
 ```
 
-Only `name` is required; every other key falls back to the single-host value of
-the same meaning. `name` is the inventory name, so it is what `LIMIT` matches.
+`name` is the inventory name, so it is what `LIMIT` matches.
 
 ### Placement Rules
 
-Every shipped instance carries an explicit `hypervisor` key so the destination
-is always visible in the definition:
-
-```yaml
-kvm_instance_definitions:
-  - instance_name: "debian-12-a"
-    hypervisor: ""                 # default host
-  - instance_name: "debian-13-b"
-    hypervisor: "kvm-host-2"       # pinned to a named host
-```
-
 - An instance runs on the host named by its `hypervisor` key
 - `hypervisor: ""` (or omitting the key) falls to `kvm_default_hypervisor`,
-  which defaults to the first host in the fleet. This keeps a single-host
-  configuration working unchanged
+  which defaults to the first host in the fleet
 - Set `kvm_require_explicit_hypervisor=true` to reject any instance that does
   not name its host, which is worth enabling once a fleet has more than one
   host. An empty `hypervisor: ""` counts as unset and is rejected too, so the
