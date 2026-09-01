@@ -363,7 +363,7 @@
       Available networks on hypervisor: {{
       (libvirt_all_networks | length > 0) | ternary(libvirt_all_networks | join(', '), 'none')
       }}.
-      Update vars/kvm-provisioning.yml to a valid network name.
+      Update vars/03-network.yml to a valid network name.
   when: (missing_required_libvirt_networks | default([])) | length > 0
 
 - name: Get active libvirt networks

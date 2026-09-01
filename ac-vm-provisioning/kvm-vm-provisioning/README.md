@@ -13,7 +13,7 @@ Scope: this playbook supports **Debian images only**.
   - `kvm_instance_disk_pool_path` for per-instance VM disks
 - Per-instance provisioning from cached cloud images (no `virt-clone`)
 - Cloud-init seed generation per instance (user-data, meta-data, network-config)
-- Seed content configuration via `vars/kvm-provisioning.yml` (timezone, apt, packages, bootcmd/runcmd)
+- Seed content configuration via the files in `vars/` (timezone, apt, packages, bootcmd/runcmd)
 - Optional multi-disk provisioning (disabled by default) with per-disk mount targets
   such as `/data` or `/var/lib/<service>`
 - Deterministic per-instance MAC assignment (or optional explicit `instance_mac_address`)
@@ -44,7 +44,7 @@ Scope: this playbook supports **Debian images only**.
 - `tasks/provision-runtime.yml`
 - `tasks/cleanup.yml`
 - `tasks/ping.yml`
-- `vars/kvm-provisioning.yml`
+- the files in `vars/`
 - `host.yml`
 - `ansible.cfg`
 - `Makefile`
@@ -90,7 +90,7 @@ Package mapping:
 - `runuser` -> `util-linux`
 - `setfacl` -> `acl`
 
-Before first provisioning run, edit `vars/kvm-provisioning.yml`:
+Before first provisioning run, edit the files in `vars/`:
 
 1. Set the `address` of `kvm-host-1` in `kvm_hypervisors` (section 1) to your
    KVM host, plus its `user` and `ssh_private_key_file` if it needs them. Add
@@ -306,7 +306,7 @@ and ownership marker before `make provision` creates a new baseline.
 
 ## Variable Model Highlights
 
-All user-editable settings are in `vars/kvm-provisioning.yml`.
+All user-editable settings are in the files in `vars/`.
 
 Core interface keys:
 
@@ -338,37 +338,53 @@ Core interface keys:
 
 ## Configuration Layout
 
-`vars/kvm-provisioning.yml` states each topic's defaults before the thing that
-uses them, so the file ends with the only question left once everything above
-is settled: which VMs to create.
+Settings live in `vars/`, one file per topic, numbered in reading order. Each
+topic states its defaults before the thing that uses them, so the set ends with
+the only question left once everything above is settled: which VMs to create.
 
-| # | Section | Holds |
-|---|---------|-------|
-| 1 | KVM host connection defaults | SSH and libvirt fill-ins for section 3 |
-| 2 | KVM host storage defaults | path fill-ins for section 3 |
-| 3 | KVM hypervisor hosts | where VMs are deployed, and each host's paths |
-| 4 | Instance compute defaults | CPU, memory, disk and topology fill-ins |
-| 5 | Instance CPU share | controlled overcommit policy |
-| 6 | Instance network defaults | libvirt network and guest addressing |
-| 7 | Instance additional disks | optional additional data disks |
-| 8 | Cloud-init guest access | users, passwords and SSH access |
-| 9 | Cloud-init seed content | locale, packages and first-boot commands |
-| 10 | Cloud image catalog | pinned Debian cloud images |
-| 11 | Image cache policy | download, verification and checksum trust |
-| 12 | Runtime and readiness | boot, guest agent and shutdown waits |
-| 13 | Snapshots | mandatory baseline snapshot policy |
-| 14 | Hypervisor runtime access | libvirt/qemu user and ACL handling |
-| 15 | Workflow and cleanup | check mode, concurrency and delete guards |
-| 16 | VM instances | the VMs to create, and on which host |
+| File | Holds |
+|------|-------|
+| `01-hypervisors.yml` | where VMs are deployed: hosts, their credentials and their storage |
+| `02-vm-defaults.yml` | CPU, memory, disks and the overcommit policy |
+| `03-network.yml` | libvirt network and guest addressing |
+| `04-cloud-init.yml` | guest users, access and first-boot content |
+| `05-images.yml` | cloud images, and how they are cached and trusted |
+| `06-runtime.yml` | readiness waits, snapshots and cleanup guards |
+| `07-instances.yml` | the VMs to create, and on which host |
+| `settings.local.yml` | optional, gitignored, overrides any of the above |
 
-Two sections describe a deployment: section 3 declares the hosts, and section
-16 lists the VMs. Everything between them is the defaults and policy those VMs
-inherit, so a VM entry only needs to state what differs from them.
+Two files describe a deployment: `01-hypervisors.yml` declares the hosts and
+`07-instances.yml` lists the VMs. Everything between them is the defaults those
+VMs inherit, so a VM entry only needs to state what differs.
+
+Each file opens with what it holds and the same index of its siblings, so
+opening any one of them shows where everything else lives.
+
+### Machine-Specific Values
+
+Anything true only of your machine — real host addresses, SSH keys, local
+storage pools — belongs in `vars/settings.local.yml`. It is loaded last, so it
+overrides the tracked files, and it is optional: the playbook falls back to a
+placeholder when it does not exist.
+
+```yaml
+---
+kvm_hypervisors:
+  - name: "my-host"
+    address: "192.168.1.50"
+    user: "root"
+    ssh_private_key_file: "~/.ssh/my_kvm_key"
+kvm_default_cloud_init_timezone: "Europe/Berlin"
+```
+
+State only the keys that differ from the shipped defaults. `*.local.yml` is
+gitignored, so those values are never committed and the tracked files stay
+generic for everyone else.
 
 ## Multiple Hypervisors And Host Credentials
 
 A KVM host is declared the same way a VM is: one entry in a list, with its own
-settings. `vars/kvm-provisioning.yml` opens with the hosts (section 1), so the
+settings. the files in `vars/` opens with the hosts (section 1), so the
 first thing the file answers is *where* things are deployed.
 
 ```yaml
@@ -551,7 +567,7 @@ since libvirt cannot enforce a quota without CFS bandwidth control.
 
 ## Seed Configuration
 
-Seed/user-data defaults are centralized in `vars/kvm-provisioning.yml`:
+Seed/user-data defaults are centralized in `vars/04-cloud-init.yml`:
 
 - `kvm_default_cloud_init_timezone`
 - `kvm_default_cloud_init_locale`

@@ -30,7 +30,7 @@
           - (kvm_hypervisors | length) > 0
         fail_msg: >-
           Declare at least one KVM host in kvm_hypervisors
-          (section 1 of vars/kvm-provisioning.yml).
+          (vars/01-hypervisors.yml).
 
     - name: Build effective hypervisor fleet
       ansible.builtin.set_fact:
