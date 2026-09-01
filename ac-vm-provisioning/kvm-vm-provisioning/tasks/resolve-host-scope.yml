@@ -6,6 +6,24 @@
 # `hypervisor` key fall to the default host, which keeps single-host
 # configurations behaving exactly as before.
 # =========================================================================
+- name: Resolve storage layout for this hypervisor
+  ansible.builtin.set_fact:
+    kvm_image_cache_path: "{{ kvm_host_image_cache_path | default(kvm_image_cache_path) }}"
+    kvm_instance_disk_pool_path: >-
+      {{ kvm_host_instance_disk_pool_path | default(kvm_instance_disk_pool_path) }}
+    kvm_cloud_init_workspace_path: >-
+      {{ kvm_host_cloud_init_workspace_path | default(kvm_cloud_init_workspace_path) }}
+    kvm_auto_create_image_cache_path: >-
+      {{
+        kvm_host_auto_create_image_cache_path
+        | default(kvm_auto_create_image_cache_path) | bool
+      }}
+    kvm_cleanup_workspace_path_after_run: >-
+      {{
+        kvm_host_cleanup_workspace_path_after_run
+        | default(kvm_cleanup_workspace_path_after_run) | bool
+      }}
+
 - name: Resolve connection facts for this hypervisor
   ansible.builtin.set_fact:
     kvm_assigned_instances: []
@@ -52,6 +70,8 @@
     msg: >-
       hypervisor={{ kvm_effective_hypervisor_name }}
       uri={{ kvm_effective_libvirt_uri }}
+      image_cache={{ kvm_image_cache_path }}
+      disk_pool={{ kvm_instance_disk_pool_path }}
       instances={{ kvm_host_instance_definitions | map(attribute='instance_name') | list }}
 
 - name: End workflow for a hypervisor with no declared instances

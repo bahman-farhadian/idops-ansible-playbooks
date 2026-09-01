@@ -344,16 +344,16 @@ is settled: which VMs to create.
 
 | # | Section | Holds |
 |---|---------|-------|
-| 1 | KVM host defaults | fill-ins for keys omitted in section 2 |
-| 2 | KVM hypervisor hosts | where VMs are deployed |
-| 3 | Instance compute defaults | CPU, memory, disk and topology fill-ins |
-| 4 | Instance CPU share | controlled overcommit policy |
-| 5 | Instance network defaults | libvirt network and guest addressing |
-| 6 | Instance additional disks | optional additional data disks |
-| 7 | Cloud-init guest access | users, passwords and SSH access |
-| 8 | Cloud-init seed content | locale, packages and first-boot commands |
-| 9 | Cloud image catalog | pinned Debian cloud images |
-| 10 | Storage paths | directories used on the hypervisor |
+| 1 | KVM host connection defaults | SSH and libvirt fill-ins for section 3 |
+| 2 | KVM host storage defaults | path fill-ins for section 3 |
+| 3 | KVM hypervisor hosts | where VMs are deployed, and each host's paths |
+| 4 | Instance compute defaults | CPU, memory, disk and topology fill-ins |
+| 5 | Instance CPU share | controlled overcommit policy |
+| 6 | Instance network defaults | libvirt network and guest addressing |
+| 7 | Instance additional disks | optional additional data disks |
+| 8 | Cloud-init guest access | users, passwords and SSH access |
+| 9 | Cloud-init seed content | locale, packages and first-boot commands |
+| 10 | Cloud image catalog | pinned Debian cloud images |
 | 11 | Image cache policy | download, verification and checksum trust |
 | 12 | Runtime and readiness | boot, guest agent and shutdown waits |
 | 13 | Snapshots | mandatory baseline snapshot policy |
@@ -361,7 +361,7 @@ is settled: which VMs to create.
 | 15 | Workflow and cleanup | check mode, concurrency and delete guards |
 | 16 | VM instances | the VMs to create, and on which host |
 
-Two sections describe a deployment: section 2 declares the hosts, and section
+Two sections describe a deployment: section 3 declares the hosts, and section
 16 lists the VMs. Everything between them is the defaults and policy those VMs
 inherit, so a VM entry only needs to state what differs from them.
 
@@ -396,6 +396,28 @@ required and the run fails early if the list is empty.
 
 An empty user or key is omitted rather than passed as a blank, so leaving both
 empty keeps the operator's own SSH configuration and agent in charge.
+
+### Per-Host Storage
+
+Hosts rarely share a storage layout, so every path can be restated on the host
+that owns it. Section 2 holds the fill-ins; a host that sets its own wins:
+
+```yaml
+kvm_hypervisors:
+  - name: "kvm-host-1"
+    image_cache_path: ""                     # "" = section 2 default
+    instance_disk_pool_path: ""
+    cloud_init_workspace_path: ""
+  - name: "kvm-host-2"
+    image_cache_path: "/srv/kvm/iso-pool"    # this host's own layout
+    instance_disk_pool_path: "/srv/kvm/stg-pool"
+```
+
+`auto_create_image_cache_path` and `cleanup_workspace_path_after_run` are
+per-host too. Derived paths follow the host that owns them, with nothing to
+restate: the trusted checksum store stays under that host's image cache, and
+snapshot overlays under its disk pool. Each path is checked for being absolute
+before the run starts.
 
 ### Adding A Second Host
 

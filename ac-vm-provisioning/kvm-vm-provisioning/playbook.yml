@@ -38,11 +38,21 @@
           - >-
             (item.libvirt_connection_uri | default(kvm_libvirt_connection_uri, true))
             is match('^qemu')
+          - >-
+            (item.image_cache_path | default(kvm_image_cache_path, true))
+            is match('^/')
+          - >-
+            (item.instance_disk_pool_path | default(kvm_instance_disk_pool_path, true))
+            is match('^/')
+          - >-
+            (item.cloud_init_workspace_path | default(kvm_cloud_init_workspace_path, true))
+            is match('^/')
         fail_msg: >-
           Invalid hypervisor entry '{{ item.name | default('unnamed') }}'.
           Each kvm_hypervisors entry needs a unique name matching
-          ^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$, an ssh_port within 1-65535, and a
-          libvirt_connection_uri starting with 'qemu'.
+          ^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$, an ssh_port within 1-65535, a
+          libvirt_connection_uri starting with 'qemu', and absolute storage
+          paths where it overrides them.
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:
         label: "{{ item.name | default('unnamed') }}"
@@ -124,6 +134,22 @@
         kvm_hypervisor_name: "{{ item.name }}"
         kvm_host_libvirt_uri: >-
           {{ item.libvirt_connection_uri | default(kvm_libvirt_connection_uri, true) }}
+        kvm_host_image_cache_path: >-
+          {{ item.image_cache_path | default(kvm_image_cache_path, true) }}
+        kvm_host_instance_disk_pool_path: >-
+          {{ item.instance_disk_pool_path | default(kvm_instance_disk_pool_path, true) }}
+        kvm_host_cloud_init_workspace_path: >-
+          {{ item.cloud_init_workspace_path | default(kvm_cloud_init_workspace_path, true) }}
+        kvm_host_auto_create_image_cache_path: >-
+          {{
+            item.auto_create_image_cache_path
+            | default(kvm_auto_create_image_cache_path, true)
+          }}
+        kvm_host_cleanup_workspace_path_after_run: >-
+          {{
+            item.cleanup_workspace_path_after_run
+            | default(kvm_cleanup_workspace_path_after_run, true)
+          }}
         kvm_host_default_hypervisor: "{{ kvm_effective_default_hypervisor }}"
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:

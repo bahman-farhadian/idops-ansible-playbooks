@@ -18,6 +18,10 @@ __pycache__/
 **/.ansible/
 *.retry
 
+# Local, machine-specific overrides (never committed)
+*.local.yml
+**/*.local.yml
+
 # Local logs and secrets
 *.log
 vars/local-secrets.yml

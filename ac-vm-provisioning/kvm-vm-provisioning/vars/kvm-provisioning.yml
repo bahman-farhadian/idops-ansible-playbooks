@@ -7,28 +7,28 @@
 # defaults precede the VM list. The file therefore ends with the only
 # question left once everything above is settled: which VMs to create.
 #
-#    1. KVM host defaults          fill-ins for keys omitted in section 2
-#    2. KVM hypervisor hosts       where VMs are deployed
-#    3. Instance compute defaults  CPU, memory, disk and topology fill-ins
-#    4. Instance CPU share         controlled overcommit policy
-#    5. Instance network defaults  libvirt network and guest addressing
-#    6. Instance additional disks  optional additional data disks
-#    7. Cloud-init guest access    users, passwords and SSH access
-#    8. Cloud-init seed content    locale, packages and first-boot commands
-#    9. Cloud image catalog        pinned Debian cloud images
-#   10. Storage paths              directories used on the hypervisor
-#   11. Image cache policy         download, verification and checksum trust
-#   12. Runtime and readiness      boot, guest agent and shutdown waits
-#   13. Snapshots                  mandatory baseline snapshot policy
-#   14. Hypervisor runtime access  libvirt/qemu user and ACL handling
-#   15. Workflow and cleanup       check mode, concurrency and delete guards
-#   16. VM instances               the VMs to create, and on which host
+#    1. KVM host connection defaults  SSH and libvirt fill-ins for section 3
+#    2. KVM host storage defaults     path fill-ins for section 3
+#    3. KVM hypervisor hosts          where VMs are deployed, and each host's paths
+#    4. Instance compute defaults     CPU, memory, disk and topology fill-ins
+#    5. Instance CPU share            controlled overcommit policy
+#    6. Instance network defaults     libvirt network and guest addressing
+#    7. Instance additional disks     optional additional data disks
+#    8. Cloud-init guest access       users, passwords and SSH access
+#    9. Cloud-init seed content       locale, packages and first-boot commands
+#   10. Cloud image catalog           pinned Debian cloud images
+#   11. Image cache policy            download, verification and checksum trust
+#   12. Runtime and readiness         boot, guest agent and shutdown waits
+#   13. Snapshots                     mandatory baseline snapshot policy
+#   14. Hypervisor runtime access     libvirt/qemu user and ACL handling
+#   15. Workflow and cleanup          check mode, concurrency and delete guards
+#   16. VM instances                  the VMs to create, and on which host
 # -----------------------------------------------------------------------------
-# 1. KVM HOST DEFAULTS
-# Applied to any section 2 entry that omits the matching key or leaves it empty.
+# 1. KVM HOST CONNECTION DEFAULTS
+# Applied to any section 3 entry that omits the matching key or leaves it empty.
 # Set a value here once instead of repeating it on every host.
 # There is no separate "default host" setting: an instance that does not name a
-# hypervisor is deployed on the first entry of section 2.
+# hypervisor is deployed on the first entry of section 3.
 # -----------------------------------------------------------------------------
 kvm_hypervisor_user: ""                               # Default SSH user. Values: "" (SSH config/current user) | username.
 kvm_hypervisor_ssh_private_key_file: ""               # Default SSH key. Values: "" (SSH agent/config) | path to key file.
@@ -38,13 +38,27 @@ kvm_libvirt_connection_uri: "qemu:///system"          # Default libvirt URI. Val
 kvm_require_explicit_hypervisor: false                # Force every instance to name its host. Values: false | true.
 
 # -----------------------------------------------------------------------------
-# 2. KVM HYPERVISOR HOSTS
+# 2. KVM HOST STORAGE DEFAULTS
+# Where each host keeps images, VM disks and scratch files. Hosts rarely share
+# a storage layout, so every value here can be restated per host in section 3;
+# these are only the fill-ins for hosts that do not.
+# Paths derived from these follow automatically: the trusted checksum store
+# sits under the image cache, and snapshot overlays under the disk pool.
+# -----------------------------------------------------------------------------
+kvm_image_cache_path: "/var/lib/libvirt/images/base"             # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: true                           # Auto-create kvm_image_cache_path when missing.
+kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances" # Per-instance VM disk directory.
+kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"       # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-init workspace at end of provision stage.
+
+# -----------------------------------------------------------------------------
+# 3. KVM HYPERVISOR HOSTS
 # Every KVM host is declared here the same way a VM is declared in section 16:
 # one list entry per host, with its own connection settings. A VM is deployed
 # onto the host whose `name` it references through its `hypervisor` key.
 #
 # Only `name` is required. Any key left out, or left empty, falls back to the
-# matching value in section 1, exactly as instance keys fall back to the
+# matching value in section 1 or 2, exactly as instance keys fall back to the
 # kvm_default_* values. The first entry below is where an instance lands when it
 # does not name a hypervisor of its own.
 #
@@ -57,6 +71,11 @@ kvm_require_explicit_hypervisor: false                # Force every instance to 
 # - ssh_port                        SSH port. Values: integer 1-65535
 # - python_interpreter              Python path on this host
 # - libvirt_connection_uri          Values: qemu:///system | qemu:///session
+# - image_cache_path                 base-image cache dir on this host
+# - instance_disk_pool_path          per-instance VM disk dir on this host
+# - cloud_init_workspace_path        cloud-init scratch dir on this host
+# - auto_create_image_cache_path     Values: true | false
+# - cleanup_workspace_path_after_run Values: true | false
 # -----------------------------------------------------------------------------
 kvm_hypervisors:
   - name: "kvm-host-1"                       # Host name referenced by instances.
@@ -66,6 +85,9 @@ kvm_hypervisors:
     ssh_port: 22                             # SSH port. Values: integer 1-65535.
     python_interpreter: "/usr/bin/python3"   # Python path on this host.
     libvirt_connection_uri: "qemu:///system" # Libvirt URI for this host.
+    image_cache_path: ""                     # Base-image cache dir. "" = section 2 default.
+    instance_disk_pool_path: ""              # VM disk dir. "" = section 2 default.
+    cloud_init_workspace_path: ""            # Cloud-init scratch dir. "" = section 2 default.
 
   # Add further hosts to deploy across a fleet in a single run. Each host keeps
   # its own credentials, so hosts may use different SSH keys and users.
@@ -78,9 +100,12 @@ kvm_hypervisors:
   #   ssh_port: 2222                           # Non-default SSH port.
   #   python_interpreter: "/usr/bin/python3"   # Python path on this host.
   #   libvirt_connection_uri: "qemu:///system" # Libvirt URI for this host.
+  #   image_cache_path: "/srv/kvm/iso-pool"    # This host's own base-image cache.
+  #   instance_disk_pool_path: "/srv/kvm/stg-pool" # This host's own VM disk pool.
+  #   cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init" # Scratch dir on this host.
 
 # -----------------------------------------------------------------------------
-# 3. INSTANCE COMPUTE DEFAULTS
+# 4. INSTANCE COMPUTE DEFAULTS
 # Applied to any section 16 entry that omits the matching key.
 # -----------------------------------------------------------------------------
 kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
@@ -89,7 +114,7 @@ kvm_force_single_socket_vcpu_topology: true    # CPU topology policy. true=socke
 kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance disk files when domain is missing.
 
 # -----------------------------------------------------------------------------
-# 4. INSTANCE CPU SHARE / CONTROLLED OVERCOMMIT (overridable per instance)
+# 5. INSTANCE CPU SHARE / CONTROLLED OVERCOMMIT (overridable per instance)
 # When cpu_share_enabled is true, every vCPU of the instance is capped by the
 # Linux CFS bandwidth controller so that kvm_cpu_share_vcpu_per_host_cpu vCPUs
 # are worth at most one host CPU. With the default ratio of 2, a 4 vCPU guest
@@ -111,7 +136,7 @@ kvm_cpu_share_host_cpu_reserve: 1               # Host CPUs held back for the hy
 kvm_cpu_share_allow_capacity_overcommit: false  # Allow demand above usable host CPUs. Values: false | true.
 
 # -----------------------------------------------------------------------------
-# 5. INSTANCE NETWORK DEFAULTS (overridable per instance)
+# 6. INSTANCE NETWORK DEFAULTS (overridable per instance)
 # -----------------------------------------------------------------------------
 kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
 kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
@@ -126,7 +151,7 @@ kvm_default_guest_dns_servers:                     # Default DNS resolvers for g
   - "8.8.8.8"
 
 # -----------------------------------------------------------------------------
-# 6. INSTANCE ADDITIONAL DISKS (overridable per instance)
+# 7. INSTANCE ADDITIONAL DISKS (overridable per instance)
 # instance_extra_disks item keys:
 # - guest_device (required, vd[b-z], example: vdb)
 # - size_gb (required, integer > 0)
@@ -142,7 +167,7 @@ kvm_default_instance_extra_disks: []            # Extra disk list. Values: [] | 
 kvm_allow_mount_var_on_extra_disk: false        # Allow /var mount on fresh extra disk (unsafe). Values: false | true.
 
 # -----------------------------------------------------------------------------
-# 7. CLOUD-INIT GUEST ACCESS DEFAULTS (overridable per instance)
+# 8. CLOUD-INIT GUEST ACCESS DEFAULTS (overridable per instance)
 # -----------------------------------------------------------------------------
 kvm_default_cloud_init_user: "idops"                        # Initial guest username created by cloud-init.
 kvm_default_cloud_init_ssh_public_keys: []                  # Initial SSH authorized keys for cloud-init user.
@@ -153,7 +178,7 @@ kvm_default_cloud_init_ssh_password_auth: true              # Enable SSH passwor
 kvm_default_cloud_init_disable_root: true                   # Disable direct root login via cloud-init.
 
 # -----------------------------------------------------------------------------
-# 8. CLOUD-INIT SEED CONTENT DEFAULTS (overridable per instance)
+# 9. CLOUD-INIT SEED CONTENT DEFAULTS (overridable per instance)
 # -----------------------------------------------------------------------------
 kvm_default_cloud_init_manage_etc_hosts: true            # Manage /etc/hosts entries. Values: true | false.
 kvm_default_cloud_init_timezone: "UTC"                   # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
@@ -178,7 +203,7 @@ kvm_default_cloud_init_networkd_wait_online_timeout_seconds: 30                 
 kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" # Final cloud-init completion message.
 
 # -----------------------------------------------------------------------------
-# 9. CLOUD IMAGE CATALOG
+# 10. CLOUD IMAGE CATALOG
 # Referenced by the image_profile_id of each instance in section 16.
 # Images are pinned by an explicit version token (image_version), NOT "latest".
 # The image_url / image_filename / image_checksum_manifest_url are derived from
@@ -217,15 +242,6 @@ kvm_cloud_image_catalog:
     virt_install_machine_type: "q35"    # Debian 13 profile uses q35 machine.
     seed_device_bus: "scsi"             # Keep aligned with Debian 12 profile.
     firmware_boot_mode: "uefi"          # Required for Debian 13 cloud-image boot on this hypervisor.
-
-# -----------------------------------------------------------------------------
-# 10. STORAGE PATHS (on every hypervisor)
-# -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/libvirt/images/base"             # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                           # Auto-create kvm_image_cache_path when missing.
-kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances" # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"       # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-init workspace at end of provision stage.
 
 # -----------------------------------------------------------------------------
 # 11. IMAGE CACHE POLICY AND TRUSTED CHECKSUMS
@@ -276,18 +292,18 @@ kvm_cleanup_remove_instance_disks: false         # Remove declared instance disk
 
 # -----------------------------------------------------------------------------
 # 16. VM INSTANCES (managed scope for provision + cleanup)
-# One list entry per VM, in the same shape as the hosts in section 2.
+# One list entry per VM, in the same shape as the hosts in section 3.
 # Cleanup is exact-name scoped to these instance_name values only.
 #
 # Required keys:
 # - instance_name          libvirt domain name
-# - image_profile_id       profile from the section 9 catalog
-# - hypervisor             destination host name from section 2
+# - image_profile_id       profile from the section 10 catalog
+# - hypervisor             destination host name from section 3
 # - instance_ipv4_address  static IPv4 for the guest
 # - vcpu_count             vCPU allocation
 # - memory_mb              memory allocation in MB
 #
-# Optional keys, each overriding the matching default from sections 3-8:
+# Optional keys, each overriding the matching default from sections 4-9:
 # - root_disk_size_gb            Example: 40
 # - libvirt_network_name         Example: "br0"
 # - guest_network_interface      Example: "enp1s0"
@@ -295,18 +311,18 @@ kvm_cleanup_remove_instance_disks: false         # Remove declared instance disk
 # - guest_network_gateway        Example: "192.168.122.1"
 # - guest_dns_servers            Example: ["1.1.1.1", "8.8.8.8"]
 # - instance_mac_address         Example: "52:54:00:11:22:33"
-# - cpu_share_enabled            Example: true   (see section 4)
-# - instance_extra_disks_enabled Example: true   (see section 6)
+# - cpu_share_enabled            Example: true   (see section 5)
+# - instance_extra_disks_enabled Example: true   (see section 7)
 # - instance_extra_disks         Example: see debian-12-a below
 #
 # The `hypervisor` key decides where the VM is created:
 #   hypervisor: "kvm-host-1"   deploy on that host
-#   hypervisor: ""             deploy on the first host in section 2
+#   hypervisor: ""             deploy on the first host in section 3
 # -----------------------------------------------------------------------------
 kvm_instance_definitions:
   - instance_name: "debian-12-a"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
-    hypervisor: "kvm-host-1"                 # Destination host from section 2.
+    hypervisor: "kvm-host-1"                 # Destination host from section 3.
     instance_ipv4_address: "192.168.122.121" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
@@ -321,7 +337,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-12-b"             # Target libvirt domain name.
     image_profile_id: "debian-12"            # Cloud image profile reference.
-    hypervisor: "kvm-host-1"                 # Destination host from section 2.
+    hypervisor: "kvm-host-1"                 # Destination host from section 3.
     instance_ipv4_address: "192.168.122.122" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
@@ -336,7 +352,7 @@ kvm_instance_definitions:
 
   - instance_name: "debian-13-a"             # Target libvirt domain name.
     image_profile_id: "debian-13"            # Cloud image profile reference.
-    hypervisor: "kvm-host-1"                 # Destination host from section 2.
+    hypervisor: "kvm-host-1"                 # Destination host from section 3.
     instance_ipv4_address: "192.168.122.131" # Instance static IPv4 address.
     vcpu_count: 1                            # vCPU allocation.
     memory_mb: 2048                          # Memory allocation in MB.
