@@ -4,6 +4,10 @@
   gather_facts: false
   vars_files:
     - vars/template-config.yml
+    # Optional machine-specific overrides, loaded last so they win. Falls back
+    # to a placeholder when absent; *.local.yml is never committed.
+    # Create one with: make settings
+    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
   vars:
     template_action: "{{ template_action | default('provision') }}"
 
@@ -25,6 +29,10 @@
   gather_facts: false
   vars_files:
     - vars/template-config.yml
+    # Optional machine-specific overrides, loaded last so they win. Falls back
+    # to a placeholder when absent; *.local.yml is never committed.
+    # Create one with: make settings
+    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
   vars:
     template_action: "{{ template_action | default('provision') }}"
 

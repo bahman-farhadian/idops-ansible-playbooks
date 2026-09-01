@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help venv require-venv deps-bundle lint check ping image-cache checksum-refresh provision-check provision cleanup cleanup-force cleanup-force-disks
+.PHONY: help settings venv require-venv deps-bundle lint check ping image-cache checksum-refresh provision-check provision cleanup cleanup-force cleanup-force-disks
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -10,12 +10,16 @@ PLAYBOOK_FILE ?= playbook.yml
 VENV := $(PROJECT_ROOT)/venv
 WHEELHOUSE := $(PROJECT_ROOT)/wheelhouse
 VENV_ACTIVATE := . $(VENV)/bin/activate
+PYTHON ?= python3
+LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
+FORCE ?=
 LIMIT ?=
 EXTRA_ARGS ?=
 
 help:
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
+	@printf "  %-28s %s\n" "make settings" "create vars/settings.local.yml for this machine"
 	@printf "  %-28s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-28s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "syntax-check playbook entrypoint"
@@ -31,6 +35,16 @@ help:
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit run to named hypervisor(s)"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
+
+settings:
+	@if [ ! -f "$(LOCAL_SETTINGS_FILE)" ] || [ "$(FORCE)" = "1" ]; then \
+		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
+			$(if $(filter 1,$(FORCE)),--force,); \
+	else \
+		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)"; \
+	fi
 
 venv:
 	$(MAKE) -C $(PROJECT_ROOT) venv

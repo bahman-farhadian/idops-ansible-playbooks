@@ -1,0 +1,8 @@
+---
+# Placeholder loaded when vars/settings.local.yml does not exist.
+#
+# playbook.yml reads settings.local.yml if it is present and falls back to this
+# file if it is not, so a machine-local override file is optional.
+# It deliberately defines nothing.
+#
+# Create one for this machine with: make settings

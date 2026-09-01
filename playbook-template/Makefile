@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help require-venv deps-bundle lint check ping provision cleanup
+.PHONY: help settings require-venv deps-bundle lint check ping provision cleanup
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -10,12 +10,16 @@ WHEELHOUSE := $(PROJECT_ROOT)/wheelhouse
 PYTHON ?= python3
 PIP := $(VENV)/bin/pip
 VENV_ACTIVATE := . $(VENV)/bin/activate
+PYTHON ?= python3
+LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
+FORCE ?=
 LIMIT ?=
 EXTRA_ARGS ?=
 
 help:
 	@printf "Available targets:\n"
 	@printf "  %-20s %s\n" "make help" "show this help"
+	@printf "  %-20s %s\n" "make settings" "create vars/settings.local.yml for this machine"
 	@printf "  %-20s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
 	@printf "  %-20s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-20s %s\n" "make lint" "run ansible-lint"
@@ -26,6 +30,16 @@ help:
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit inventory scope"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
+
+settings:
+	@if [ ! -f "$(LOCAL_SETTINGS_FILE)" ] || [ "$(FORCE)" = "1" ]; then \
+		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
+			$(if $(filter 1,$(FORCE)),--force,); \
+	else \
+		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)"; \
+	fi
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \

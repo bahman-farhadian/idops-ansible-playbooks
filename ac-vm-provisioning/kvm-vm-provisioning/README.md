@@ -366,6 +366,28 @@ storage pools — belongs in `vars/settings.local.yml`. It is loaded last, so it
 overrides the tracked files, and it is optional: the playbook falls back to a
 placeholder when it does not exist.
 
+Generate it rather than writing it by hand:
+
+```bash
+make settings
+```
+
+That writes every setting the project exposes, commented out, grouped by the
+file it comes from and carrying that file's own comments. Uncomment only what
+differs here. It refuses to overwrite an existing file unless you pass
+`FORCE=1`, because git does not back that file up.
+
+Three rules worth knowing:
+
+- Anything left commented keeps the tracked default, and follows it if that
+  default later changes
+- Overriding replaces the **whole** value, it does not merge. Uncomment
+  `kvm_hypervisors` and every host must be listed there, because the tracked
+  list is replaced outright
+- Once a key lives in the local file, edit it there. The same key in a numbered
+  file is ignored. Each run prints which keys the local file supplies, so an
+  edit that appears to do nothing is explained on the spot
+
 ```yaml
 ---
 kvm_hypervisors:
