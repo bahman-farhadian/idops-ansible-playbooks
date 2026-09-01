@@ -35,41 +35,108 @@
       ansible.builtin.set_fact:
         kvm_resolved_hypervisors: "{{ kvm_hypervisors }}"
 
-    - name: Validate hypervisor fleet entries
+    - name: Validate hypervisor names
       ansible.builtin.assert:
         that:
           - item.name is defined
           - (item.name | string | length) > 0
           - item.name is match('^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$')
+        fail_msg: >-
+          Hypervisor name '{{ item.name | default('unnamed') }}' is invalid.
+          Use letters, digits, dot, dash or underscore, starting with a letter
+          or digit, up to 63 characters.
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Validate hypervisor connection settings
+      ansible.builtin.assert:
+        that:
           - (item.ssh_port | default(kvm_hypervisor_ssh_port, true) | int) > 0
           - (item.ssh_port | default(kvm_hypervisor_ssh_port, true) | int) <= 65535
           - >-
             (item.libvirt_connection_uri | default(kvm_libvirt_connection_uri, true))
             is match('^qemu')
-          - >-
-            (item.image_cache_path | default(kvm_image_cache_path, true))
-            is match('^/')
-          - >-
-            (item.instance_disk_pool_path | default(kvm_instance_disk_pool_path, true))
-            is match('^/')
-          - >-
-            (item.cloud_init_workspace_path | default(kvm_cloud_init_workspace_path, true))
-            is match('^/')
-          - >-
-            (item.libvirt_network_name | default(kvm_default_libvirt_network_name, true))
-            | string | length > 0
-          - >-
-            (item.guest_network_prefix | default(kvm_default_guest_network_prefix, true))
-            | int > 0
         fail_msg: >-
-          Invalid hypervisor entry '{{ item.name | default('unnamed') }}'.
-          Each kvm_hypervisors entry needs a unique name matching
-          ^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$, an ssh_port within 1-65535, a
-          libvirt_connection_uri starting with 'qemu', and absolute storage
-          paths where it overrides them.
+          Hypervisor '{{ item.name }}' has invalid connection settings.
+          ssh_port must be 1-65535 (got
+          {{ item.ssh_port | default(kvm_hypervisor_ssh_port, true) }}) and
+          libvirt_connection_uri must start with 'qemu' (got
+          '{{ item.libvirt_connection_uri | default(kvm_libvirt_connection_uri, true) }}').
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:
-        label: "{{ item.name | default('unnamed') }}"
+        label: "{{ item.name }}"
+
+    # Named one path at a time: these are directories on the hypervisor, and a
+    # relative value is the easy mistake to make.
+    - name: Validate hypervisor image cache path
+      ansible.builtin.assert:
+        that:
+          - >-
+            (item.image_cache_path | default(kvm_image_cache_path, true) | string)
+            is match('^/')
+        fail_msg: >-
+          Hypervisor '{{ item.name }}' sets image_cache_path to
+          '{{ item.image_cache_path | default(kvm_image_cache_path, true) }}',
+          which is not an absolute path. It is a directory on that host, so it
+          must start with '/', for example /var/lib/libvirt/images/base.
+          Leave it empty ("") to inherit the default from 01-hypervisors.yml.
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name }}:image_cache_path"
+
+    - name: Validate hypervisor instance disk pool path
+      ansible.builtin.assert:
+        that:
+          - >-
+            (item.instance_disk_pool_path
+             | default(kvm_instance_disk_pool_path, true) | string)
+            is match('^/')
+        fail_msg: >-
+          Hypervisor '{{ item.name }}' sets instance_disk_pool_path to
+          '{{ item.instance_disk_pool_path | default(kvm_instance_disk_pool_path, true) }}',
+          which is not an absolute path. It is a directory on that host, so it
+          must start with '/', for example /var/lib/libvirt/images/instances.
+          Leave it empty ("") to inherit the default from 01-hypervisors.yml.
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name }}:instance_disk_pool_path"
+
+    - name: Validate hypervisor cloud-init workspace path
+      ansible.builtin.assert:
+        that:
+          - >-
+            (item.cloud_init_workspace_path
+             | default(kvm_cloud_init_workspace_path, true) | string)
+            is match('^/')
+        fail_msg: >-
+          Hypervisor '{{ item.name }}' sets cloud_init_workspace_path to
+          '{{ item.cloud_init_workspace_path | default(kvm_cloud_init_workspace_path, true) }}',
+          which is not an absolute path. It is a directory on that host, so it
+          must start with '/', for example /tmp/idops-kvm-cloud-init.
+          Leave it empty ("") to inherit the default from 01-hypervisors.yml.
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name }}:cloud_init_workspace_path"
+
+    - name: Validate hypervisor network settings
+      ansible.builtin.assert:
+        that:
+          - >-
+            (item.libvirt_network_name
+             | default(kvm_default_libvirt_network_name, true) | string | length) > 0
+          - >-
+            (item.guest_network_prefix
+             | default(kvm_default_guest_network_prefix, true) | int) > 0
+        fail_msg: >-
+          Hypervisor '{{ item.name }}' has invalid network settings.
+          libvirt_network_name must not be empty (got
+          '{{ item.libvirt_network_name | default(kvm_default_libvirt_network_name, true) }}')
+          and guest_network_prefix must be a positive integer (got
+          '{{ item.guest_network_prefix | default(kvm_default_guest_network_prefix, true) }}').
+      loop: "{{ kvm_resolved_hypervisors }}"
+      loop_control:
+        label: "{{ item.name }}"
 
     - name: Validate hypervisor names are unique
       ansible.builtin.assert:
