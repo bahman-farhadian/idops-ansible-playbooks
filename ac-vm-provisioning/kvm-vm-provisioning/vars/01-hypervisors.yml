@@ -5,6 +5,10 @@
 # falls back to: its credentials, its storage layout, the guest network it
 # offers, and how libvirt reaches the disks it owns.
 #
+# NOTE: if vars/settings.local.yml exists and defines a key that also appears
+# here, that file wins and the value here is ignored. Every run prints which
+# keys it is overriding.
+#
 # This is one of several settings files, read in this order:
 #   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
 #   02-vm-defaults.yml   CPU, memory, disks and overcommit policy

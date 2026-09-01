@@ -22,6 +22,27 @@
           - kvm_action in ['provision', 'cleanup', 'ping']
         fail_msg: "kvm_action must be 'provision', 'cleanup', or 'ping'."
 
+    - name: Check for a machine-specific override file
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/vars/settings.local.yml"
+      register: kvm_local_override_file
+      changed_when: false
+
+    - name: Load the machine-specific override file for reporting
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/vars/settings.local.yml"
+        name: kvm_local_overrides
+      when: kvm_local_override_file.stat.exists
+
+    - name: Report which settings come from the override file
+      ansible.builtin.debug:
+        msg: >-
+          vars/settings.local.yml is in effect and overrides
+          {{ kvm_local_overrides | length }} setting(s):
+          {{ kvm_local_overrides.keys() | list | join(', ') }}.
+          Edit those there; the same keys in the numbered files are ignored.
+      when: kvm_local_override_file.stat.exists
+
     - name: Validate at least one hypervisor is declared
       ansible.builtin.assert:
         that:
