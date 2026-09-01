@@ -4,6 +4,10 @@
   gather_facts: false
   vars_files:
     - vars/debian-hardening.yml
+    # Optional machine-specific overrides, loaded last so they win. Falls back
+    # to a placeholder when absent; *.local.yml is never committed.
+    # Create one with: make settings
+    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
 
@@ -22,6 +26,10 @@
   gather_facts: "{{ debian_hardening_action_effective in ['scan', 'harden'] }}"
   vars_files:
     - vars/debian-hardening.yml
+    # Optional machine-specific overrides, loaded last so they win. Falls back
+    # to a placeholder when absent; *.local.yml is never committed.
+    # Create one with: make settings
+    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
 

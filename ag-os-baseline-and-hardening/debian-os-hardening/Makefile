@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help require-venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
+.PHONY: help settings require-venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
         roles \
         role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-common-repos \
         role-package-hardening role-service-hardening role-firewall role-kernel-hardening role-auth-hardening \
@@ -28,6 +28,8 @@ DIFF ?= false
 EXTRA_ARGS ?=
 HARDENING_VARS_FILE ?= vars/debian-hardening.yml
 HARDENING_LOCAL_SECRETS_FILE ?= vars/local-secrets.yml
+LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
+FORCE ?=
 
 BOOL_TRUE := 1 true yes TRUE YES
 
@@ -49,6 +51,7 @@ help:
 	@printf "  %-24s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-24s %s\n" "make check" "syntax-check playbook entrypoint"
 	@printf "  %-24s %s\n" "make lint" "run ansible-lint"
+	@printf "  %-24s %s\n" "make settings" "create vars/settings.local.yml for this machine"
 	@printf "  %-24s %s\n" "make ping" "test connectivity to hardening targets"
 	@printf "  %-24s %s\n" "make scan" "run Lynis baseline scan workflow"
 	@printf "  %-24s %s\n" "make harden" "run Debian/Ubuntu hardening workflow"
@@ -89,6 +92,16 @@ help:
 	@printf "  %-28s %s\n" "CHECK=true" "enable Ansible --check"
 	@printf "  %-28s %s\n" "DIFF=true" "enable Ansible --diff"
 	@printf "  %-28s %s\n" "EXTRA_ARGS='<raw args>'" "pass raw ansible args"
+
+settings:
+	@if [ ! -f "$(LOCAL_SETTINGS_FILE)" ] || [ "$(FORCE)" = "1" ]; then \
+		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
+			$(if $(filter 1,$(FORCE)),--force,); \
+	else \
+		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)"; \
+	fi
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \

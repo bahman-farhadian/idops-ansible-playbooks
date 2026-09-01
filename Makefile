@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help venv deps-bundle clean
+.PHONY: help venv deps-bundle clean check-local
 
 PYTHON ?= python3
 VENV ?= venv
@@ -18,6 +18,7 @@ help:
 	@printf "  %-18s %s\n" "make venv" "create the single project venv/ and install requirements.txt"
 	@printf "  %-18s %s\n" "make deps-bundle" "download dependency wheels into wheelhouse/ for offline use"
 	@printf "  %-18s %s\n" "make clean" "remove the project venv/"
+	@printf "  %-18s %s\n" "make check-local" "verify no machine-local settings file is tracked by git"
 
 venv: $(REQUIREMENTS)
 	$(PYTHON) -m venv $(VENV)
@@ -36,6 +37,26 @@ venv: $(REQUIREMENTS)
 
 deps-bundle: venv
 	$(VENV_ACTIVATE) && pip download -r "$(REQUIREMENTS)" -d "$(WHEELHOUSE)"
+
+# Machine-local settings hold one operator's hosts, keys and paths. They are
+# gitignored, but an ignore rule is not a guarantee: `git add -f` defeats it.
+# This makes the invariant checkable, so it can run before a push or in CI.
+check-local:
+	@tracked="$$(git ls-files | grep -E '\.local\.yml$$|local-secrets\.yml$$' || true)"; \
+	if [ -n "$$tracked" ]; then \
+		echo "FAIL: machine-local settings are tracked by git:"; \
+		echo "$$tracked" | sed 's/^/  /'; \
+		echo "Remove them with: git rm --cached <file>"; \
+		exit 1; \
+	fi; \
+	staged="$$(git diff --cached --name-only | grep -E '\.local\.yml$$|local-secrets\.yml$$' || true)"; \
+	if [ -n "$$staged" ]; then \
+		echo "FAIL: machine-local settings are staged for commit:"; \
+		echo "$$staged" | sed 's/^/  /'; \
+		echo "Unstage them with: git restore --staged <file>"; \
+		exit 1; \
+	fi; \
+	echo "OK: no machine-local settings file is tracked or staged."
 
 clean:
 	rm -rf $(VENV)
