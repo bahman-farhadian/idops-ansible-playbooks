@@ -338,30 +338,32 @@ Core interface keys:
 
 ## Configuration Layout
 
-`vars/kvm-provisioning.yml` is ordered so it reads as a deployment description,
-from where things run down to how the workflow behaves:
+`vars/kvm-provisioning.yml` states each topic's defaults before the thing that
+uses them, so the file ends with the only question left once everything above
+is settled: which VMs to create.
 
 | # | Section | Holds |
 |---|---------|-------|
-| 1 | KVM hypervisor hosts | where VMs are deployed |
-| 2 | KVM host defaults | fill-ins for keys omitted in section 1 |
-| 3 | VM instances | what is deployed, and onto which host |
-| 4 | Instance compute defaults | CPU, disk and topology fill-ins |
-| 5 | Instance CPU share | controlled overcommit policy |
-| 6 | Instance network defaults | libvirt network and guest addressing |
-| 7 | Instance extra disks | optional additional data disks |
-| 8 | Cloud-init guest access | users, passwords and SSH access |
-| 9 | Cloud-init seed content | locale, packages and first-boot commands |
-| 10 | Cloud image catalog | pinned Debian cloud images |
-| 11 | Storage paths | directories used on the hypervisor |
-| 12 | Image cache policy | download, verification and checksum trust |
-| 13 | Runtime and readiness | boot, guest agent and shutdown waits |
-| 14 | Snapshots | mandatory baseline snapshot policy |
-| 15 | Hypervisor runtime access | libvirt/qemu user and ACL handling |
-| 16 | Workflow and cleanup | check mode, concurrency and delete guards |
+| 1 | KVM host defaults | fill-ins for keys omitted in section 2 |
+| 2 | KVM hypervisor hosts | where VMs are deployed |
+| 3 | Instance compute defaults | CPU, memory, disk and topology fill-ins |
+| 4 | Instance CPU share | controlled overcommit policy |
+| 5 | Instance network defaults | libvirt network and guest addressing |
+| 6 | Instance additional disks | optional additional data disks |
+| 7 | Cloud-init guest access | users, passwords and SSH access |
+| 8 | Cloud-init seed content | locale, packages and first-boot commands |
+| 9 | Cloud image catalog | pinned Debian cloud images |
+| 10 | Storage paths | directories used on the hypervisor |
+| 11 | Image cache policy | download, verification and checksum trust |
+| 12 | Runtime and readiness | boot, guest agent and shutdown waits |
+| 13 | Snapshots | mandatory baseline snapshot policy |
+| 14 | Hypervisor runtime access | libvirt/qemu user and ACL handling |
+| 15 | Workflow and cleanup | check mode, concurrency and delete guards |
+| 16 | VM instances | the VMs to create, and on which host |
 
-Sections 1 and 3 are the two you edit to describe a deployment. Everything
-below them is defaults and policy that those two inherit.
+Two sections describe a deployment: section 2 declares the hosts, and section
+16 lists the VMs. Everything between them is the defaults and policy those VMs
+inherit, so a VM entry only needs to state what differs from them.
 
 ## Multiple Hypervisors And Host Credentials
 
