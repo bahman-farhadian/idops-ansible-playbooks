@@ -24,6 +24,22 @@
         | default(kvm_cleanup_workspace_path_after_run) | bool
       }}
 
+- name: Resolve network layout for this hypervisor
+  ansible.builtin.set_fact:
+    kvm_default_libvirt_network_name: >-
+      {{ kvm_host_libvirt_network_name | default(kvm_default_libvirt_network_name) }}
+    kvm_default_guest_network_gateway: >-
+      {{ kvm_host_guest_network_gateway | default(kvm_default_guest_network_gateway) }}
+    kvm_default_guest_network_prefix: >-
+      {{ kvm_host_guest_network_prefix | default(kvm_default_guest_network_prefix) }}
+    kvm_default_guest_dns_servers: >-
+      {{ kvm_host_guest_dns_servers | default(kvm_default_guest_dns_servers) }}
+    kvm_auto_start_required_libvirt_networks: >-
+      {{
+        kvm_host_auto_start_required_libvirt_networks
+        | default(kvm_auto_start_required_libvirt_networks) | bool
+      }}
+
 - name: Resolve connection facts for this hypervisor
   ansible.builtin.set_fact:
     kvm_assigned_instances: []
@@ -72,6 +88,8 @@
       uri={{ kvm_effective_libvirt_uri }}
       image_cache={{ kvm_image_cache_path }}
       disk_pool={{ kvm_instance_disk_pool_path }}
+      network={{ kvm_default_libvirt_network_name }}
+      gateway={{ kvm_default_guest_network_gateway }}
       instances={{ kvm_host_instance_definitions | map(attribute='instance_name') | list }}
 
 - name: End workflow for a hypervisor with no declared instances

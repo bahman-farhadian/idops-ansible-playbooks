@@ -2,20 +2,19 @@
 # VM SPECIFICATION DEFAULTS
 #
 # The specification every VM inherits: CPU, memory, disks and the overcommit
-# policy. A VM in 07-instances.yml only states what differs from these.
+# policy. A VM in 06-instances.yml only states what differs from these.
 #
 # This is one of several settings files, read in this order:
-#   01-hypervisors.yml   where VMs are deployed
+#   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
 #   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
-#   03-network.yml       libvirt network and guest addressing
-#   04-cloud-init.yml    guest users, access and first-boot content
-#   05-images.yml        cloud images, and how they are cached and trusted
-#   06-runtime.yml       readiness waits, snapshots and cleanup guards
-#   07-instances.yml     the VMs to create, and on which host
-#   local.yml            optional, gitignored, overrides any of the above
+#   03-cloud-init.yml    guest users, access and first-boot content
+#   04-images.yml        cloud images, and how they are cached and trusted
+#   05-runtime.yml       readiness waits, snapshots and cleanup guards
+#   06-instances.yml     the VMs to create, and on which host
+#   settings.local.yml   optional, gitignored, overrides any of the above
 # -----------------------------------------------------------------------------
 # 1. INSTANCE COMPUTE DEFAULTS
-# Applied to any VM in 07-instances.yml that omits the matching key.
+# Applied to any VM in 06-instances.yml that omits the matching key.
 # -----------------------------------------------------------------------------
 kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
 kvm_default_root_disk_size_gb: 20              # Default total instance disk size in GiB for new instances.

@@ -4,14 +4,13 @@
 # Who can log into a guest, and what first boot does inside it.
 #
 # This is one of several settings files, read in this order:
-#   01-hypervisors.yml   where VMs are deployed
+#   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
 #   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
-#   03-network.yml       libvirt network and guest addressing
-#   04-cloud-init.yml    guest users, access and first-boot content
-#   05-images.yml        cloud images, and how they are cached and trusted
-#   06-runtime.yml       readiness waits, snapshots and cleanup guards
-#   07-instances.yml     the VMs to create, and on which host
-#   local.yml            optional, gitignored, overrides any of the above
+#   03-cloud-init.yml    guest users, access and first-boot content
+#   04-images.yml        cloud images, and how they are cached and trusted
+#   05-runtime.yml       readiness waits, snapshots and cleanup guards
+#   06-instances.yml     the VMs to create, and on which host
+#   settings.local.yml   optional, gitignored, overrides any of the above
 # -----------------------------------------------------------------------------
 # 1. CLOUD-INIT GUEST ACCESS DEFAULTS (overridable per instance)
 # -----------------------------------------------------------------------------

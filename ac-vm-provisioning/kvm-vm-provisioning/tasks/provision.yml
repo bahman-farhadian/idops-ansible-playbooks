@@ -14,7 +14,7 @@
     that:
       - kvm_instance_definitions is defined
       - kvm_instance_definitions | length > 0
-    fail_msg: "Define at least one instance in vars/07-instances.yml under kvm_instance_definitions."
+    fail_msg: "Define at least one instance in vars/06-instances.yml under kvm_instance_definitions."
 
 - name: Resolve the instance scope for this hypervisor
   ansible.builtin.include_tasks: tasks/resolve-host-scope.yml
@@ -25,7 +25,7 @@
       - kvm_cloud_image_catalog is defined
       - kvm_cloud_image_catalog is mapping
       - kvm_cloud_image_catalog | length > 0
-    fail_msg: "Define at least one image profile in vars/05-images.yml under kvm_cloud_image_catalog."
+    fail_msg: "Define at least one image profile in vars/04-images.yml under kvm_cloud_image_catalog."
 
 - name: Assert every image profile pins image_version
   ansible.builtin.assert:

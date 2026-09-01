@@ -2,17 +2,17 @@
 # KVM HYPERVISOR HOSTS
 #
 # Where VMs are deployed. Declares every KVM host and the defaults each host
-# falls back to, plus how libvirt reaches the disks it owns.
+# falls back to: its credentials, its storage layout, the guest network it
+# offers, and how libvirt reaches the disks it owns.
 #
 # This is one of several settings files, read in this order:
-#   01-hypervisors.yml   where VMs are deployed
+#   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
 #   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
-#   03-network.yml       libvirt network and guest addressing
-#   04-cloud-init.yml    guest users, access and first-boot content
-#   05-images.yml        cloud images, and how they are cached and trusted
-#   06-runtime.yml       readiness waits, snapshots and cleanup guards
-#   07-instances.yml     the VMs to create, and on which host
-#   local.yml            optional, gitignored, overrides any of the above
+#   03-cloud-init.yml    guest users, access and first-boot content
+#   04-images.yml        cloud images, and how they are cached and trusted
+#   05-runtime.yml       readiness waits, snapshots and cleanup guards
+#   06-instances.yml     the VMs to create, and on which host
+#   settings.local.yml   optional, gitignored, overrides any of the above
 # -----------------------------------------------------------------------------
 # 1. KVM HOST CONNECTION DEFAULTS
 # Applied to any host below that omits the matching key or leaves it empty.
@@ -46,7 +46,7 @@ kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-
 # -----------------------------------------------------------------------------
 # 3. KVM HYPERVISOR HOSTS
 # Every KVM host is declared here the same way a VM is declared in
-# 07-instances.yml:
+# 06-instances.yml:
 # one list entry per host, with its own connection settings. A VM is deployed
 # onto the host whose `name` it references through its `hypervisor` key.
 #
@@ -69,6 +69,11 @@ kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-
 # - cloud_init_workspace_path        cloud-init scratch dir on this host
 # - auto_create_image_cache_path     Values: true | false
 # - cleanup_workspace_path_after_run Values: true | false
+# - libvirt_network_name             libvirt network guests attach to
+# - guest_network_gateway            IPv4 gateway of that network
+# - guest_network_prefix             IPv4 prefix length of that network
+# - guest_dns_servers                resolvers reachable from that network
+# - auto_start_required_libvirt_networks  Values: true | false
 # -----------------------------------------------------------------------------
 kvm_hypervisors:
   - name: "kvm-host-1"                       # Host name referenced by instances.
@@ -81,6 +86,9 @@ kvm_hypervisors:
     image_cache_path: ""                     # Base-image cache dir. "" = section 2 default.
     instance_disk_pool_path: ""              # VM disk dir. "" = section 2 default.
     cloud_init_workspace_path: ""            # Cloud-init scratch dir. "" = section 2 default.
+    libvirt_network_name: ""                 # Guest network. "" = section 4 default.
+    guest_network_gateway: ""                # IPv4 gateway. "" = section 4 default.
+    guest_network_prefix: ""                 # IPv4 prefix. "" = section 4 default.
 
   # Add further hosts to deploy across a fleet in a single run. Each host keeps
   # its own credentials, so hosts may use different SSH keys and users.
@@ -96,10 +104,28 @@ kvm_hypervisors:
   #   image_cache_path: "/srv/kvm/iso-pool"    # This host's own base-image cache.
   #   instance_disk_pool_path: "/srv/kvm/stg-pool" # This host's own VM disk pool.
   #   cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init" # Scratch dir on this host.
+  #   libvirt_network_name: "br0"              # This host's own guest network.
+  #   guest_network_gateway: "10.20.30.1"      # Gateway on that network.
+  #   guest_network_prefix: "24"               # Prefix on that network.
 
 
 # -----------------------------------------------------------------------------
-# 4. HYPERVISOR RUNTIME ACCESS (libvirt/qemu user)
+# 4. HOST NETWORK DEFAULTS (overridable per host and per instance)
+# -----------------------------------------------------------------------------
+kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
+kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
+kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
+kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
+  - "enp1s0"
+  - "eth0"
+kvm_default_guest_network_prefix: "24"             # Default IPv4 prefix length.
+kvm_default_guest_network_gateway: "192.168.122.1" # Default IPv4 gateway.
+kvm_default_guest_dns_servers:                     # Default DNS resolvers for guest cloud-init config.
+  - "1.1.1.1"
+  - "8.8.8.8"
+
+# -----------------------------------------------------------------------------
+# 5. HYPERVISOR RUNTIME ACCESS (libvirt/qemu user)
 # -----------------------------------------------------------------------------
 kvm_validate_runtime_pool_access: true   # Validate runtime user path access before mutation.
 kvm_auto_fix_runtime_pool_access: true   # Auto-apply ACL fixes when runtime access checks fail.

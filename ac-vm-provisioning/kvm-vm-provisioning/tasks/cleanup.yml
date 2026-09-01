@@ -7,7 +7,7 @@
     that:
       - kvm_instance_definitions is defined
       - kvm_instance_definitions | length > 0
-    fail_msg: "Define at least one instance in vars/07-instances.yml under kvm_instance_definitions."
+    fail_msg: "Define at least one instance in vars/06-instances.yml under kvm_instance_definitions."
 
 - name: Resolve the instance scope for this hypervisor
   ansible.builtin.include_tasks: tasks/resolve-host-scope.yml

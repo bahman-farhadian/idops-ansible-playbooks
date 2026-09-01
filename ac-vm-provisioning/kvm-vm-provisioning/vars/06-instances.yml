@@ -5,14 +5,13 @@
 # read: everything it does not state comes from the defaults in the others.
 #
 # This is one of several settings files, read in this order:
-#   01-hypervisors.yml   where VMs are deployed
+#   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
 #   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
-#   03-network.yml       libvirt network and guest addressing
-#   04-cloud-init.yml    guest users, access and first-boot content
-#   05-images.yml        cloud images, and how they are cached and trusted
-#   06-runtime.yml       readiness waits, snapshots and cleanup guards
-#   07-instances.yml     the VMs to create, and on which host
-#   local.yml            optional, gitignored, overrides any of the above
+#   03-cloud-init.yml    guest users, access and first-boot content
+#   04-images.yml        cloud images, and how they are cached and trusted
+#   05-runtime.yml       readiness waits, snapshots and cleanup guards
+#   06-instances.yml     the VMs to create, and on which host
+#   settings.local.yml   optional, gitignored, overrides any of the above
 # -----------------------------------------------------------------------------
 # 1. VM INSTANCES (managed scope for provision + cleanup)
 # One list entry per VM, in the same shape as the hosts in 01-hypervisors.yml.
@@ -20,14 +19,14 @@
 #
 # Required keys:
 # - instance_name          libvirt domain name
-# - image_profile_id       profile from the 05-images.yml catalog
+# - image_profile_id       profile from the 04-images.yml catalog
 # - hypervisor             destination host name from 01-hypervisors.yml
 # - instance_ipv4_address  static IPv4 for the guest
 # - vcpu_count             vCPU allocation
 # - memory_mb              memory allocation in MB
 #
 # Optional keys, each overriding a default from 02-vm-defaults.yml,
-# 03-network.yml or 04-cloud-init.yml:
+# 01-hypervisors.yml or 03-cloud-init.yml:
 # - root_disk_size_gb            Example: 40
 # - libvirt_network_name         Example: "br0"
 # - guest_network_interface      Example: "enp1s0"

@@ -5,14 +5,13 @@
 # guards that stand between a run and deleted data.
 #
 # This is one of several settings files, read in this order:
-#   01-hypervisors.yml   where VMs are deployed
+#   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
 #   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
-#   03-network.yml       libvirt network and guest addressing
-#   04-cloud-init.yml    guest users, access and first-boot content
-#   05-images.yml        cloud images, and how they are cached and trusted
-#   06-runtime.yml       readiness waits, snapshots and cleanup guards
-#   07-instances.yml     the VMs to create, and on which host
-#   local.yml            optional, gitignored, overrides any of the above
+#   03-cloud-init.yml    guest users, access and first-boot content
+#   04-images.yml        cloud images, and how they are cached and trusted
+#   05-runtime.yml       readiness waits, snapshots and cleanup guards
+#   06-instances.yml     the VMs to create, and on which host
+#   settings.local.yml   optional, gitignored, overrides any of the above
 # -----------------------------------------------------------------------------
 # 1. RUNTIME AND READINESS BEHAVIOR
 # -----------------------------------------------------------------------------
@@ -36,7 +35,7 @@ kvm_start_instances_after_snapshot: true                                 # Start
 
 # -----------------------------------------------------------------------------
 # 3. WORKFLOW AND CLEANUP SAFEGUARDS
-# Cleanup only ever touches the instance_name values in 07-instances.yml.
+# Cleanup only ever touches the instance_name values in 06-instances.yml.
 # -----------------------------------------------------------------------------
 kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --check mode. Values: true | false.
 kvm_parallel_instance_workers: 4                 # Max concurrent per-instance heavy operations during provision stage.

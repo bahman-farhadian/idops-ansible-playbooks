@@ -5,11 +5,10 @@
   vars_files:
     - vars/01-hypervisors.yml
     - vars/02-vm-defaults.yml
-    - vars/03-network.yml
-    - vars/04-cloud-init.yml
-    - vars/05-images.yml
-    - vars/06-runtime.yml
-    - vars/07-instances.yml
+    - vars/03-cloud-init.yml
+    - vars/04-images.yml
+    - vars/05-runtime.yml
+    - vars/06-instances.yml
     # Optional machine-specific overrides, loaded last so they win. Falls back
     # to a placeholder when the file is absent; *.local.yml is never committed.
     - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
@@ -56,6 +55,12 @@
           - >-
             (item.cloud_init_workspace_path | default(kvm_cloud_init_workspace_path, true))
             is match('^/')
+          - >-
+            (item.libvirt_network_name | default(kvm_default_libvirt_network_name, true))
+            | string | length > 0
+          - >-
+            (item.guest_network_prefix | default(kvm_default_guest_network_prefix, true))
+            | int > 0
         fail_msg: >-
           Invalid hypervisor entry '{{ item.name | default('unnamed') }}'.
           Each kvm_hypervisors entry needs a unique name matching
@@ -159,6 +164,19 @@
             item.cleanup_workspace_path_after_run
             | default(kvm_cleanup_workspace_path_after_run, true)
           }}
+        kvm_host_libvirt_network_name: >-
+          {{ item.libvirt_network_name | default(kvm_default_libvirt_network_name, true) }}
+        kvm_host_guest_network_gateway: >-
+          {{ item.guest_network_gateway | default(kvm_default_guest_network_gateway, true) }}
+        kvm_host_guest_network_prefix: >-
+          {{ item.guest_network_prefix | default(kvm_default_guest_network_prefix, true) }}
+        kvm_host_guest_dns_servers: >-
+          {{ item.guest_dns_servers | default(kvm_default_guest_dns_servers, true) }}
+        kvm_host_auto_start_required_libvirt_networks: >-
+          {{
+            item.auto_start_required_libvirt_networks
+            | default(kvm_auto_start_required_libvirt_networks, true)
+          }}
         kvm_host_default_hypervisor: "{{ kvm_effective_default_hypervisor }}"
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:
@@ -178,11 +196,10 @@
   vars_files:
     - vars/01-hypervisors.yml
     - vars/02-vm-defaults.yml
-    - vars/03-network.yml
-    - vars/04-cloud-init.yml
-    - vars/05-images.yml
-    - vars/06-runtime.yml
-    - vars/07-instances.yml
+    - vars/03-cloud-init.yml
+    - vars/04-images.yml
+    - vars/05-runtime.yml
+    - vars/06-instances.yml
     # Optional machine-specific overrides, loaded last so they win. Falls back
     # to a placeholder when the file is absent; *.local.yml is never committed.
     - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]

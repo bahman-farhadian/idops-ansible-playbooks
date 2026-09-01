@@ -5,17 +5,16 @@
 # downloaded, verified and trusted offline.
 #
 # This is one of several settings files, read in this order:
-#   01-hypervisors.yml   where VMs are deployed
+#   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
 #   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
-#   03-network.yml       libvirt network and guest addressing
-#   04-cloud-init.yml    guest users, access and first-boot content
-#   05-images.yml        cloud images, and how they are cached and trusted
-#   06-runtime.yml       readiness waits, snapshots and cleanup guards
-#   07-instances.yml     the VMs to create, and on which host
-#   local.yml            optional, gitignored, overrides any of the above
+#   03-cloud-init.yml    guest users, access and first-boot content
+#   04-images.yml        cloud images, and how they are cached and trusted
+#   05-runtime.yml       readiness waits, snapshots and cleanup guards
+#   06-instances.yml     the VMs to create, and on which host
+#   settings.local.yml   optional, gitignored, overrides any of the above
 # -----------------------------------------------------------------------------
 # 1. CLOUD IMAGE CATALOG
-# Referenced by the image_profile_id of each VM in 07-instances.yml.
+# Referenced by the image_profile_id of each VM in 06-instances.yml.
 # Images are pinned by an explicit version token (image_version), NOT "latest".
 # The image_url / image_filename / image_checksum_manifest_url are derived from
 # image_codename + image_major + image_variant + image_version, e.g.:

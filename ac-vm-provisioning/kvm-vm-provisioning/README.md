@@ -344,17 +344,16 @@ the only question left once everything above is settled: which VMs to create.
 
 | File | Holds |
 |------|-------|
-| `01-hypervisors.yml` | where VMs are deployed: hosts, their credentials and their storage |
+| `01-hypervisors.yml` | where VMs are deployed: hosts, their credentials, storage and network |
 | `02-vm-defaults.yml` | CPU, memory, disks and the overcommit policy |
-| `03-network.yml` | libvirt network and guest addressing |
-| `04-cloud-init.yml` | guest users, access and first-boot content |
-| `05-images.yml` | cloud images, and how they are cached and trusted |
-| `06-runtime.yml` | readiness waits, snapshots and cleanup guards |
-| `07-instances.yml` | the VMs to create, and on which host |
+| `03-cloud-init.yml` | guest users, access and first-boot content |
+| `04-images.yml` | cloud images, and how they are cached and trusted |
+| `05-runtime.yml` | readiness waits, snapshots and cleanup guards |
+| `06-instances.yml` | the VMs to create, and on which host |
 | `settings.local.yml` | optional, gitignored, overrides any of the above |
 
 Two files describe a deployment: `01-hypervisors.yml` declares the hosts and
-`07-instances.yml` lists the VMs. Everything between them is the defaults those
+`06-instances.yml` lists the VMs. Everything between them is the defaults those
 VMs inherit, so a VM entry only needs to state what differs.
 
 Each file opens with what it holds and the same index of its siblings, so
@@ -567,7 +566,7 @@ since libvirt cannot enforce a quota without CFS bandwidth control.
 
 ## Seed Configuration
 
-Seed/user-data defaults are centralized in `vars/04-cloud-init.yml`:
+Seed/user-data defaults are centralized in `vars/03-cloud-init.yml`:
 
 - `kvm_default_cloud_init_timezone`
 - `kvm_default_cloud_init_locale`
