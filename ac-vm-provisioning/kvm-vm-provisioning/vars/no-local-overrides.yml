@@ -1,0 +1,20 @@
+---
+# Placeholder loaded when vars/settings.local.yml does not exist.
+#
+# The playbook reads settings.local.yml if it is present and falls back to this
+# file if it is not, so a machine-specific override file is optional.
+# It deliberately defines nothing.
+#
+# To override settings for this machine only, create vars/settings.local.yml
+# and set just the keys that differ, for example:
+#
+#   ---
+#   kvm_hypervisors:
+#     - name: "my-host"
+#       address: "192.168.1.50"
+#       user: "root"
+#       ssh_private_key_file: "~/.ssh/my_kvm_key"
+#   kvm_default_cloud_init_timezone: "Europe/Berlin"
+#
+# It is loaded last, so anything in it wins over the numbered files.
+# *.local.yml is gitignored, so those values are never committed.

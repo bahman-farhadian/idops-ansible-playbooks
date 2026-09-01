@@ -3,7 +3,16 @@
   hosts: localhost
   gather_facts: false
   vars_files:
-    - vars/kvm-provisioning.yml
+    - vars/01-hypervisors.yml
+    - vars/02-vm-defaults.yml
+    - vars/03-network.yml
+    - vars/04-cloud-init.yml
+    - vars/05-images.yml
+    - vars/06-runtime.yml
+    - vars/07-instances.yml
+    # Optional machine-specific overrides, loaded last so they win. Falls back
+    # to a placeholder when the file is absent; *.local.yml is never committed.
+    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
 
@@ -167,7 +176,16 @@
   hosts: hypervisor
   gather_facts: false
   vars_files:
-    - vars/kvm-provisioning.yml
+    - vars/01-hypervisors.yml
+    - vars/02-vm-defaults.yml
+    - vars/03-network.yml
+    - vars/04-cloud-init.yml
+    - vars/05-images.yml
+    - vars/06-runtime.yml
+    - vars/07-instances.yml
+    # Optional machine-specific overrides, loaded last so they win. Falls back
+    # to a placeholder when the file is absent; *.local.yml is never committed.
+    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
   environment:
     LIBVIRT_DEFAULT_URI: "{{ kvm_host_libvirt_uri | default(kvm_libvirt_connection_uri) }}"
   vars:

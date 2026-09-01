@@ -1,0 +1,50 @@
+---
+# GUEST CLOUD-INIT DEFAULTS
+#
+# Who can log into a guest, and what first boot does inside it.
+#
+# This is one of several settings files, read in this order:
+#   01-hypervisors.yml   where VMs are deployed
+#   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
+#   03-network.yml       libvirt network and guest addressing
+#   04-cloud-init.yml    guest users, access and first-boot content
+#   05-images.yml        cloud images, and how they are cached and trusted
+#   06-runtime.yml       readiness waits, snapshots and cleanup guards
+#   07-instances.yml     the VMs to create, and on which host
+#   local.yml            optional, gitignored, overrides any of the above
+# -----------------------------------------------------------------------------
+# 1. CLOUD-INIT GUEST ACCESS DEFAULTS (overridable per instance)
+# -----------------------------------------------------------------------------
+kvm_default_cloud_init_user: "idops"                        # Initial guest username created by cloud-init.
+kvm_default_cloud_init_ssh_public_keys: []                  # Initial SSH authorized keys for cloud-init user.
+kvm_default_cloud_init_plain_password: "idopspassword"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
+kvm_default_cloud_init_root_plain_password: "idopspassword" # Optional root password (leave empty to keep root password locked).
+kvm_default_cloud_init_user_sudo_rule: "ALL=(ALL) ALL"      # Sudo policy for cloud-init user. Example: ALL=(ALL) ALL | ALL=(ALL) NOPASSWD:ALL.
+kvm_default_cloud_init_ssh_password_auth: true              # Enable SSH password auth in guest.
+kvm_default_cloud_init_disable_root: true                   # Disable direct root login via cloud-init.
+
+
+# -----------------------------------------------------------------------------
+# 2. CLOUD-INIT SEED CONTENT DEFAULTS (overridable per instance)
+# -----------------------------------------------------------------------------
+kvm_default_cloud_init_manage_etc_hosts: true            # Manage /etc/hosts entries. Values: true | false.
+kvm_default_cloud_init_timezone: "UTC"                   # Guest timezone. Example: UTC | Europe/Berlin | Asia/Tehran.
+kvm_default_cloud_init_locale: "en_US.UTF-8"             # Guest locale.
+kvm_default_cloud_init_package_update: true              # Run apt update during first boot.
+kvm_default_cloud_init_package_upgrade: false            # Run apt upgrade during first boot.
+kvm_default_cloud_init_package_reboot_if_required: false # Reboot automatically if upgrades require it.
+kvm_default_cloud_init_apt_config:                       # Default Debian APT mirrors (cloud-init apt map).
+  preserve_sources_list: true
+  primary:
+    - arches: [default]
+      uri: "http://deb.debian.org/debian"
+  security:
+    - arches: [default]
+      uri: "http://deb.debian.org/debian-security"
+kvm_default_cloud_init_packages: [openssh-server, qemu-guest-agent]             # Package list to install on first boot; SSH and guest agent services are mandatory.
+kvm_default_cloud_init_bootcmd: []                                              # cloud-init bootcmd list.
+kvm_default_cloud_init_runcmd: []                                               # cloud-init runcmd list.
+kvm_default_cloud_init_write_files: []                                          # cloud-init write_files list.
+kvm_default_cloud_init_tune_networkd_wait_online: true                          # Apply systemd-networkd-wait-online timeout tuning on Debian 12 guests.
+kvm_default_cloud_init_networkd_wait_online_timeout_seconds: 30                 # Debian 12 systemd-networkd-wait-online timeout in seconds.
+kvm_default_cloud_init_final_message: "IDOPS CLOUD-INIT FINISHED AT $TIMESTAMP" # Final cloud-init completion message.

@@ -1,0 +1,68 @@
+---
+# CLOUD IMAGE CATALOG AND CACHE
+#
+# The Debian images VMs are built from, pinned by version, and how they are
+# downloaded, verified and trusted offline.
+#
+# This is one of several settings files, read in this order:
+#   01-hypervisors.yml   where VMs are deployed
+#   02-vm-defaults.yml   CPU, memory, disks and overcommit policy
+#   03-network.yml       libvirt network and guest addressing
+#   04-cloud-init.yml    guest users, access and first-boot content
+#   05-images.yml        cloud images, and how they are cached and trusted
+#   06-runtime.yml       readiness waits, snapshots and cleanup guards
+#   07-instances.yml     the VMs to create, and on which host
+#   local.yml            optional, gitignored, overrides any of the above
+# -----------------------------------------------------------------------------
+# 1. CLOUD IMAGE CATALOG
+# Referenced by the image_profile_id of each VM in 07-instances.yml.
+# Images are pinned by an explicit version token (image_version), NOT "latest".
+# The image_url / image_filename / image_checksum_manifest_url are derived from
+# image_codename + image_major + image_variant + image_version, e.g.:
+#   https://cloud.debian.org/images/cloud/trixie/20260706-2531/debian-13-generic-amd64-20260706-2531.qcow2
+# image_version is REQUIRED (no default): set it to a pinned Debian build token.
+# The trusted checksum is resolved once per version, stored locally as an
+# immutable (chattr +i) file, and reused on every later run without web access.
+# This project is Debian-only: keep entries as Debian generic qcow2 images.
+# make image-cache processes all profiles defined in this catalog.
+# To add/remove Debian variants (for example debian-14), edit this catalog and
+# update profile references in kvm_instance_definitions.
+# NOTE: Debian nocloud images were not reliable for this workflow.
+# -----------------------------------------------------------------------------
+kvm_cloud_image_catalog:
+  debian-12:
+    image_codename: "bookworm"          # Debian codename for this major.
+    image_major: "12"                   # Major version used in the image filename.
+    image_variant: "generic"            # Cloud image variant (generic | genericcloud).
+    image_version: "20260806-2562"      # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
+    # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
+    virt_install_os_variant: "debian12" # OS variant for virt-install.
+    virt_install_machine_type: "q35"    # Keep aligned with Debian 13 profile.
+    seed_device_bus: "scsi"             # Keep aligned with Debian 13 profile.
+    firmware_boot_mode: "uefi"          # Required for the tested Debian cloud-image workflow.
+
+  debian-13:
+    image_codename: "trixie"            # Debian codename for this major.
+    image_major: "13"                   # Major version used in the image filename.
+    image_variant: "generic"            # Cloud image variant (generic | genericcloud).
+    image_version: "20260810-2566"      # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
+    # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
+    virt_install_os_variant: "debian13" # OS variant for virt-install.
+    virt_install_machine_type: "q35"    # Debian 13 profile uses q35 machine.
+    seed_device_bus: "scsi"             # Keep aligned with Debian 12 profile.
+    firmware_boot_mode: "uefi"          # Required for Debian 13 cloud-image boot on this hypervisor.
+
+
+# -----------------------------------------------------------------------------
+# 2. IMAGE CACHE POLICY AND TRUSTED CHECKSUMS
+# The trusted checksum cache is offline-first and immutable.
+# -----------------------------------------------------------------------------
+kvm_image_cache_verify_on_run: true                                    # Verify cached image checksums on image-cache stage.
+kvm_image_cache_repair_on_checksum_mismatch: false                     # Re-download corrupted cached image file when checksum fails.
+kvm_image_manifest_refresh_policy: "on-demand"                         # Manifest fetch policy in provision flow. Values: on-demand | always.
+kvm_force_manifest_refresh: false                                      # Force checksum re-resolution (removes local immutable checksum, re-fetches). Values: true | false.
+kvm_allow_nocloud_images: false                                        # Allow nocloud images. Values: false (recommended) | true (override).
+kvm_image_checksum_cache_path: "{{ kvm_image_cache_path }}/.checksums" # Store for the per-version trusted checksum files.
+kvm_checksum_file_immutable: true                                      # Make the trusted checksum file immutable with chattr +i. Values: true | false.
