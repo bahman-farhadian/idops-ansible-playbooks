@@ -21,6 +21,8 @@ __pycache__/
 # Local, machine-specific overrides (never committed)
 *.local.yml
 **/*.local.yml
+*.local.yml.bak
+**/*.local.yml.bak
 
 # Local logs and secrets
 *.log

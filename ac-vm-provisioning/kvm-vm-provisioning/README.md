@@ -374,8 +374,17 @@ make settings
 
 That writes every setting the project exposes, commented out, grouped by the
 file it comes from and carrying that file's own comments. Uncomment only what
-differs here. It refuses to overwrite an existing file unless you pass
-`FORCE=1`, because git does not back that file up.
+differs here.
+
+Running it again is safe and idempotent: it only ever adds settings that are
+new since the last time (appended in a dated section) and never touches a
+line that is already there, so a value you already uncommented and edited is
+untouched. Nothing new to add means the file is not written at all. Run it any
+time a project update adds a setting and want it available here too.
+
+To discard your local edits and start from a clean template instead, pass
+`FORCE=1`. That replaces the file outright, so it first copies your current
+one to `vars/settings.local.yml.bak`; git does not back this file up otherwise.
 
 Three rules worth knowing:
 

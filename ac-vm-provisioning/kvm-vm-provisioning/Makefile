@@ -19,7 +19,7 @@ EXTRA_ARGS ?=
 help:
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
-	@printf "  %-28s %s\n" "make settings" "create vars/settings.local.yml for this machine"
+	@printf "  %-28s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
 	@printf "  %-28s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-28s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "syntax-check playbook entrypoint"
@@ -37,14 +37,9 @@ help:
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
 settings:
-	@if [ ! -f "$(LOCAL_SETTINGS_FILE)" ] || [ "$(FORCE)" = "1" ]; then \
-		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
-			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
-			$(if $(filter 1,$(FORCE)),--force,); \
-	else \
-		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
-			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)"; \
-	fi
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+		--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
+		$(if $(filter 1,$(FORCE)),--force,)
 
 venv:
 	$(MAKE) -C $(PROJECT_ROOT) venv

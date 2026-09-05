@@ -42,14 +42,14 @@ deps-bundle: venv
 # gitignored, but an ignore rule is not a guarantee: `git add -f` defeats it.
 # This makes the invariant checkable, so it can run before a push or in CI.
 check-local:
-	@tracked="$$(git ls-files | grep -E '\.local\.yml$$|local-secrets\.yml$$' || true)"; \
+	@tracked="$$(git ls-files | grep -E '\.local\.yml(\.bak)?$$|local-secrets\.yml$$' || true)"; \
 	if [ -n "$$tracked" ]; then \
 		echo "FAIL: machine-local settings are tracked by git:"; \
 		echo "$$tracked" | sed 's/^/  /'; \
 		echo "Remove them with: git rm --cached <file>"; \
 		exit 1; \
 	fi; \
-	staged="$$(git diff --cached --name-only | grep -E '\.local\.yml$$|local-secrets\.yml$$' || true)"; \
+	staged="$$(git diff --cached --name-only | grep -E '\.local\.yml(\.bak)?$$|local-secrets\.yml$$' || true)"; \
 	if [ -n "$$staged" ]; then \
 		echo "FAIL: machine-local settings are staged for commit:"; \
 		echo "$$staged" | sed 's/^/  /'; \

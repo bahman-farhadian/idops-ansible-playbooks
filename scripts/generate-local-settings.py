@@ -1,21 +1,37 @@
 #!/usr/bin/env python3
-"""Generate a machine-local settings override file for an Ansible project.
+"""Generate or extend a machine-local settings override file.
 
-The output lists every setting the project exposes, commented out, grouped by
-the file it comes from and carrying that file's own inline comments. An
-operator uncomments only what differs on their machine, so the tracked
-settings files are never edited and never carry local values into a commit.
+Default behaviour is additive and safe to run any number of times: it adds
+any setting that exists in the project's tracked vars files but is not yet
+mentioned anywhere in the output file (commented out or live), appended in a
+clearly dated section. A line that is already in the file, commented or not,
+is never touched. Nothing new to add means nothing is written at all, so
+running this twice in a row with no upstream change leaves the file
+byte-for-byte identical.
 
-Text is copied rather than round-tripped through a YAML parser so the comments,
-ordering and formatting of the source files survive intact.
+--force replaces the file from scratch instead, which is the only way this
+script discards local edits. The previous file is copied to <output>.bak
+first, since git does not track or back up this file.
+
+Text is copied from the source vars files rather than round-tripped through a
+YAML parser, so the comments, ordering and formatting of those files survive
+intact and the generated template cannot drift from what it documents.
+
+Not handled on purpose: a key that disappears from the tracked vars files
+(renamed or removed) is left in the local file rather than pruned. Cleaning
+those up is a manual, reviewed action, not an automatic side effect of adding
+new ones.
 """
 
 import argparse
+import datetime
 import os
 import re
+import shutil
 import sys
 
-KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
+LIVE_KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
+COMMENTED_KEY_RE = re.compile(r'^#\s?([A-Za-z_][A-Za-z0-9_]*):')
 BANNER_RE = re.compile(r'^# \d+\.\s+(.*)$')
 SKIP = ('no-local-overrides.yml',)
 
@@ -40,8 +56,19 @@ HEADER = """---
 # committed. Git therefore does not back it up either: keep your own copy of
 # anything you cannot recreate.
 #
-# Regenerate a fresh template with: make settings FORCE=1
-# (that overwrites this file, so copy it aside first)
+# Running `make settings` again only ADDS settings that are new upstream and
+# not yet mentioned below; it never changes a line already here, and does
+# nothing at all if there is nothing new to add.
+# To start over from a clean template instead: make settings FORCE=1
+# (that overwrites this file; a copy is saved next to it as <file>.bak first)
+"""
+
+NEW_SECTION_HEADER = """
+# =============================================================================
+# New settings found on {date} (added automatically by `make settings`)
+# Nothing above this line was changed. Uncomment any of these that should
+# differ on this machine.
+# =============================================================================
 """
 
 
@@ -49,22 +76,19 @@ def blocks(path):
     """Yield (banner, key, [lines]) for every top-level key in a vars file."""
     with open(path, encoding='utf-8') as handle:
         lines = handle.read().split('\n')
-    banner, out, current, key = None, [], None, None
+    banner, out, current = None, [], None
     for line in lines:
         match = BANNER_RE.match(line)
         if match:
             banner = match.group(1)
             continue
         if line.startswith('#') or not line.strip():
-            if current is not None and not line.strip():
-                continue
             continue
-        key_match = KEY_RE.match(line)
+        key_match = LIVE_KEY_RE.match(line)
         if key_match:
             if current is not None:
                 out.append(current)
             current = (banner, key_match.group(1), [line])
-            key = key_match.group(1)
         elif current is not None and (line.startswith(' ') or line.startswith('-')):
             current[2].append(line)
     if current is not None:
@@ -72,54 +96,113 @@ def blocks(path):
     return out
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--vars-dir', required=True)
-    parser.add_argument('--output', required=True)
-    parser.add_argument('--force', action='store_true')
-    args = parser.parse_args()
+def existing_top_level_keys(path):
+    """Keys already mentioned in a local settings file, live or commented.
 
-    if os.path.exists(args.output) and not args.force:
-        sys.stderr.write(
-            f"Refusing to overwrite existing {args.output}.\n"
-            "That file holds this machine's settings and is not backed up by git.\n"
-            "Copy it aside first, then re-run with FORCE=1 to replace it.\n")
-        return 1
+    A key counts as covered the moment it appears at column zero, whether as
+    a real override (`key: value`) or as an untouched placeholder
+    (`# key: value`). Only that top-level form is checked: an indented line
+    such as `#   - name: ...` inside a list is never mistaken for one.
+    """
+    keys = set()
+    with open(path, encoding='utf-8') as handle:
+        for line in handle:
+            match = LIVE_KEY_RE.match(line) or COMMENTED_KEY_RE.match(line)
+            if match:
+                keys.add(match.group(1))
+    return keys
 
+
+def collect(vars_dir):
+    """Return (sources, found) for every settings file in vars_dir.
+
+    found is a list of (source_filename, (banner, key, lines)) in source order.
+    """
     sources = sorted(
-        f for f in os.listdir(args.vars_dir)
+        f for f in os.listdir(vars_dir)
         if f.endswith('.yml') and not f.endswith('.local.yml') and f not in SKIP
         and not f.endswith('.example'))
-    if not sources:
-        sys.stderr.write(f"No settings files found in {args.vars_dir}.\n")
-        return 1
-
     found = []
     for name in sources:
-        found.extend((name, b) for b in blocks(os.path.join(args.vars_dir, name)))
-    list_example = next((b[1] for _, b in found if len(b[2]) > 1), 'a list value')
+        found.extend((name, block) for block in blocks(os.path.join(vars_dir, name)))
+    return sources, found
 
-    body = [HEADER.format(list_example=list_example)]
-    total = 0
+
+def render(sources, found, only_keys=None):
+    """Render '# From <file>' groups, optionally restricted to only_keys."""
+    body, total = [], 0
     for name in sources:
-        entries = [b for src, b in found if src == name]
+        entries = [block for src, block in found
+                   if src == name and (only_keys is None or block[1] in only_keys)]
         if not entries:
             continue
         body.append('\n# ' + '=' * 75)
         body.append(f'# From {name}')
         body.append('# ' + '=' * 75)
         seen_banner = None
-        for banner, key, lines in entries:
+        for banner, _key, lines in entries:
             if banner and banner != seen_banner:
                 body.append(f'\n# --- {banner} ---')
                 seen_banner = banner
             body.extend('# ' + line if line else '#' for line in lines)
             total += 1
+    return body, total
 
+
+def write_fresh(args, sources, found):
+    if os.path.exists(args.output) and args.force:
+        backup = args.output + '.bak'
+        shutil.copy2(args.output, backup)
+        print(f"Backed up existing {args.output} to {backup}.")
+
+    list_example = next((key for _, (_, key, lines) in found if len(lines) > 1),
+                         'a list value')
+    body, total = render(sources, found)
+    content = HEADER.format(list_example=list_example) + '\n'.join(body)
     with open(args.output, 'w', encoding='utf-8') as handle:
-        handle.write('\n'.join(body).rstrip('\n') + '\n')
+        handle.write(content.rstrip('\n') + '\n')
     print(f"Wrote {args.output} with {total} settings, all commented out.")
     print("Uncomment only the ones that differ on this machine.")
+
+
+def sync_additions(args, sources, found):
+    existing_keys = existing_top_level_keys(args.output)
+    all_keys = {key for _, (_, key, _lines) in found}
+    missing_keys = sorted(all_keys - existing_keys)
+
+    if not missing_keys:
+        print(f"{args.output} already covers every current setting. No changes made.")
+        return
+
+    body, total = render(sources, found, only_keys=set(missing_keys))
+    section = NEW_SECTION_HEADER.format(date=datetime.date.today().isoformat())
+    with open(args.output, 'a', encoding='utf-8') as handle:
+        handle.write(section)
+        handle.write('\n'.join(body).lstrip('\n') + '\n')
+    print(f"Added {total} new setting(s) to {args.output}, commented out:")
+    for key in missing_keys:
+        print(f"  {key}")
+    print("Nothing else in the file was changed.")
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--vars-dir', required=True)
+    parser.add_argument('--output', required=True)
+    parser.add_argument('--force', action='store_true',
+                         help='Replace the file from scratch instead of only '
+                              'adding new settings. Backs up the old one first.')
+    args = parser.parse_args()
+
+    sources, found = collect(args.vars_dir)
+    if not sources:
+        sys.stderr.write(f"No settings files found in {args.vars_dir}.\n")
+        return 1
+
+    if os.path.exists(args.output) and not args.force:
+        sync_additions(args, sources, found)
+    else:
+        write_fresh(args, sources, found)
     return 0
 
 

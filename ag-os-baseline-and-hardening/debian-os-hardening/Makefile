@@ -51,7 +51,7 @@ help:
 	@printf "  %-24s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-24s %s\n" "make check" "syntax-check playbook entrypoint"
 	@printf "  %-24s %s\n" "make lint" "run ansible-lint"
-	@printf "  %-24s %s\n" "make settings" "create vars/settings.local.yml for this machine"
+	@printf "  %-24s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
 	@printf "  %-24s %s\n" "make ping" "test connectivity to hardening targets"
 	@printf "  %-24s %s\n" "make scan" "run Lynis baseline scan workflow"
 	@printf "  %-24s %s\n" "make harden" "run Debian/Ubuntu hardening workflow"
@@ -94,14 +94,9 @@ help:
 	@printf "  %-28s %s\n" "EXTRA_ARGS='<raw args>'" "pass raw ansible args"
 
 settings:
-	@if [ ! -f "$(LOCAL_SETTINGS_FILE)" ] || [ "$(FORCE)" = "1" ]; then \
-		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
-			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
-			$(if $(filter 1,$(FORCE)),--force,); \
-	else \
-		$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
-			--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)"; \
-	fi
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+		--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
+		$(if $(filter 1,$(FORCE)),--force,)
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \
