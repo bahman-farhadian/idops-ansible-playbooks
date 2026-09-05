@@ -13,10 +13,11 @@ These rules apply to every active implementation project inside this
 repository: the domain directories (`aa-*`, `ab-*`, ...) and
 `playbook-template/`.
 
-`old_playbooks/` is out of scope. It holds superseded work kept for reference
-only. Do not apply these standards to it, do not modernise it in passing, and
-do not treat it as an example of current practice. New work belongs in a domain
-directory, scaffolded from `playbook-template/`.
+`old_playbooks/` held superseded work kept temporarily for reference while its
+projects were migrated. It has been removed now that every project it held has
+an adopted replacement in a domain directory; see each domain's README for the
+migration note. New work belongs in a domain directory, scaffolded from
+`playbook-template/`, never in a legacy holding directory.
 
 ## Required Standards
 
@@ -135,9 +136,22 @@ optional rather than required.
 
 `make settings` writes `vars/settings.local.yml` containing every setting the
 project exposes, commented out, grouped by source file and carrying that
-file's own inline comments. The operator uncomments only what differs. It
-refuses to overwrite an existing file unless `FORCE=1`, because the file holds
-local state that git does not back up.
+file's own inline comments. The operator uncomments only what differs.
+
+### Running It Again Is Safe
+
+`make settings` is idempotent and additive: run against an existing file, it
+adds only the settings that are new upstream and not yet mentioned anywhere in
+the file, commented or not, appended in a dated section. A line that is
+already there, including one the operator uncommented and edited, is never
+touched. Nothing new to add means the file is not written at all, so running
+it twice in a row with no upstream change leaves it byte-for-byte identical.
+This is what makes it safe to run again after a project adds a setting: the
+operator's existing configuration cannot be damaged by picking up what is new.
+
+`FORCE=1` is the one way to discard local edits: it replaces the file from a
+clean template, after copying the previous one to `<file>.bak` first, since
+the file itself is not otherwise backed up.
 
 ### Rules For Operators
 
@@ -159,7 +173,8 @@ happens rather than found by comparing two files.
 Two layers, because an ignore rule alone is not a guarantee — `git add -f`
 defeats it, and a reviewer may not notice:
 
-1. `.gitignore` covers `*.local.yml` and `local-secrets.yml` repository-wide.
+1. `.gitignore` covers `*.local.yml`, `*.local.yml.bak` and `local-secrets.yml`
+   repository-wide.
 2. `make check-local` at the repository root fails if any such file is tracked
    or staged, naming the file and the command that removes it. Run it before a
    push, or wire it into CI.
@@ -169,8 +184,10 @@ make check-local
 # OK: no machine-local settings file is tracked or staged.
 ```
 
-Because git does not track these files, it does not back them up either. Keep
-your own copy of anything you cannot regenerate with `make settings`.
+Because git does not track these files, it does not back them up either.
+`make settings` can always regenerate the commented-out catalog of available
+settings, but not the values an operator chose: keep your own copy of the
+override file itself if its contents took real work to build.
 
 ### Current Adoption
 
@@ -179,7 +196,6 @@ your own copy of anything you cannot regenerate with `make settings`.
 | `ac-vm-provisioning/kvm-vm-provisioning` | adopted |
 | `ag-os-baseline-and-hardening/debian-os-hardening` | adopted |
 | `playbook-template` | adopted, so new projects inherit it |
-| `old_playbooks/` | out of scope, see Scope above |
 
 ### Secrets
 
