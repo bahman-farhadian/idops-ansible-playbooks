@@ -372,15 +372,17 @@ Generate it rather than writing it by hand:
 make settings
 ```
 
-That writes every setting the project exposes, commented out, grouped by the
-file it comes from and carrying that file's own comments. Uncomment only what
-differs here.
+That writes every setting the project exposes, grouped by the file it comes
+from and carrying that file's own comments. Every value is live at its current
+tracked default — nothing needs uncommenting before it takes effect. Edit a
+value in place to make it actually differ here.
 
 Running it again is safe and idempotent: it only ever adds settings that are
-new since the last time (appended in a dated section) and never touches a
-line that is already there, so a value you already uncommented and edited is
-untouched. Nothing new to add means the file is not written at all. Run it any
-time a project update adds a setting and want it available here too.
+new since the last time (appended in a dated section, live the same way) and
+never touches a line that is already there, so a value you have already
+edited, or commented back out, is untouched. Nothing new to add means the
+file is not written at all. Run it any time a project update adds a setting
+and want it available here too.
 
 To discard your local edits and start from a clean template instead, pass
 `FORCE=1`. That replaces the file outright, so it first copies your current
@@ -388,11 +390,13 @@ one to `vars/settings.local.yml.bak`; git does not back this file up otherwise.
 
 Three rules worth knowing:
 
-- Anything left commented keeps the tracked default, and follows it if that
-  default later changes
-- Overriding replaces the **whole** value, it does not merge. Uncomment
-  `kvm_hypervisors` and every host must be listed there, because the tracked
-  list is replaced outright
+- Every value is live the moment it is generated, even where it just repeats
+  the tracked default. Comment out or delete a line to release that key back
+  to following the tracked default — otherwise it stays pinned to whatever it
+  was here even after that default changes later
+- Overriding replaces the **whole** value, it does not merge. Every host must
+  be listed under `kvm_hypervisors` here for any of them to exist, because the
+  tracked list is replaced outright
 - Once a key lives in the local file, edit it there. The same key in a numbered
   file is ignored. Each run prints which keys the local file supplies, so an
   edit that appears to do nothing is explained on the spot

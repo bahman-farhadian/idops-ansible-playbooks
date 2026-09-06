@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 """Generate or extend a machine-local settings override file.
 
+Every setting is written live, at its current tracked value, ready to edit in
+place; nothing needs to be uncommented before it takes effect. Comment a line
+out to release that key back to following the tracked default instead of
+pinning it to what it was when generated.
+
 Default behaviour is additive and safe to run any number of times: it adds
 any setting that exists in the project's tracked vars files but is not yet
-mentioned anywhere in the output file (commented out or live), appended in a
-clearly dated section. A line that is already in the file, commented or not,
+mentioned anywhere in the output file (live or commented out), appended in a
+clearly dated section. A line that is already in the file, live or commented,
 is never touched. Nothing new to add means nothing is written at all, so
 running this twice in a row with no upstream change leaves the file
 byte-for-byte identical.
+
+Because every value is live, a setting this file mentions no longer follows
+the tracked default if that default later changes upstream: the local value
+always wins once it is here. Comment out a key (or delete its line) to let it
+follow the tracked default again.
 
 --force replaces the file from scratch instead, which is the only way this
 script discards local edits. The previous file is copied to <output>.bak
@@ -50,15 +60,18 @@ HEADER = """---
 #
 # HOW THIS FILE IS USED
 #   playbook.yml loads the tracked settings files first, then this one last.
-#   Any key set here overrides the same key in those files. If this file does
-#   not exist the project falls back to its defaults, so it is optional.
+#   Every key below is LIVE and currently set to the tracked default's value,
+#   so it overrides the same key in those files with an identical copy of it.
+#   Edit a value in place to make it actually differ on this machine.
 #
 # THE THREE RULES
-#   1. Uncomment only what differs on this machine. Everything still commented
-#      keeps the tracked default, and follows it if that default ever changes.
-#   2. Overriding replaces the WHOLE value, it does not merge. Uncomment a list
-#      such as {list_example} and every entry must be listed here,
-#      because the tracked list is replaced outright, not added to.
+#   1. A live key here always wins, even if it matches the tracked default
+#      exactly: if that default changes later, this file will not follow it
+#      until you update the value here too. Comment out or delete a line to
+#      let that key track the tracked default again instead of pinning it.
+#   2. Overriding replaces the WHOLE value, it does not merge. A list such as
+#      {list_example} must list every entry you want, because the
+#      tracked list is replaced outright, not added to.
 #   3. Once a key lives here, edit it HERE. The same key in a tracked file is
 #      ignored from then on. Each run prints which keys this file supplies.
 #
@@ -92,8 +105,9 @@ REFERENCE_HEADER = """---
 NEW_SECTION_HEADER = """
 # =============================================================================
 # New settings found on {date} (added automatically by `make settings`)
-# Nothing above this line was changed. Uncomment any of these that should
-# differ on this machine.
+# Nothing above this line was changed. These are live, set to the current
+# tracked default's value; edit one to make it actually differ here, or
+# comment it out to let it keep following the tracked default instead.
 # =============================================================================
 """
 
@@ -154,8 +168,14 @@ def collect(vars_dir):
     return sources, found
 
 
-def render(sources, found, only_keys=None):
-    """Render '# From <file>' groups, optionally restricted to only_keys."""
+def render(sources, found, only_keys=None, comment_out=False):
+    """Render '# From <file>' groups, optionally restricted to only_keys.
+
+    comment_out=False (the default) writes each value line exactly as it
+    appears in the tracked file: live, ready to take effect immediately.
+    comment_out=True prefixes every value line with '# ' instead, for the
+    read-only --reference catalogue, which is never meant to take effect.
+    """
     body, total = [], 0
     for name in sources:
         entries = [block for src, block in found
@@ -170,12 +190,15 @@ def render(sources, found, only_keys=None):
             if banner and banner != seen_banner:
                 body.append(f'\n# --- {banner} ---')
                 seen_banner = banner
-            body.extend('# ' + line if line else '#' for line in lines)
+            if comment_out:
+                body.extend('# ' + line if line else '#' for line in lines)
+            else:
+                body.extend(lines)
             total += 1
     return body, total
 
 
-def write_fresh(args, sources, found, header=HEADER):
+def write_fresh(args, sources, found, header=HEADER, comment_out=False):
     if os.path.exists(args.output) and (args.force or args.reference):
         backup = args.output + '.bak'
         shutil.copy2(args.output, backup)
@@ -183,15 +206,18 @@ def write_fresh(args, sources, found, header=HEADER):
 
     list_example = next((key for _, (_, key, lines) in found if len(lines) > 1),
                          'a list value')
-    body, total = render(sources, found)
+    body, total = render(sources, found, comment_out=comment_out)
     content = header.format(list_example=list_example) + '\n'.join(body)
     with open(args.output, 'w', encoding='utf-8') as handle:
         handle.write(content.rstrip('\n') + '\n')
-    print(f"Wrote {args.output} with {total} settings, all commented out.")
     if args.reference:
+        print(f"Wrote {args.output} with {total} settings, all commented out.")
         print("This is a reference copy; playbook.yml does not read it.")
     else:
-        print("Uncomment only the ones that differ on this machine.")
+        print(f"Wrote {args.output} with {total} settings, live at their "
+              "current tracked default value.")
+        print("Comment out a line to let that key follow the tracked "
+              "default instead of pinning it.")
 
 
 def sync_additions(args, sources, found):
@@ -208,7 +234,8 @@ def sync_additions(args, sources, found):
     with open(args.output, 'a', encoding='utf-8') as handle:
         handle.write(section)
         handle.write('\n'.join(body).lstrip('\n') + '\n')
-    print(f"Added {total} new setting(s) to {args.output}, commented out:")
+    print(f"Added {total} new setting(s) to {args.output}, live at their "
+          "current tracked default value:")
     for key in missing_keys:
         print(f"  {key}")
     print("Nothing else in the file was changed.")
@@ -234,7 +261,7 @@ def main():
         return 1
 
     if args.reference:
-        write_fresh(args, sources, found, header=REFERENCE_HEADER)
+        write_fresh(args, sources, found, header=REFERENCE_HEADER, comment_out=True)
     elif os.path.exists(args.output) and not args.force:
         sync_additions(args, sources, found)
     else:

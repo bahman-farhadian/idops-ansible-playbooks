@@ -138,15 +138,23 @@ optional rather than required.
    `make help` too.
 
 `make settings` writes `vars/settings.local.yml` containing every setting the
-project exposes, commented out, grouped by source file and carrying that
-file's own inline comments. The operator uncomments only what differs.
+project exposes, grouped by source file and carrying that file's own inline
+comments. Every value is live, at its current tracked default, ready to edit
+in place — nothing needs to be uncommented before it takes effect.
+
+Because every value is live, a key this file mentions stops following the
+tracked default the moment it is generated: the local value always wins even
+if it is, for now, identical to the default. If that default later changes
+upstream, this file will not follow unless the operator updates it too.
+Comment out or delete a line to let that key track the default again.
 
 ### Running It Again Is Safe
 
 `make settings` is idempotent and additive: run against an existing file, it
 adds only the settings that are new upstream and not yet mentioned anywhere in
-the file, commented or not, appended in a dated section. A line that is
-already there, including one the operator uncommented and edited, is never
+the file, live or commented, appended in a dated section, live at their
+current tracked value the same as a fresh file. A line that is already there,
+including one the operator has since edited or commented back out, is never
 touched. Nothing new to add means the file is not written at all, so running
 it twice in a row with no upstream change leaves it byte-for-byte identical.
 This is what makes it safe to run again after a project adds a setting: the
@@ -173,10 +181,11 @@ override file. Both files match `*.local.yml` and are covered the same way.
 
 ### Rules For Operators
 
-- Uncomment only what differs on this machine. Anything left commented keeps
-  the tracked default and follows it if that default changes.
-- Overriding replaces the whole value; it does not merge. Uncommenting a list
-  means every entry must be present, because the tracked list is replaced.
+- Every value is live the moment it is generated. Comment out or delete a line
+  to release that key back to following the tracked default; leave it as-is
+  and it stays pinned even after the tracked default changes.
+- Overriding replaces the whole value; it does not merge. A list here must
+  list every entry that should exist, because the tracked list is replaced.
 - Once a key lives in the local file, edit it there. The same key in a tracked
   file is ignored from then on.
 - `*.local.yml` is gitignored, so git does not back it up either. Keep your own
