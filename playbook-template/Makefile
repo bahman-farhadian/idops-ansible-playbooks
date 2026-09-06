@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help settings require-venv deps-bundle lint check ping provision cleanup
+.PHONY: help settings settings-reference require-venv deps-bundle lint check ping provision cleanup
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -20,6 +20,7 @@ help:
 	@printf "Available targets:\n"
 	@printf "  %-20s %s\n" "make help" "show this help"
 	@printf "  %-20s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
+	@printf "  %-20s %s\n" "make settings-reference" "write a full reference copy of every setting, for consulting only"
 	@printf "  %-20s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
 	@printf "  %-20s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-20s %s\n" "make lint" "run ansible-lint"
@@ -35,6 +36,10 @@ settings:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
 		--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
 		$(if $(filter 1,$(FORCE)),--force,)
+
+settings-reference:
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+		--vars-dir vars --output vars/settings-reference.local.yml --reference
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \

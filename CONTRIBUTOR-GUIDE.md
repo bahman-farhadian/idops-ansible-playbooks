@@ -133,6 +133,9 @@ optional rather than required.
 3. Add a `settings` target calling
    `$(PROJECT_ROOT)/scripts/generate-local-settings.py`, and list it in
    `make help`.
+4. Add a `settings-reference` target calling the same script with
+   `--output vars/settings-reference.local.yml --reference`, and list it in
+   `make help` too.
 
 `make settings` writes `vars/settings.local.yml` containing every setting the
 project exposes, commented out, grouped by source file and carrying that
@@ -152,6 +155,21 @@ operator's existing configuration cannot be damaged by picking up what is new.
 `FORCE=1` is the one way to discard local edits: it replaces the file from a
 clean template, after copying the previous one to `<file>.bak` first, since
 the file itself is not otherwise backed up.
+
+### Full Field Reference: `make settings-reference`
+
+The sync in `make settings` only tracks whether a top-level key exists at all.
+Once a key that is a list of mappings, such as `kvm_hypervisors` or
+`kvm_instance_definitions`, has been customised, the sync leaves it alone,
+which means the full field list for one of its entries is no longer visible in
+`vars/settings.local.yml` — there is nothing to copy the name of a field you
+have not used yet from.
+
+`make settings-reference` writes that complete catalogue to a separate,
+disposable file, `vars/settings-reference.local.yml`, regenerated from scratch
+every time it runs. It is not read by `playbook.yml` and is never synced: it
+exists purely to be consulted or copied from while hand-editing the real
+override file. Both files match `*.local.yml` and are covered the same way.
 
 ### Rules For Operators
 

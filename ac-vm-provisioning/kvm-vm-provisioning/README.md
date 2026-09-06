@@ -407,6 +407,25 @@ kvm_hypervisors:
 kvm_default_cloud_init_timezone: "Europe/Berlin"
 ```
 
+### Looking Up A Field You Have Not Used Yet
+
+`make settings` only tracks whether a setting exists at all. Once
+`kvm_hypervisors` or `kvm_instance_definitions` has been customised, the sync
+leaves its contents alone, so the full field list for a host or instance entry
+is no longer visible in `vars/settings.local.yml` — there is nothing to copy a
+field name such as `ssh_private_key_file` or `guest_network_gateway` from if
+you have not already used it on that entry.
+
+```bash
+make settings-reference
+```
+
+writes every setting, including the complete example for a host and an
+instance, to a separate file: `vars/settings-reference.local.yml`. It is not
+read by `playbook.yml`, is regenerated from scratch every time, and exists
+purely to be consulted or copied from. Edit `vars/settings.local.yml`, not
+this one.
+
 State only the keys that differ from the shipped defaults. `*.local.yml` is
 gitignored, so those values are never committed and the tracked files stay
 generic for everyone else.

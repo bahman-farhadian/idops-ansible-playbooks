@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help settings venv require-venv deps-bundle lint check ping image-cache checksum-refresh provision-check provision cleanup cleanup-force cleanup-force-disks
+.PHONY: help settings settings-reference venv require-venv deps-bundle lint check ping image-cache checksum-refresh provision-check provision cleanup cleanup-force cleanup-force-disks
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -20,6 +20,7 @@ help:
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
 	@printf "  %-28s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
+	@printf "  %-28s %s\n" "make settings-reference" "write a full reference copy of every setting, for consulting only"
 	@printf "  %-28s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-28s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "syntax-check playbook entrypoint"
@@ -40,6 +41,10 @@ settings:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
 		--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
 		$(if $(filter 1,$(FORCE)),--force,)
+
+settings-reference:
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
+		--vars-dir vars --output vars/settings-reference.local.yml --reference
 
 venv:
 	$(MAKE) -C $(PROJECT_ROOT) venv
