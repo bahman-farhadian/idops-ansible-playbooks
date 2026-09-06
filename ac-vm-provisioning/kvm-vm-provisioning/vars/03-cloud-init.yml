@@ -18,8 +18,14 @@ kvm_default_cloud_init_user: "idops"                        # Initial guest user
 kvm_default_cloud_init_ssh_public_keys: []                  # Initial SSH authorized keys for cloud-init user.
 kvm_default_cloud_init_plain_password: "idopspassword"      # CHANGE THIS PASSWORD BEFORE PRODUCTION.
 kvm_default_cloud_init_root_plain_password: "idopspassword" # Optional root password (leave empty to keep root password locked).
+kvm_default_cloud_init_root_ssh_public_keys: []             # Optional SSH keys authorized for root. [] = no key-based root SSH access.
 kvm_default_cloud_init_user_sudo_rule: "ALL=(ALL) ALL"      # Sudo policy for cloud-init user. Example: ALL=(ALL) ALL | ALL=(ALL) NOPASSWD:ALL.
 kvm_default_cloud_init_ssh_password_auth: true              # Enable SSH password auth in guest.
+# disable_root is documented by cloud-init as governing a key it would place in
+# root's authorized_keys on its own initiative (a cloud-provider-supplied
+# default key), not an explicit key given to root directly, which is what
+# kvm_default_cloud_init_root_ssh_public_keys above adds. Verify this on your
+# own image if root key-based SSH does not come up with disable_root left true.
 kvm_default_cloud_init_disable_root: true                   # Disable direct root login via cloud-init.
 
 

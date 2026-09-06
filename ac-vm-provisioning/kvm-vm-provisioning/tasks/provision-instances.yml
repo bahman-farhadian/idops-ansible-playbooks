@@ -765,6 +765,13 @@
             - {{ pubkey }}
       {% endfor %}
       {% endif %}
+      {% if (item.cloud_init_root_ssh_public_keys | default([])) | length > 0 %}
+        - name: root
+          ssh_authorized_keys:
+      {% for root_pubkey in item.cloud_init_root_ssh_public_keys %}
+            - {{ root_pubkey }}
+      {% endfor %}
+      {% endif %}
       {% if (item.cloud_init_plain_password | length > 0) or ((item.cloud_init_root_plain_password | default('')) | length > 0) %}
       chpasswd:
         expire: false
