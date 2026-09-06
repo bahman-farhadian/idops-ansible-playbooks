@@ -6,13 +6,28 @@
 # `hypervisor` key fall to the default host, which keeps single-host
 # configurations behaving exactly as before.
 # =========================================================================
+# Trailing slashes are stripped here, once, for every consumer downstream:
+# several tasks compare a computed "<dir>/<file>" string against the real
+# disk path byte-for-byte (see provision-runtime.yml's root-disk drift
+# check), and a trailing slash on the configured directory turns that into
+# "<dir>//<file>", which never matches even though it is the same file.
 - name: Resolve storage layout for this hypervisor
   ansible.builtin.set_fact:
-    kvm_image_cache_path: "{{ kvm_host_image_cache_path | default(kvm_image_cache_path) }}"
+    kvm_image_cache_path: >-
+      {{
+        (kvm_host_image_cache_path | default(kvm_image_cache_path))
+        | regex_replace('/+$', '')
+      }}
     kvm_instance_disk_pool_path: >-
-      {{ kvm_host_instance_disk_pool_path | default(kvm_instance_disk_pool_path) }}
+      {{
+        (kvm_host_instance_disk_pool_path | default(kvm_instance_disk_pool_path))
+        | regex_replace('/+$', '')
+      }}
     kvm_cloud_init_workspace_path: >-
-      {{ kvm_host_cloud_init_workspace_path | default(kvm_cloud_init_workspace_path) }}
+      {{
+        (kvm_host_cloud_init_workspace_path | default(kvm_cloud_init_workspace_path))
+        | regex_replace('/+$', '')
+      }}
     kvm_auto_create_image_cache_path: >-
       {{
         kvm_host_auto_create_image_cache_path
