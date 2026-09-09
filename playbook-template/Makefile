@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help settings settings-reference require-venv deps-bundle lint check ping provision cleanup
+.PHONY: help settings settings-reference settings-clean settings-clean-force settings-clean-force-all require-venv deps-bundle lint check ping provision cleanup
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -21,6 +21,9 @@ help:
 	@printf "  %-20s %s\n" "make help" "show this help"
 	@printf "  %-20s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
 	@printf "  %-20s %s\n" "make settings-reference" "write a full reference copy of every setting, for consulting only"
+	@printf "  %-20s %s\n" "make settings-clean" "list machine-local settings files for this project"
+	@printf "  %-20s %s\n" "make settings-clean-force" "delete disposable settings files (keeps settings.local.yml)"
+	@printf "  %-20s %s\n" "make settings-clean-force-all" "also delete settings.local.yml (not reversible)"
 	@printf "  %-20s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
 	@printf "  %-20s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-20s %s\n" "make lint" "run ansible-lint"
@@ -40,6 +43,15 @@ settings:
 settings-reference:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
 		--vars-dir vars --output vars/settings-reference.local.yml --reference
+
+settings-clean:
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars
+
+settings-clean-force:
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-disposable
+
+settings-clean-force-all:
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \

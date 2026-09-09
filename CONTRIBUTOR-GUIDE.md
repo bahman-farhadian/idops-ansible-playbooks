@@ -136,6 +136,10 @@ optional rather than required.
 4. Add a `settings-reference` target calling the same script with
    `--output vars/settings-reference.local.yml --reference`, and list it in
    `make help` too.
+5. Add `settings-clean`, `settings-clean-force` and `settings-clean-force-all`
+   targets calling `$(PROJECT_ROOT)/scripts/clean-local-settings.py`
+   (`--vars-dir vars`, then `--remove-disposable`, then `--remove-active`
+   respectively), and list all three in `make help`.
 
 `make settings` writes `vars/settings.local.yml` containing every setting the
 project exposes, grouped by source file and carrying that file's own inline
@@ -178,6 +182,24 @@ disposable file, `vars/settings-reference.local.yml`, regenerated from scratch
 every time it runs. It is not read by `playbook.yml` and is never synced: it
 exists purely to be consulted or copied from while hand-editing the real
 override file. Both files match `*.local.yml` and are covered the same way.
+
+### Cleaning Up: `make settings-clean`
+
+Two tiers, on purpose:
+
+- `make settings-clean` lists what exists; removes nothing.
+- `make settings-clean-force` removes only the disposable tier —
+  `vars/settings-reference.local.yml` and any `*.local.yml.bak` left by a
+  `FORCE=1` run. Every one of these regenerates on demand, so nothing here can
+  be lost, and `vars/settings.local.yml` itself is never touched.
+- `make settings-clean-force-all` additionally removes
+  `vars/settings.local.yml`. This is not reversible: it holds real, hand-built
+  configuration that git does not back up. Back up anything worth keeping
+  before running it.
+
+The split exists because "clean up this project's local files" should never
+be one command away from deleting configuration that took real effort to
+build. Reaching the destructive tier requires naming it explicitly.
 
 ### Rules For Operators
 
