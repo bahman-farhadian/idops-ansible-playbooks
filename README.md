@@ -88,6 +88,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - `ab-hypervisor-host-platform/` is intentionally empty until host-platform automation is implemented.
 - `playbook-template/` is the baseline scaffold for new implementation projects.
 - Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
+- Repository-wide work queue: `TODO.md`.
 - Makefile standard: every project must provide `make ping`, and all user commands must appear in `make help`.
 
 ## Ignore Policy
