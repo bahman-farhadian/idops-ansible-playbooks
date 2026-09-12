@@ -11,7 +11,7 @@
 #   04-images.yml        cloud images, and how they are cached and trusted
 #   05-runtime.yml       readiness waits, snapshots and cleanup guards
 #   06-instances.yml     the VMs to create, and on which host
-#   settings.local.yml   optional, gitignored, overrides any of the above
+#   settings.local.yml   required, gitignored, overrides any of the above
 # -----------------------------------------------------------------------------
 # 1. CLOUD IMAGE CATALOG
 # Referenced by the image_profile_id of each VM in 06-instances.yml.
