@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all require-venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
+.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
         roles \
         role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-terminal-dotfiles role-common-repos \
         role-package-hardening role-service-hardening role-firewall role-kernel-hardening role-auth-hardening \
@@ -43,7 +43,7 @@ help:
 	@printf "debian-os-hardening - Debian/Ubuntu baseline hardening\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-24s %s\n" "make help" "show this help"
-	@printf "  %-24s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
+	@printf "  %-24s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-24s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-24s %s\n" "make check" "syntax-check playbook entrypoint"
 	@printf "  %-24s %s\n" "make lint" "run ansible-lint"
@@ -105,6 +105,9 @@ settings-clean-force:
 
 settings-clean-force-all:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active
+
+venv:
+	$(MAKE) -C $(PROJECT_ROOT) venv
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \

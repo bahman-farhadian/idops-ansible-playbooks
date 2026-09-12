@@ -426,19 +426,11 @@ is no longer visible in `vars/settings.local.yml` — there is nothing to copy a
 field name such as `ssh_private_key_file` or `guest_network_gateway` from if
 you have not already used it on that entry.
 
-```bash
-make settings-reference
-```
-
-writes every setting, including the complete example for a host and an
-instance, to a separate file: `vars/settings-reference.local.yml`. It is not
-read by `playbook.yml`, is regenerated from scratch every time, and exists
-purely to be consulted or copied from. Edit `vars/settings.local.yml`, not
-this one.
-
-State only the keys that differ from the shipped defaults. `*.local.yml` is
-gitignored, so those values are never committed and the tracked files stay
-generic for everyone else.
+Read the tracked file the key comes from instead: `01-hypervisors.yml` for a
+host field, `06-instances.yml` for an instance field. Each one already lists
+every field with a worked example in its "Example (was the live default; see
+local settings for real values)" comment block — that is the source of truth
+for what fields exist, not a second generated copy of it.
 
 ## Multiple Hypervisors And Host Credentials
 

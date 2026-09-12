@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all require-venv deps-bundle lint check ping provision cleanup
+.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv deps-bundle lint check ping provision cleanup
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -24,7 +24,7 @@ help:
 	@printf "  %-20s %s\n" "make settings-clean" "list machine-local settings files for this project"
 	@printf "  %-20s %s\n" "make settings-clean-force" "delete disposable settings files (keeps settings.local.yml)"
 	@printf "  %-20s %s\n" "make settings-clean-force-all" "also delete settings.local.yml (not reversible)"
-	@printf "  %-20s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"
+	@printf "  %-20s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-20s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-20s %s\n" "make lint" "run ansible-lint"
 	@printf "  %-20s %s\n" "make check" "syntax-check playbook entrypoint"
@@ -48,6 +48,9 @@ settings-clean-force:
 
 settings-clean-force-all:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active
+
+venv:
+	$(MAKE) -C $(PROJECT_ROOT) venv
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \
