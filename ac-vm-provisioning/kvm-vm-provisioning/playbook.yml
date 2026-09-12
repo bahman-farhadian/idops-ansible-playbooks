@@ -9,9 +9,11 @@
     - vars/04-images.yml
     - vars/05-runtime.yml
     - vars/06-instances.yml
-    # Optional machine-specific overrides, loaded last so they win. Falls back
-    # to a placeholder when the file is absent; *.local.yml is never committed.
-    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
+    # Every tracked value above is blank: it exists to document the setting,
+    # not to be deployed with. This is the only source of real values, and it
+    # is required - see the "Fail when settings.local.yml is missing" task
+    # below. Loaded last so it wins; *.local.yml is never committed.
+    - vars/settings.local.yml
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
 
@@ -27,6 +29,19 @@
         path: "{{ playbook_dir }}/vars/settings.local.yml"
       register: kvm_local_override_file
       changed_when: false
+
+    # A missing vars_files entry is silently skipped by Ansible rather than
+    # failing, so every setting above would otherwise stay blank with no
+    # warning. Every tracked value is blank on purpose (see 01-hypervisors.yml
+    # onward), so there is no working fallback to fall through to.
+    - name: Fail when settings.local.yml is missing
+      ansible.builtin.fail:
+        msg: >-
+          vars/settings.local.yml is required and was not found. Every
+          tracked setting is a blank placeholder; this file is the only
+          place real values live. Generate a starting point with:
+          make settings
+      when: not kvm_local_override_file.stat.exists
 
     - name: Load the machine-specific override file for reporting
       ansible.builtin.include_vars:
@@ -288,9 +303,9 @@
     - vars/04-images.yml
     - vars/05-runtime.yml
     - vars/06-instances.yml
-    # Optional machine-specific overrides, loaded last so they win. Falls back
-    # to a placeholder when the file is absent; *.local.yml is never committed.
-    - ["vars/settings.local.yml", "vars/no-local-overrides.yml"]
+    # Required; see the matching comment and fail task in the first play,
+    # which always runs first and aborts the whole run when this is missing.
+    - vars/settings.local.yml
   environment:
     LIBVIRT_DEFAULT_URI: "{{ kvm_host_libvirt_uri | default(kvm_libvirt_connection_uri) }}"
   vars:
