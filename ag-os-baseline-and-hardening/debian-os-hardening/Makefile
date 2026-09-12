@@ -45,6 +45,7 @@ ADHOC_ARGS := $(LIMIT_ARG) $(FORKS_ARG) $(EXTRA_ARGS)
 ADHOC_VARS_ARGS := -e @$(HARDENING_VARS_FILE) $(if $(wildcard $(HARDENING_LOCAL_SECRETS_FILE)),-e @$(HARDENING_LOCAL_SECRETS_FILE),)
 
 help:
+	@printf "debian-os-hardening - Debian/Ubuntu baseline hardening\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-24s %s\n" "make help" "show this help"
 	@printf "  %-24s %s\n" "(venv)" "shared env: create once at the repository root (make venv)"

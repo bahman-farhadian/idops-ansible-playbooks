@@ -17,6 +17,7 @@ LIMIT ?=
 EXTRA_ARGS ?=
 
 help:
+	@printf "kvm-vm-provisioning - KVM/libvirt guest provisioning\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
 	@printf "  %-28s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"

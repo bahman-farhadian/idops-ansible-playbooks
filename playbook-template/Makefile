@@ -17,6 +17,7 @@ LIMIT ?=
 EXTRA_ARGS ?=
 
 help:
+	@printf "playbook-template - scaffold for new implementation projects\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-20s %s\n" "make help" "show this help"
 	@printf "  %-20s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
