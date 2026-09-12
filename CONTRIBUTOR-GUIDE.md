@@ -143,10 +143,7 @@ optional rather than required.
 3. Add a `settings` target calling
    `$(PROJECT_ROOT)/scripts/generate-local-settings.py`, and list it in
    `make help`.
-4. Add a `settings-reference` target calling the same script with
-   `--output vars/settings-reference.local.yml --reference`, and list it in
-   `make help` too.
-5. Add `settings-clean`, `settings-clean-force` and `settings-clean-force-all`
+4. Add `settings-clean`, `settings-clean-force` and `settings-clean-force-all`
    targets calling `$(PROJECT_ROOT)/scripts/clean-local-settings.py`
    (`--vars-dir vars`, then `--remove-disposable`, then `--remove-active`
    respectively), and list all three in `make help`.
@@ -178,30 +175,29 @@ operator's existing configuration cannot be damaged by picking up what is new.
 clean template, after copying the previous one to `<file>.bak` first, since
 the file itself is not otherwise backed up.
 
-### Full Field Reference: `make settings-reference`
+### Looking Up A Field You Have Not Used Yet
 
 The sync in `make settings` only tracks whether a top-level key exists at all.
 Once a key that is a list of mappings, such as `kvm_hypervisors` or
 `kvm_instance_definitions`, has been customised, the sync leaves it alone,
 which means the full field list for one of its entries is no longer visible in
-`vars/settings.local.yml` — there is nothing to copy the name of a field you
-have not used yet from.
-
-`make settings-reference` writes that complete catalogue to a separate,
-disposable file, `vars/settings-reference.local.yml`, regenerated from scratch
-every time it runs. It is not read by `playbook.yml` and is never synced: it
-exists purely to be consulted or copied from while hand-editing the real
-override file. Both files match `*.local.yml` and are covered the same way.
+`vars/settings.local.yml`. When that happens, read the tracked vars file the
+key comes from — it already lists every field with its default and a comment,
+and it is the source of truth for what fields exist. This project tried
+generating a second, disposable copy of that same information on demand
+(`make settings-reference`); it worked, but it was a command and a mental
+model to explain for something a single file already answered. Removed for
+that reason — see "Keep This Simple" below.
 
 ### Cleaning Up: `make settings-clean`
 
 Two tiers, on purpose:
 
 - `make settings-clean` lists what exists; removes nothing.
-- `make settings-clean-force` removes only the disposable tier —
-  `vars/settings-reference.local.yml` and any `*.local.yml.bak` left by a
-  `FORCE=1` run. Every one of these regenerates on demand, so nothing here can
-  be lost, and `vars/settings.local.yml` itself is never touched.
+- `make settings-clean-force` removes only the disposable tier — any
+  `*.local.yml.bak` left by a `FORCE=1` run. These regenerate on demand, so
+  nothing here can be lost, and `vars/settings.local.yml` itself is never
+  touched.
 - `make settings-clean-force-all` additionally removes
   `vars/settings.local.yml`. This is not reversible: it holds real, hand-built
   configuration that git does not back up. Back up anything worth keeping
@@ -244,9 +240,22 @@ make check-local
 ```
 
 Because git does not track these files, it does not back them up either.
-`make settings` can always regenerate the commented-out catalog of available
-settings, but not the values an operator chose: keep your own copy of the
+`make settings` can always regenerate the current tracked defaults, but not
+the values an operator chose on top of them: keep your own copy of the
 override file itself if its contents took real work to build.
+
+### Keep This Simple
+
+This mechanism has already grown once and been cut back once. `make
+settings-reference` was removed for exactly the reason above: it solved a
+real gap (the full field list of a customised entry going out of sight) by
+adding a second generated file, a fourth Makefile target, and a paragraph
+explaining how the two files related to each other — more machinery than the
+gap was worth, when the tracked vars file already answers the same question.
+
+Before adding a new mode, flag, or target to this mechanism, check whether
+the tracked vars files can already answer the question without one. If they
+can, point at them instead of generating a copy of them.
 
 ### Current Adoption
 

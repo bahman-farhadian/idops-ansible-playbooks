@@ -3,10 +3,10 @@
 
 Two tiers, deliberately not treated the same way:
 
-  disposable  settings-reference.local.yml and any *.local.yml.bak file.
-              Both regenerate on demand (`make settings` / `make
-              settings-reference` / `make settings FORCE=1`), so removing
-              them loses nothing that cannot be recreated in one command.
+  disposable  any *.local.yml.bak file, left behind by `make settings
+              FORCE=1`, plus any leftover settings-reference.local.yml from
+              a retired generator mode. Both regenerate or are recreated by
+              `make settings`, so removing them loses nothing irreplaceable.
 
   active      settings.local.yml itself. This holds real, hand-built
               configuration - hosts, credentials, instance definitions -
@@ -68,8 +68,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--vars-dir', required=True)
     parser.add_argument('--remove-disposable', action='store_true',
-                         help='Delete settings-reference.local.yml and any '
-                              '*.local.yml.bak file. Never touches '
+                         help='Delete *.local.yml.bak files and any leftover '
+                              'settings-reference.local.yml. Never touches '
                               'settings.local.yml.')
     parser.add_argument('--remove-active', action='store_true',
                          help='Delete the disposable tier AND '
