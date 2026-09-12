@@ -26,10 +26,10 @@
 # -----------------------------------------------------------------------------
 kvm_hypervisor_user: ""                               # Default SSH user. Values: "" (SSH config/current user) | username.
 kvm_hypervisor_ssh_private_key_file: ""               # Default SSH key. Values: "" (SSH agent/config) | path to key file.
-kvm_hypervisor_ssh_port: 22                           # Default SSH port. Values: integer 1-65535.
-kvm_hypervisor_python_interpreter: "/usr/bin/python3" # Default Python path on hosts. Values: absolute path.
-kvm_libvirt_connection_uri: "qemu:///system"          # Default libvirt URI. Values: qemu:///system | qemu:///session.
-kvm_require_explicit_hypervisor: false                # Force every instance to name its host. Values: false | true.
+kvm_hypervisor_ssh_port: ~                           # Default SSH port. Values: integer 1-65535.
+kvm_hypervisor_python_interpreter: "" # Default Python path on hosts. Values: absolute path.
+kvm_libvirt_connection_uri: ""          # Default libvirt URI. Values: qemu:///system | qemu:///session.
+kvm_require_explicit_hypervisor: ~                # Force every instance to name its host. Values: false | true.
 
 
 # -----------------------------------------------------------------------------
@@ -40,11 +40,11 @@ kvm_require_explicit_hypervisor: false                # Force every instance to 
 # Paths derived from these follow automatically: the trusted checksum store
 # sits under the image cache, and snapshot overlays under the disk pool.
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/libvirt/images/base"             # Base-image cache directory on hypervisor.
-kvm_auto_create_image_cache_path: true                           # Auto-create kvm_image_cache_path when missing.
-kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances" # Per-instance VM disk directory.
-kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"       # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-init workspace at end of provision stage.
+kvm_image_cache_path: ""             # Base-image cache directory on hypervisor.
+kvm_auto_create_image_cache_path: ~                           # Auto-create kvm_image_cache_path when missing.
+kvm_instance_disk_pool_path: "" # Per-instance VM disk directory.
+kvm_cloud_init_workspace_path: ""       # Temporary cloud-init file workspace.
+kvm_cleanup_workspace_path_after_run: ~                       # Remove cloud-init workspace at end of provision stage.
 
 
 # -----------------------------------------------------------------------------
@@ -79,20 +79,22 @@ kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-
 # - guest_dns_servers                resolvers reachable from that network
 # - auto_start_required_libvirt_networks  Values: true | false
 # -----------------------------------------------------------------------------
-kvm_hypervisors:
-  - name: "kvm-host-1"                       # Host name referenced by instances.
-    address: "change-me-hypervisor"          # CHANGE THIS. Values: FQDN | IP | SSH alias.
-    user: ""                                 # SSH user. Values: "" (host default) | "root".
-    ssh_private_key_file: ""                 # SSH key. Values: "" (host default) | "~/.ssh/id_kvm_host_1".
-    ssh_port: 22                             # SSH port. Values: integer 1-65535.
-    python_interpreter: "/usr/bin/python3"   # Python path on this host.
-    libvirt_connection_uri: "qemu:///system" # Libvirt URI for this host.
-    image_cache_path: ""                     # Base-image cache dir. "" = section 2 default.
-    instance_disk_pool_path: ""              # VM disk dir. "" = section 2 default.
-    cloud_init_workspace_path: ""            # Cloud-init scratch dir. "" = section 2 default.
-    libvirt_network_name: ""                 # Guest network. "" = section 4 default.
-    guest_network_gateway: ""                # IPv4 gateway. "" = section 4 default.
-    guest_network_prefix: ""                 # IPv4 prefix. "" = section 4 default.
+kvm_hypervisors: []
+# Example (was the live default; see local settings for real values):
+# kvm_hypervisors:
+#  - name: "kvm-host-1"                       # Host name referenced by instances.
+#    address: "change-me-hypervisor"          # CHANGE THIS. Values: FQDN | IP | SSH alias.
+#    user: ""                                 # SSH user. Values: "" (host default) | "root".
+#    ssh_private_key_file: ""                 # SSH key. Values: "" (host default) | "~/.ssh/id_kvm_host_1".
+#    ssh_port: 22                             # SSH port. Values: integer 1-65535.
+#    python_interpreter: "/usr/bin/python3"   # Python path on this host.
+#    libvirt_connection_uri: "qemu:///system" # Libvirt URI for this host.
+#    image_cache_path: ""                     # Base-image cache dir. "" = section 2 default.
+#    instance_disk_pool_path: ""              # VM disk dir. "" = section 2 default.
+#    cloud_init_workspace_path: ""            # Cloud-init scratch dir. "" = section 2 default.
+#    libvirt_network_name: ""                 # Guest network. "" = section 4 default.
+#    guest_network_gateway: ""                # IPv4 gateway. "" = section 4 default.
+#    guest_network_prefix: ""                 # IPv4 prefix. "" = section 4 default.
 
   # Add further hosts to deploy across a fleet in a single run. Each host keeps
   # its own credentials, so hosts may use different SSH keys and users.
@@ -116,21 +118,25 @@ kvm_hypervisors:
 # -----------------------------------------------------------------------------
 # 4. HOST NETWORK DEFAULTS (overridable per host and per instance)
 # -----------------------------------------------------------------------------
-kvm_default_libvirt_network_name: "default"     # Libvirt network name for guest NIC attach.
-kvm_auto_start_required_libvirt_networks: false # Auto-start inactive required networks during preflight.
-kvm_default_guest_network_interface: "ens3"     # Guest NIC name for cloud-init network config.
-kvm_guest_network_interface_fallbacks:          # Additional interface candidates for cloud-init static config.
-  - "enp1s0"
-  - "eth0"
-kvm_default_guest_network_prefix: "24"             # Default IPv4 prefix length.
-kvm_default_guest_network_gateway: "192.168.122.1" # Default IPv4 gateway.
-kvm_default_guest_dns_servers:                     # Default DNS resolvers for guest cloud-init config.
-  - "1.1.1.1"
-  - "8.8.8.8"
+kvm_default_libvirt_network_name: ""     # Libvirt network name for guest NIC attach.
+kvm_auto_start_required_libvirt_networks: ~ # Auto-start inactive required networks during preflight.
+kvm_default_guest_network_interface: ""     # Guest NIC name for cloud-init network config.
+kvm_guest_network_interface_fallbacks: [] # Additional interface candidates for cloud-init static config.
+# Example (was the live default; see local settings for real values):
+# kvm_guest_network_interface_fallbacks:
+#  - "enp1s0"
+#  - "eth0"
+kvm_default_guest_network_prefix: ""             # Default IPv4 prefix length.
+kvm_default_guest_network_gateway: "" # Default IPv4 gateway.
+kvm_default_guest_dns_servers: [] # Default DNS resolvers for guest cloud-init config.
+# Example (was the live default; see local settings for real values):
+# kvm_default_guest_dns_servers:
+#  - "1.1.1.1"
+#  - "8.8.8.8"
 
 # -----------------------------------------------------------------------------
 # 5. HYPERVISOR RUNTIME ACCESS (libvirt/qemu user)
 # -----------------------------------------------------------------------------
-kvm_validate_runtime_pool_access: true   # Validate runtime user path access before mutation.
-kvm_auto_fix_runtime_pool_access: true   # Auto-apply ACL fixes when runtime access checks fail.
-kvm_libvirt_runtime_user: "libvirt-qemu" # Runtime disk-access user for libvirt/qemu.
+kvm_validate_runtime_pool_access: ~   # Validate runtime user path access before mutation.
+kvm_auto_fix_runtime_pool_access: ~   # Auto-apply ACL fixes when runtime access checks fail.
+kvm_libvirt_runtime_user: "" # Runtime disk-access user for libvirt/qemu.

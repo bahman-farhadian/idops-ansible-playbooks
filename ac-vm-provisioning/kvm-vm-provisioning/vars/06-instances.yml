@@ -42,64 +42,66 @@
 #   hypervisor: "kvm-host-1"   deploy on that host
 #   hypervisor: ""             deploy on the first host in 01-hypervisors.yml
 # -----------------------------------------------------------------------------
-kvm_instance_definitions:
-  - instance_name: "debian-12-a"             # Target libvirt domain name.
-    image_profile_id: "debian-12"            # Cloud image profile reference.
-    hypervisor: "kvm-host-1"                 # Destination host from 01-hypervisors.yml.
-    instance_ipv4_address: "192.168.122.121" # Instance static IPv4 address.
-    vcpu_count: 1                            # vCPU allocation.
-    memory_mb: 2048                          # Memory allocation in MB.
-    root_disk_size_gb: 20                    # Root disk target size in GiB.
-    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
-    instance_extra_disks:                    # Attach a dedicated /data disk.
-      - guest_device: "vdb"                  # Guest disk device.
-        size_gb: 10                          # Disk size in GiB.
-        mount_point: "/data"                 # Mount point inside guest.
-        filesystem: "ext4"                   # Filesystem for this disk.
-        mount_options: "defaults,nofail"     # Mount options written to fstab.
-
-  - instance_name: "debian-12-b"             # Target libvirt domain name.
-    image_profile_id: "debian-12"            # Cloud image profile reference.
-    hypervisor: "kvm-host-1"                 # Destination host from 01-hypervisors.yml.
-    instance_ipv4_address: "192.168.122.122" # Instance static IPv4 address.
-    vcpu_count: 1                            # vCPU allocation.
-    memory_mb: 2048                          # Memory allocation in MB.
-    root_disk_size_gb: 20                    # Root disk target size in GiB.
-    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
-    instance_extra_disks:                    # Attach a dedicated /data disk.
-      - guest_device: "vdb"                  # Guest disk device.
-        size_gb: 10                          # Disk size in GiB.
-        mount_point: "/data"                 # Mount point inside guest.
-        filesystem: "ext4"                   # Filesystem for this disk.
-        mount_options: "defaults,nofail"     # Mount options written to fstab.
-
-  - instance_name: "debian-13-a"             # Target libvirt domain name.
-    image_profile_id: "debian-13"            # Cloud image profile reference.
-    hypervisor: "kvm-host-1"                 # Destination host from 01-hypervisors.yml.
-    instance_ipv4_address: "192.168.122.131" # Instance static IPv4 address.
-    vcpu_count: 1                            # vCPU allocation.
-    memory_mb: 2048                          # Memory allocation in MB.
-    root_disk_size_gb: 20                    # Root disk target size in GiB.
-    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
-    instance_extra_disks:                    # Attach a dedicated /data disk.
-      - guest_device: "vdb"                  # Guest disk device.
-        size_gb: 10                          # Disk size in GiB.
-        mount_point: "/data"                 # Mount point inside guest.
-        filesystem: "ext4"                   # Filesystem for this disk.
-        mount_options: "defaults,nofail"     # Mount options written to fstab.
-
-  - instance_name: "debian-13-b"             # Target libvirt domain name.
-    image_profile_id: "debian-13"            # Cloud image profile reference.
-    hypervisor: "kvm-host-1"                 # Destination host; set "kvm-host-2" to move it.
-    instance_ipv4_address: "192.168.122.132" # Instance static IPv4 address.
-    vcpu_count: 1                            # vCPU allocation.
-    cpu_share_enabled: true                  # Cap vCPUs: 2 vCPU worth 1 host CPU.
-    memory_mb: 2048                          # Memory allocation in MB.
-    root_disk_size_gb: 20                    # Root disk target size in GiB.
-    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
-    instance_extra_disks:                    # Attach a dedicated /data disk.
-      - guest_device: "vdb"                  # Guest disk device.
-        size_gb: 10                          # Disk size in GiB.
-        mount_point: "/data"                 # Mount point inside guest.
-        filesystem: "ext4"                   # Filesystem for this disk.
-        mount_options: "defaults,nofail"     # Mount options written to fstab.
+kvm_instance_definitions: []
+# Example (was the live default; see local settings for real values):
+# kvm_instance_definitions:
+#  - instance_name: "debian-12-a"             # Target libvirt domain name.
+#    image_profile_id: "debian-12"            # Cloud image profile reference.
+#    hypervisor: "kvm-host-1"                 # Destination host from 01-hypervisors.yml.
+#    instance_ipv4_address: "192.168.122.121" # Instance static IPv4 address.
+#    vcpu_count: 1                            # vCPU allocation.
+#    memory_mb: 2048                          # Memory allocation in MB.
+#    root_disk_size_gb: 20                    # Root disk target size in GiB.
+#    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+#    instance_extra_disks:                    # Attach a dedicated /data disk.
+#      - guest_device: "vdb"                  # Guest disk device.
+#        size_gb: 10                          # Disk size in GiB.
+#        mount_point: "/data"                 # Mount point inside guest.
+#        filesystem: "ext4"                   # Filesystem for this disk.
+#        mount_options: "defaults,nofail"     # Mount options written to fstab.
+#
+#  - instance_name: "debian-12-b"             # Target libvirt domain name.
+#    image_profile_id: "debian-12"            # Cloud image profile reference.
+#    hypervisor: "kvm-host-1"                 # Destination host from 01-hypervisors.yml.
+#    instance_ipv4_address: "192.168.122.122" # Instance static IPv4 address.
+#    vcpu_count: 1                            # vCPU allocation.
+#    memory_mb: 2048                          # Memory allocation in MB.
+#    root_disk_size_gb: 20                    # Root disk target size in GiB.
+#    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+#    instance_extra_disks:                    # Attach a dedicated /data disk.
+#      - guest_device: "vdb"                  # Guest disk device.
+#        size_gb: 10                          # Disk size in GiB.
+#        mount_point: "/data"                 # Mount point inside guest.
+#        filesystem: "ext4"                   # Filesystem for this disk.
+#        mount_options: "defaults,nofail"     # Mount options written to fstab.
+#
+#  - instance_name: "debian-13-a"             # Target libvirt domain name.
+#    image_profile_id: "debian-13"            # Cloud image profile reference.
+#    hypervisor: "kvm-host-1"                 # Destination host from 01-hypervisors.yml.
+#    instance_ipv4_address: "192.168.122.131" # Instance static IPv4 address.
+#    vcpu_count: 1                            # vCPU allocation.
+#    memory_mb: 2048                          # Memory allocation in MB.
+#    root_disk_size_gb: 20                    # Root disk target size in GiB.
+#    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+#    instance_extra_disks:                    # Attach a dedicated /data disk.
+#      - guest_device: "vdb"                  # Guest disk device.
+#        size_gb: 10                          # Disk size in GiB.
+#        mount_point: "/data"                 # Mount point inside guest.
+#        filesystem: "ext4"                   # Filesystem for this disk.
+#        mount_options: "defaults,nofail"     # Mount options written to fstab.
+#
+#  - instance_name: "debian-13-b"             # Target libvirt domain name.
+#    image_profile_id: "debian-13"            # Cloud image profile reference.
+#    hypervisor: "kvm-host-1"                 # Destination host; set "kvm-host-2" to move it.
+#    instance_ipv4_address: "192.168.122.132" # Instance static IPv4 address.
+#    vcpu_count: 1                            # vCPU allocation.
+#    cpu_share_enabled: true                  # Cap vCPUs: 2 vCPU worth 1 host CPU.
+#    memory_mb: 2048                          # Memory allocation in MB.
+#    root_disk_size_gb: 20                    # Root disk target size in GiB.
+#    instance_extra_disks_enabled: true       # Enable additional disk for this instance.
+#    instance_extra_disks:                    # Attach a dedicated /data disk.
+#      - guest_device: "vdb"                  # Guest disk device.
+#        size_gb: 10                          # Disk size in GiB.
+#        mount_point: "/data"                 # Mount point inside guest.
+#        filesystem: "ext4"                   # Filesystem for this disk.
+#        mount_options: "defaults,nofail"     # Mount options written to fstab.
