@@ -31,6 +31,14 @@
   when: os_hardening_enabled | bool
   tags: [prep_baseline]
 
+- name: Apply terminal dotfiles baseline
+  ansible.builtin.include_role:
+    name: terminal_dotfiles
+  when:
+    - os_hardening_enabled | bool
+    - terminal_dotfiles_enabled | bool
+  tags: [terminal_dotfiles]
+
 - name: Apply package hardening baseline
   ansible.builtin.include_role:
     name: package_hardening

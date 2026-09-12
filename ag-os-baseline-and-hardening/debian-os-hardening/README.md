@@ -71,6 +71,39 @@ Notes:
 - If you plan to use root SSH for pass two, ensure root SSH is allowed and root has an authorized key (`prep_root_authorized_keys`).
 - If root login shows `Please login as the user "debian" rather than the user "root".`, your image/provider still enforces default-user-only SSH. Complete pass one first, then enable root SSH access through this playbook settings and rerun.
 
+## Terminal Dotfiles
+
+The `terminal_dotfiles` role configures the primary user (and, by default,
+root) with a shared tmux/vim/bash setup, adopted from
+[linux_terminal_dotfiles_configuration](https://github.com/bahman-farhadian/linux_terminal_dotfiles_configuration).
+Only the parts shared across every machine in that repository were brought
+over — the source project documents itself as three per-host configurations,
+not a distributable package, so this is a deliberate subset:
+
+- **tmux** — `.tmux.conf`, applied as-is.
+- **vim** — `.vimrc`, the Gruvbox colorscheme, and the lightline/NERDTree
+  plugins, installed as native Vim 8 packages (no plugin manager needed).
+- **bash** — a Gruvbox prompt (git branch/status, venv, exit code), automatic
+  tmux session handling over SSH, extended history settings, and CLI
+  completions (kubectl, helm, docker, tmux). Added to `.bashrc` as its own
+  `blockinfile` marker, separate from `prep_baseline`'s own aliases block, so
+  the two coexist rather than one replacing the other.
+
+Deliberately **not** brought over, and left to the roles that already own
+that ground:
+
+- The SSH login banner and `/etc/motd` — `banner_hardening` sets these, and
+  this project's own text, not the source repository's personal one.
+- SSH server policy (`PermitRootLogin`, and similar) — `ssh_hardening` owns
+  this.
+- The source repository's own SSH *client* config
+  (`StrictHostKeyChecking no`) and every desktop-only piece (GNOME
+  shortcuts, the keyboard-lock service, GTK theming) — none of it applies to
+  a headless guest.
+
+Toggle with `terminal_dotfiles_enabled` and `terminal_dotfiles_configure_root`
+in `vars/debian-hardening.yml`, or run it alone with `make role-terminal-dotfiles`.
+
 ## Main Commands
 
 ```bash

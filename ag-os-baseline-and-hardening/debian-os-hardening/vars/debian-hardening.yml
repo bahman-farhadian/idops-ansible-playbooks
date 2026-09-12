@@ -52,6 +52,14 @@ prep_manage_root_password: true                   # Set/rotate root account pass
 prep_root_plain_password: "idopspassword"         # Root user plaintext password. CHANGE THIS.
 
 # -----------------------------------------------------------------------------
+# Terminal dotfiles (tmux, vim, bash prompt/history/completion)
+# Adopted from linux_terminal_dotfiles_configuration; the SSH banner, /etc/motd
+# and SSH server policy stay owned by banner_hardening and ssh_hardening below.
+# -----------------------------------------------------------------------------
+terminal_dotfiles_enabled: true            # Enable terminal dotfiles role.
+terminal_dotfiles_configure_root: true     # Also configure root, not just the primary user.
+
+# -----------------------------------------------------------------------------
 # Boot and runlevel hardening
 # -----------------------------------------------------------------------------
 boot_hardening_enabled: true               # Enable boot hardening role.

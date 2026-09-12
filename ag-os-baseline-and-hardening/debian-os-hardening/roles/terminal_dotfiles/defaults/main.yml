@@ -1,0 +1,15 @@
+---
+# Adopted from https://github.com/bahman-farhadian/linux_terminal_dotfiles_configuration
+# Only the host-agnostic parts: tmux, vim, and the bash prompt/history/
+# completion additions. Deliberately excluded, and left to the roles that
+# already own them: the SSH login banner and /etc/motd (banner_hardening),
+# and SSH server policy such as PermitRootLogin (ssh_hardening). Also
+# excluded: the source repository's own SSH *client* config
+# (StrictHostKeyChecking no) and every desktop-only piece (GNOME shortcuts,
+# the keyboard-lock service, GTK theming) - none of it applies to a headless
+# guest.
+terminal_dotfiles_enabled: true
+
+# The source project configures root by asking interactively; there is no
+# equivalent question in an unattended run, so it is a plain switch here.
+terminal_dotfiles_configure_root: true

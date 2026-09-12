@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .PHONY: help settings settings-clean settings-clean-force settings-clean-force-all require-venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
         roles \
-        role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-common-repos \
+        role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-terminal-dotfiles role-common-repos \
         role-package-hardening role-service-hardening role-firewall role-kernel-hardening role-auth-hardening \
         role-banner-hardening role-ssh-hardening role-fail2ban role-auditd role-accounting-hardening \
         role-integrity-hardening role-compiler-hardening role-file-permissions role-session-logging
@@ -71,6 +71,7 @@ help:
 	@printf "  %-32s %s\n" "make role-boot-hardening" "apply boot_hardening role only"
 	@printf "  %-32s %s\n" "make role-grub-hardening" "apply grub_hardening role only"
 	@printf "  %-32s %s\n" "make role-prep-baseline" "apply prep_baseline role only"
+	@printf "  %-32s %s\n" "make role-terminal-dotfiles" "apply terminal_dotfiles role only"
 	@printf "  %-32s %s\n" "make role-common-repos" "apply common_repos role only"
 	@printf "  %-32s %s\n" "make role-package-hardening" "apply package_hardening role only"
 	@printf "  %-32s %s\n" "make role-service-hardening" "apply service_hardening role only"
@@ -164,6 +165,7 @@ roles:
 	@printf "  make role-boot-hardening\n"
 	@printf "  make role-grub-hardening\n"
 	@printf "  make role-prep-baseline\n"
+	@printf "  make role-terminal-dotfiles\n"
 	@printf "  make role-common-repos\n"
 	@printf "  make role-package-hardening\n"
 	@printf "  make role-service-hardening\n"
@@ -191,6 +193,9 @@ role-grub-hardening: require-venv
 
 role-prep-baseline: require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags prep_baseline $(PLAY_ARGS)
+
+role-terminal-dotfiles: require-venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags terminal_dotfiles $(PLAY_ARGS)
 
 role-common-repos: require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags common_repos $(PLAY_ARGS)

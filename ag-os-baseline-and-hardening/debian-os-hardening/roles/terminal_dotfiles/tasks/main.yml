@@ -1,0 +1,87 @@
+---
+# Configures the primary user (and, unless disabled, root) with the shared
+# tmux/vim/bash-extras set. Runs after prep_baseline, which is where
+# prep_primary_user_name / prep_primary_user_home are set and where tmux and
+# vim are already installed as required packages.
+
+- name: Build list of accounts to configure
+  ansible.builtin.set_fact:
+    terminal_dotfiles_targets: >-
+      {{
+        [{'name': prep_primary_user_name, 'home': prep_primary_user_home}]
+        + (
+            [{'name': 'root', 'home': '/root'}]
+            if terminal_dotfiles_configure_root | bool
+            else []
+          )
+      }}
+  when: terminal_dotfiles_enabled | bool
+
+- name: Deploy tmux configuration
+  ansible.builtin.copy:
+    src: tmux.conf
+    dest: "{{ item.home }}/.tmux.conf"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0644"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool
+
+- name: Deploy vim configuration and plugins
+  ansible.builtin.copy:
+    src: vim/
+    dest: "{{ item.home }}/.vim/"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: preserve
+    directory_mode: "0755"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool
+
+- name: Symlink .vimrc to the deployed vim configuration
+  ansible.builtin.file:
+    src: "{{ item.home }}/.vim/vimrc"
+    dest: "{{ item.home }}/.vimrc"
+    state: link
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    force: true
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool
+
+- name: Deploy the shared bash prompt, history and completion additions
+  ansible.builtin.copy:
+    src: dotfiles-terminal.sh
+    dest: "{{ item.home }}/.dotfiles-terminal.sh"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0644"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool
+
+# A distinct marker from prep_baseline's own "ANSIBLE PREP ALIASES" block, so
+# the two coexist in the same .bashrc rather than one replacing the other.
+# Appended with no insertafter, so it lands after prep_baseline's block and
+# this file's PS1 is the one that ends up set.
+- name: Ensure .bashrc sources the terminal dotfiles additions
+  ansible.builtin.blockinfile:
+    path: "{{ item.home }}/.bashrc"
+    create: true
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0644"
+    marker: "# {mark} ANSIBLE TERMINAL DOTFILES"
+    block: |
+      [ -r "$HOME/.dotfiles-terminal.sh" ] && . "$HOME/.dotfiles-terminal.sh"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool

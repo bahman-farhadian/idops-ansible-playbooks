@@ -1,0 +1,151 @@
+" vim config, minimal, Gruvbox dark, two plugins (NERDTree for the file
+" tree, lightline for the status line). Installed system-wide, at
+" /etc/vim/vimrc.local — see vim/install.sh.
+"
+" Only settings that change vim's own default behaviour live here. See
+" vim/README.md for how to actually use any of this.
+
+" Deployed as /etc/vim/vimrc.local, which Debian's own /etc/vim/vimrc loads
+" last — but only for users who have no personal ~/.vimrc of their own does
+" vim then also load its own $VIMRUNTIME/defaults.vim, afterwards, silently
+" overriding some of the settings below (mouse=a among them). This line is
+" defaults.vim's own documented guard against exactly that, confirmed by
+" reading it directly on this host, not assumed from memory.
+let g:skip_defaults_vim = 1
+
+filetype plugin indent on
+syntax on
+
+" Not every host's locale defaults to UTF-8 (a bare C/POSIX locale falls
+" back to latin1) — pinned so every host reads files the same way.
+set encoding=utf-8
+
+" No splash screen on an empty start — it clears on the first keystroke
+" either way, but this puts the file on screen first, not a wall of text.
+set shortmess+=I
+
+" Typing bare `vim`, with nothing to open, starts in Insert mode straight
+" away — there is nothing to look at first, so "start typing" is right.
+" `vim somefile.txt` still opens in Normal mode, since there is something
+" to look at.
+autocmd VimEnter * if argc() == 0 && line('$') == 1 && getline(1) ==# '' | startinsert | endif
+
+" Leader is Ctrl-v, not vim's own default backslash, so it survives inside
+" tmux the same way every binding below does. See "Why the leader is
+" Ctrl-v" in vim/README.md for the full reasoning. Set before any mapping
+" below uses <leader>.
+let mapleader = "\<C-v>"
+nnoremap <C-q> <C-v>
+
+" Same colours as the tmux status bar and bash prompt, hand-written at
+" colors/gruvbox.vim.
+set background=dark
+silent! colorscheme gruvbox
+
+" Status line — lightline (pack/dist/start/lightline, vendored from
+" amix/vimrc, MIT), coloured to match at
+" pack/dist/start/lightline/autoload/lightline/colorscheme/gruvbox.vim,
+" the same way the file tree is a vendored plugin but the palette is
+" always hand-written here. laststatus=2 keeps it shown with only one
+" window open — vim's own default (1) hides it in exactly that case, the
+" ordinary one. noshowmode turns off vim's own "-- INSERT --" message,
+" since lightline shows the mode itself; without it the two would say the
+" same thing twice, one above the other.
+set laststatus=2
+set noshowmode
+let g:lightline = {'colorscheme': 'gruvbox'}
+
+" Tabs as spaces, width 4 — vim's own default is width-8 real tab
+" characters.
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+set expandtab
+set autoindent
+set smartindent
+
+" Buffer/window tabs stay visible even with only one open.
+set showtabline=2
+
+" gt/gT switch tabs — vim's own default, no mapping needed.
+
+" Search — highlighted and incremental as you type, case-insensitive
+" unless the pattern itself has a capital letter. None of this is on by
+" default.
+set incsearch
+set hlsearch
+set ignorecase
+set smartcase
+nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
+
+" Project-wide search into the quickfix list. Uses ripgrep when it's on
+" the machine; vim's own (slower) grep otherwise.
+if executable('rg')
+    set grepprg=rg\ --vimgrep\ --no-heading\ --smart-case
+    set grepformat=%f:%l:%c:%m
+endif
+command! -nargs=+ -complete=file Search silent! grep! <args> | copen
+nnoremap <leader>f :Search<Space>
+
+" File tree — leader-e toggles it, using NERDTree (pack/dist/start/nerdtree,
+" vendored from amix/vimrc's own copy, WTFPL). Replaces netrw's own
+" :Lexplore, which had no way to know a directory argument (vim . or vim
+" somedir/) already put a plain netrw listing in the one window that was
+" open before any mapping ran, and opened a second, identical tree beside
+" it — reproduced directly, more than once.
+"
+" NERDTree turned out to have the exact same class of problem the first
+" time this was wired up: NERDTreeHijackNetrw (its own default-on feature
+" for replacing that same netrw listing) creates a different kind of tree
+" — one that fills the current window in place — from the one leader-e
+" creates — a sidebar alongside your file. The two don't recognise each
+" other, so opening a directory and then pressing leader-e produced two
+" separate NERDTree buffers, not one. Reproduced directly before this was
+" written, the same as the netrw version of this bug was.
+"
+" The fix that actually holds: make leader-e the *only* way a tree is ever
+" created, full stop. NERDTreeHijackNetrw=0 turns off NERDTree's own
+" competing path; netrw's own directory-auto-browse (a separate mechanism,
+" unaffected by that setting) needs clearing too, deferred to VimEnter
+" since netrw's plugin script — where it registers this — loads after
+" vimrc does, so clearing it any earlier has no effect.
+let g:NERDTreeHijackNetrw = 0
+autocmd VimEnter * autocmd! FileExplorer
+let g:NERDTreeWinSize = 25
+let g:NERDTreeMinimalUI = 1
+nnoremap <silent> <leader>e :NERDTreeToggle<CR>
+
+" :q and :x close the current *window* — with only one open, that's vim
+" itself, which reads as "vim just quit on me" when what was meant was
+" "close this file." Bd closes the *buffer* instead: switches to another
+" one if there is one, otherwise leaves an empty buffer and stays open.
+function! CloseBuffer() abort
+    let l:buf = bufnr('%')
+    if len(getbufinfo({'buflisted': 1})) > 1
+        bnext
+    endif
+    execute 'bdelete' l:buf
+endfunction
+command! Bd call CloseBuffer()
+nnoremap <silent> <leader>q :Bd<CR>
+
+" System clipboard, not just vim's own registers — so text copied here
+" can be pasted into another tmux pane, and back. Piped through xclip:
+" this vim package has no +clipboard, so "+y/"+p do nothing on their own.
+" Silently absent with no display or no xclip — correct on headless hosts.
+if executable('xclip') && !empty($DISPLAY)
+    vnoremap <leader>y :w !xclip -selection clipboard<CR><CR>
+    nnoremap <leader>p :r !xclip -selection clipboard -o<CR>
+endif
+
+" Line numbers, sane split directions.
+set number
+set nowrap
+set splitright
+set splitbelow
+
+" Pinned rather than left at vim's default: recent vim already defaults
+" to this, but Debian 11's vim 8.2 does not, and this line costs nothing
+" either way. Without it, Insert mode refuses to delete past where it
+" started, which reads as broken to anyone used to another editor.
+set backspace=indent,eol,start
