@@ -15,22 +15,22 @@
 # -----------------------------------------------------------------------------
 # 1. RUNTIME AND READINESS BEHAVIOR
 # -----------------------------------------------------------------------------
-kvm_ensure_requested_instances_running: ~        # Ensure requested instances are running in runtime stage.
-kvm_wait_for_cloud_init_before_snapshot: ~       # Mandatory readiness gate for domains missing the baseline snapshot.
-kvm_qemu_guest_agent_wait_timeout_seconds: ~      # Maximum wait per visible guest readiness checkpoint.
-kvm_qemu_guest_agent_poll_interval_seconds: ~       # Delay between QEMU Guest Agent readiness retries.
-kvm_shutdown_wait_retries: ~                       # Maximum clean-shutdown state checks before snapshot creation.
-kvm_shutdown_wait_delay_seconds: ~                  # Delay between clean-shutdown state checks.
+kvm_ensure_requested_instances_running: ~     # Ensure requested instances are running in runtime stage. Values: true | false.
+kvm_wait_for_cloud_init_before_snapshot: ~    # Mandatory readiness gate for domains missing the baseline snapshot. Values: true | false.
+kvm_qemu_guest_agent_wait_timeout_seconds: ~  # Maximum wait per visible guest readiness checkpoint, in seconds. Example: 300.
+kvm_qemu_guest_agent_poll_interval_seconds: ~ # Delay between QEMU Guest Agent readiness retries, in seconds. Example: 5.
+kvm_shutdown_wait_retries: ~                  # Maximum clean-shutdown state checks before snapshot creation. Example: 30.
+kvm_shutdown_wait_delay_seconds: ~            # Delay between clean-shutdown state checks, in seconds. Example: 2.
 
 
 # -----------------------------------------------------------------------------
 # 2. SNAPSHOT BEHAVIOR
 # -----------------------------------------------------------------------------
-kvm_snapshot_enabled: ~                                               # Mandatory external baseline snapshot reconciliation for declared domains.
-kvm_snapshot_name: ""                                          # Snapshot name label.
-kvm_snapshot_description: ""                        # Snapshot description.
-kvm_snapshot_overlay_path: "" # External snapshot qcow2 overlay directory.
-kvm_start_instances_after_snapshot: ~                                 # Start reconciled instances after creating a missing snapshot.
+kvm_snapshot_enabled: ~               # Mandatory external baseline snapshot reconciliation for declared domains. Values: true | false.
+kvm_snapshot_name: ""                 # Snapshot name label. Example: "baseline".
+kvm_snapshot_description: ""          # Snapshot description. Example: "Post-provision baseline snapshot".
+kvm_snapshot_overlay_path: ""         # External snapshot qcow2 overlay directory. Example: "/srv/kvm/snapshots".
+kvm_start_instances_after_snapshot: ~ # Start reconciled instances after creating a missing snapshot. Values: true | false.
 
 
 # -----------------------------------------------------------------------------
@@ -38,6 +38,6 @@ kvm_start_instances_after_snapshot: ~                                 # Start re
 # Cleanup only ever touches the instance_name values in 06-instances.yml.
 # -----------------------------------------------------------------------------
 kvm_execute_mutation_phases_in_check_mode: ~ # Allow mutating stages in --check mode. Values: true | false.
-kvm_parallel_instance_workers: ~                 # Max concurrent per-instance heavy operations during provision stage.
-kvm_cleanup_confirmed: ~                     # Safety flag for cleanup action.
-kvm_cleanup_remove_instance_disks: ~         # Remove declared instance disks, snapshot overlays, and stale seed disks during cleanup.
+kvm_parallel_instance_workers: ~             # Max concurrent per-instance heavy operations during provision stage. Example: 4.
+kvm_cleanup_confirmed: ~                     # Safety flag for cleanup action. Values: true | false.
+kvm_cleanup_remove_instance_disks: ~         # Remove declared instance disks, snapshot overlays, and stale seed disks during cleanup. Values: true | false.

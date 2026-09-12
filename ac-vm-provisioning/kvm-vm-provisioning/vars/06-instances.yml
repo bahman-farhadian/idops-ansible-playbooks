@@ -42,7 +42,7 @@
 #   hypervisor: "kvm-host-1"   deploy on that host
 #   hypervisor: ""             deploy on the first host in 01-hypervisors.yml
 # -----------------------------------------------------------------------------
-kvm_instance_definitions: []
+kvm_instance_definitions: [] # Values: [] | list of instance maps (instance_name, image_profile_id, hypervisor, ...).
 # Example (was the live default; see local settings for real values):
 # kvm_instance_definitions:
 #  - instance_name: "debian-12-a"             # Target libvirt domain name.

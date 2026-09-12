@@ -16,10 +16,10 @@
 # 1. INSTANCE COMPUTE DEFAULTS
 # Applied to any VM in 06-instances.yml that omits the matching key.
 # -----------------------------------------------------------------------------
-kvm_default_instance_disk_extension: ""   # Default disk file extension/format.
-kvm_default_root_disk_size_gb: ~              # Default total instance disk size in GiB for new instances.
-kvm_force_single_socket_vcpu_topology: ~    # CPU topology policy. true=sockets=1,threads=1; false=plain vcpu_count.
-kvm_allow_reuse_existing_instance_disks: ~ # Reuse pre-existing instance disk files when domain is missing.
+kvm_default_instance_disk_extension: ""    # Default disk file extension/format. Example: "qcow2".
+kvm_default_root_disk_size_gb: ~           # Default total instance disk size in GiB for new instances. Example: 20.
+kvm_force_single_socket_vcpu_topology: ~   # CPU topology policy. Values: true (sockets=1, threads=1) | false (plain vcpu_count).
+kvm_allow_reuse_existing_instance_disks: ~ # Reuse pre-existing instance disk files when domain is missing. Values: true | false.
 
 
 # -----------------------------------------------------------------------------
@@ -36,13 +36,13 @@ kvm_allow_reuse_existing_instance_disks: ~ # Reuse pre-existing instance disk fi
 #
 # Enable it for one instance with:  cpu_share_enabled: true
 # -----------------------------------------------------------------------------
-kvm_default_cpu_share_enabled: ~            # Cap vCPU bandwidth by default. Values: true | false.
-kvm_cpu_share_vcpu_per_host_cpu: ~              # vCPUs worth one host CPU when capped. Values: integer >= 1.
-kvm_cpu_share_period_microseconds: ~       # CFS enforcement period. Values: 1000-1000000.
-kvm_cpu_share_apply_to_running_domains: ~    # Also apply the cap live to already-running domains.
-kvm_cpu_share_validate_host_capacity: ~      # Preflight guard on total host CPU demand. Values: true | false.
-kvm_cpu_share_host_cpu_reserve: ~               # Host CPUs held back for the hypervisor itself. Values: integer >= 0.
-kvm_cpu_share_allow_capacity_overcommit: ~  # Allow demand above usable host CPUs. Values: false | true.
+kvm_default_cpu_share_enabled: ~           # Cap vCPU bandwidth by default. Values: true | false.
+kvm_cpu_share_vcpu_per_host_cpu: ~         # vCPUs worth one host CPU when capped. Values: integer >= 1, e.g. 2.
+kvm_cpu_share_period_microseconds: ~       # CFS enforcement period. Values: integer 1000-1000000, e.g. 100000.
+kvm_cpu_share_apply_to_running_domains: ~  # Also apply the cap live to already-running domains. Values: true | false.
+kvm_cpu_share_validate_host_capacity: ~    # Preflight guard on total host CPU demand. Values: true | false.
+kvm_cpu_share_host_cpu_reserve: ~          # Host CPUs held back for the hypervisor itself. Values: integer >= 0, e.g. 1.
+kvm_cpu_share_allow_capacity_overcommit: ~ # Allow demand above usable host CPUs. Values: true | false.
 
 
 # -----------------------------------------------------------------------------
@@ -58,5 +58,5 @@ kvm_cpu_share_allow_capacity_overcommit: ~  # Allow demand above usable host CPU
 # - filesystem_label (optional, default: <instance>-<guest_device>, truncated)
 # -----------------------------------------------------------------------------
 kvm_default_instance_extra_disks_enabled: ~ # Enable additional disk provisioning. Values: true | false.
-kvm_default_instance_extra_disks: []            # Extra disk list. Values: [] | list of disk maps (guest_device, size_gb, mount_point, ...).
-kvm_allow_mount_var_on_extra_disk: ~        # Allow /var mount on fresh extra disk (unsafe). Values: false | true.
+kvm_default_instance_extra_disks: []        # Extra disk list. Values: [] | list of disk maps (guest_device, size_gb, mount_point, ...).
+kvm_allow_mount_var_on_extra_disk: ~        # Allow /var mount on fresh extra disk (unsafe). Values: true | false.

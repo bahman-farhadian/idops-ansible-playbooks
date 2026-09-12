@@ -60,10 +60,10 @@ kvm_cloud_image_catalog: {}
 # 2. IMAGE CACHE POLICY AND TRUSTED CHECKSUMS
 # The trusted checksum cache is offline-first and immutable.
 # -----------------------------------------------------------------------------
-kvm_image_cache_verify_on_run: ~                                    # Verify cached image checksums on image-cache stage.
-kvm_image_cache_repair_on_checksum_mismatch: ~                     # Re-download corrupted cached image file when checksum fails.
-kvm_image_manifest_refresh_policy: ""                         # Manifest fetch policy in provision flow. Values: on-demand | always.
-kvm_force_manifest_refresh: ~                                      # Force checksum re-resolution (removes local immutable checksum, re-fetches). Values: true | false.
-kvm_allow_nocloud_images: ~                                        # Allow nocloud images. Values: false (recommended) | true (override).
-kvm_image_checksum_cache_path: "" # Store for the per-version trusted checksum files.
-kvm_checksum_file_immutable: ~                                      # Make the trusted checksum file immutable with chattr +i. Values: true | false.
+kvm_image_cache_verify_on_run: ~               # Verify cached image checksums on image-cache stage. Values: true | false.
+kvm_image_cache_repair_on_checksum_mismatch: ~ # Re-download corrupted cached image file when checksum fails. Values: true | false.
+kvm_image_manifest_refresh_policy: ""          # Manifest fetch policy in provision flow. Values: "on-demand" | "always".
+kvm_force_manifest_refresh: ~                  # Force checksum re-resolution (removes local immutable checksum, re-fetches). Values: true | false.
+kvm_allow_nocloud_images: ~                    # Allow nocloud images. Values: false (recommended) | true (override).
+kvm_image_checksum_cache_path: ""              # Store for the per-version trusted checksum files. Example: "/srv/kvm/checksums".
+kvm_checksum_file_immutable: ~                 # Make the trusted checksum file immutable with chattr +i. Values: true | false.
