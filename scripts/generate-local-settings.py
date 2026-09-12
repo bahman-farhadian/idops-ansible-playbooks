@@ -43,6 +43,16 @@ template later grows a nested field that no item in the local list has (a new
 per-host key, say). To see the full, current field list for one of those,
 read the tracked vars file it comes from - that file is the source of truth
 for what fields exist, and does not need a second, generated copy of itself.
+
+A project's real secrets file (local-secrets.yml / local_secrets.yml, per
+the two spellings this repository's .gitignore already treats as secrets)
+is never scanned as a source, no matter what is in vars_dir: it holds real
+credential values once an operator has set it up, and a project that loads
+it does so through its own include_vars task, independent of and with
+higher precedence than settings.local.yml. Copying its keys in here would
+duplicate a live secret into a second file and create a copy that looks
+editable but is silently ignored at runtime - worse than not generating
+anything for it at all.
 """
 
 import argparse
@@ -56,7 +66,8 @@ LIVE_KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
 COMMENTED_KEY_RE = re.compile(r'^#\s?([A-Za-z_][A-Za-z0-9_]*):')
 BANNER_RE = re.compile(r'^# \d+\.\s+(.*)$')
 TRAILING_COMMENT_RE = re.compile(r'^([^#]*?)\s+#\s.*$')
-SKIP = ('no-local-overrides.yml',)
+# Real secrets files, never a settings source - see the module docstring.
+SKIP = ('local-secrets.yml', 'local_secrets.yml')
 
 
 def strip_trailing_comment(line):
@@ -166,7 +177,29 @@ def collect(vars_dir):
     found = []
     for name in sources:
         found.extend((name, block) for block in blocks(os.path.join(vars_dir, name)))
+    warn_on_duplicate_keys(found)
     return sources, found
+
+
+def warn_on_duplicate_keys(found):
+    """Warn, but do not fail, when the same key is defined in two source files.
+
+    Ansible's own vars_files loading would silently let the later file win,
+    so this is not this script's bug to fix - but generating a local override
+    for a key without knowing it is ambiguous upstream is worth flagging
+    loudly rather than passing through quietly.
+    """
+    by_key = {}
+    for src, (_banner, key, _lines) in found:
+        by_key.setdefault(key, []).append(src)
+    for key, srcs in sorted(by_key.items()):
+        if len(srcs) > 1:
+            sys.stderr.write(
+                f"WARNING: {key} is defined in more than one tracked vars "
+                f"file: {', '.join(srcs)}. Ansible's own vars_files loading "
+                "will silently prefer whichever loads last; fix the "
+                "duplicate in the tracked files rather than relying on "
+                "settings.local.yml to paper over it.\n")
 
 
 def render(sources, found, only_keys=None):
@@ -245,6 +278,10 @@ def main():
                          help='Replace the file from scratch instead of only '
                               'adding new settings. Backs up the old one first.')
     args = parser.parse_args()
+
+    if not os.path.isdir(args.vars_dir):
+        sys.stderr.write(f"No such directory: {args.vars_dir}\n")
+        return 1
 
     sources, found = collect(args.vars_dir)
     if not sources:
