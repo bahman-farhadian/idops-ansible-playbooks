@@ -1,0 +1,13 @@
+---
+- name: Inspect effective sshd hardening settings
+  ansible.builtin.shell: >-
+    set -o pipefail && sshd -T | egrep
+    'permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|loglevel|maxauthtries|maxsessions'
+  args:
+    executable: /bin/bash
+  register: debian_hardening_ssh_check_result
+  changed_when: false
+
+- name: Show sshd hardening settings
+  ansible.builtin.debug:
+    var: debian_hardening_ssh_check_result.stdout_lines

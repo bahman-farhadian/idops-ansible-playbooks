@@ -1,34 +1,17 @@
+---
+# Static placeholder only. Real targets are never hand-edited here: they are
+# declared in debian_hardening_targets (vars/debian-hardening.yml /
+# vars/settings.local.yml) and added to the hardening_targets group
+# dynamically at runtime by playbook.yml, the same pattern
+# kvm-vm-provisioning uses for its hypervisor fleet. Editing this file with
+# a real host's address, user or password would put that data in a tracked
+# file - see Required Standard 12 in CONTRIBUTOR-GUIDE.md.
 all:
   children:
-    hardening_targets:
+    local:
       hosts:
-        target-node-01:
-          ansible_host: "target-server-ip"
-          ansible_user: "target-server-user"
-          ansible_port: 22
-          debian_become_password: ""                              # Optional per-host sudo password. Leave empty for root SSH or passwordless sudo.
-          ansible_become_password: "{{ debian_become_password }}" # Alias used by ad-hoc make targets requiring become.
-
-# Group logic template (optional):
-# Replace hardening_targets.hosts with hardening_targets.children if you want role-based groups.
-#
-# all:
-#   children:
-#     hardening_targets:
-#       children:
-#         web_servers:
-#           vars:
-#             firewall_allowed_tcp_ports: [80, 443]
-#           hosts:
-#             web-01:
-#               ansible_host: change-me-web-host-or-ip
-#               ansible_user: change-me-ssh-user
-#               ansible_port: 22
-#         db_servers:
-#           vars:
-#             firewall_allowed_tcp_ports: [3306]
-#           hosts:
-#             db-01:
-#               ansible_host: change-me-db-host-or-ip
-#               ansible_user: change-me-ssh-user
-#               ansible_port: 22
+        localhost:
+          ansible_connection: local
+          ansible_python_interpreter: /usr/bin/python3
+    hardening_targets:
+      hosts: {}

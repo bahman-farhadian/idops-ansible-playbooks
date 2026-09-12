@@ -18,7 +18,6 @@ PYTHON ?= python3
 PIP := $(VENV)/bin/pip
 VENV_ACTIVATE := . $(VENV)/bin/activate
 LIMIT ?=
-GROUP ?= hardening_targets
 FORKS ?=
 TAGS ?=
 SKIP_TAGS ?=
@@ -26,8 +25,6 @@ EXTRA_VARS ?=
 CHECK ?= false
 DIFF ?= false
 EXTRA_ARGS ?=
-HARDENING_VARS_FILE ?= vars/debian-hardening.yml
-HARDENING_LOCAL_SECRETS_FILE ?= vars/local-secrets.yml
 LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
 FORCE ?=
 
@@ -41,8 +38,6 @@ EXTRA_VARS_ARG := $(if $(EXTRA_VARS),-e "$(EXTRA_VARS)",)
 CHECK_ARG := $(if $(filter $(CHECK),$(BOOL_TRUE)),--check,)
 DIFF_ARG := $(if $(filter $(DIFF),$(BOOL_TRUE)),--diff,)
 PLAY_ARGS := $(LIMIT_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
-ADHOC_ARGS := $(LIMIT_ARG) $(FORKS_ARG) $(EXTRA_ARGS)
-ADHOC_VARS_ARGS := -e @$(HARDENING_VARS_FILE) $(if $(wildcard $(HARDENING_LOCAL_SECRETS_FILE)),-e @$(HARDENING_LOCAL_SECRETS_FILE),)
 
 help:
 	@printf "debian-os-hardening - Debian/Ubuntu baseline hardening\n\n"
@@ -89,7 +84,6 @@ help:
 	@printf "  %-32s %s\n" "make role-session-logging" "apply session_logging role only"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LIMIT=<host_or_group>" "limit inventory scope"
-	@printf "  %-28s %s\n" "GROUP=<inventory_group>" "target inventory group for ad-hoc checks"
 	@printf "  %-28s %s\n" "FORKS=<n>" "set Ansible fork parallelism"
 	@printf "  %-28s %s\n" "TAGS=<tag1,tag2>" "run only selected tags"
 	@printf "  %-28s %s\n" "SKIP_TAGS=<tag1,tag2>" "skip selected tags"
@@ -147,13 +141,13 @@ suggestions:
 	@grep '^suggestion\[\]=' artifacts/lynis/*/lynis-report.dat || true
 
 ssh-check: require-venv
-	$(VENV_ACTIVATE) && ansible -i $(INVENTORY) $(ADHOC_ARGS) $(ADHOC_VARS_ARGS) $(GROUP) -b -m shell -a "sshd -T | egrep 'permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|loglevel|maxauthtries|maxsessions'"
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=ssh-check $(PLAY_ARGS)
 
 gap-report:
 	@grep -E '^hardening_index=|^warning\[]=|^suggestion\[]=|^details\[]=(KRNL-6000|SSH-7408|FIRE-4513|NETW-2705|NAME-4028|NAME-4404|LOGG-2154|BOOT-5122|FILE-6310|PKGS-7346|ACCT-9630)' artifacts/lynis/*/lynis-report.dat || true
 
 runtime-check: require-venv
-	$(VENV_ACTIVATE) && ansible -i $(INVENTORY) $(ADHOC_ARGS) $(ADHOC_VARS_ARGS) $(GROUP) -b -m shell -a "echo '== sshd -T =='; sshd -T | egrep 'port|permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|maxauthtries|maxsessions|loglevel'; echo '== issue.net =='; sed -n '1,120p' /etc/issue.net; echo '== pam_motd refs =='; grep -n pam_motd /etc/pam.d/sshd || true; echo '== ssh command hook =='; ls -l /etc/profile.d/99-ssh-command-logging.sh 2>/dev/null || true; echo '== rsyslog ssh logging =='; sed -n '1,200p' /etc/rsyslog.d/30-ssh-session-logging.conf 2>/dev/null || true; echo '== last ssh command logs =='; tail -n 20 /var/log/ssh_commands.log 2>/dev/null || true; echo '== firewall v4 =='; iptables -S; echo '== firewall v6 =='; ip6tables -S; echo '== dns =='; cat /etc/resolv.conf; echo '== hosts =='; cat /etc/hosts; echo '== sysctl =='; sysctl fs.protected_fifos kernel.modules_disabled; echo '== audit rules =='; auditctl -l || true; echo '== residual rc packages =='; dpkg -l | awk '/^rc/{print $$2}'"
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=runtime-check $(PLAY_ARGS)
 
 # ── Per-role targets ──────────────────────────────────────────────────────────
 # Each target runs the full harden workflow scoped to a single role via --tags.

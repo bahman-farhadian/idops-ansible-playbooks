@@ -35,11 +35,78 @@
     - name: Validate hardening action value
       ansible.builtin.assert:
         that:
-          - debian_hardening_action_effective in ['ping', 'scan', 'harden', 'reboot']
-        fail_msg: "debian_hardening_action must be one of: ping, scan, harden, reboot."
+          - >-
+            debian_hardening_action_effective in
+            ['ping', 'scan', 'harden', 'reboot', 'ssh-check', 'runtime-check']
+        fail_msg: >-
+          debian_hardening_action must be one of: ping, scan, harden, reboot,
+          ssh-check, runtime-check.
+
+    - name: Validate at least one hardening target is declared
+      ansible.builtin.assert:
+        that:
+          - debian_hardening_targets is defined
+          - (debian_hardening_targets | length) > 0
+        fail_msg: >-
+          Declare at least one target in debian_hardening_targets
+          (vars/debian-hardening.yml / settings.local.yml).
+
+    - name: Validate hardening target names
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - (item.name | string | length) > 0
+          - item.name is match('^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$')
+        fail_msg: >-
+          Target name '{{ item.name | default('unnamed') }}' is invalid. Use
+          letters, digits, dot, dash or underscore, starting with a letter or
+          digit, up to 63 characters.
+      loop: "{{ debian_hardening_targets }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Validate hardening target ports
+      ansible.builtin.assert:
+        that:
+          - (item.port | default(22) | int) > 0
+          - (item.port | default(22) | int) <= 65535
+        fail_msg: >-
+          Target '{{ item.name }}' has an invalid port (got
+          {{ item.port | default(22) }}); must be 1-65535.
+      loop: "{{ debian_hardening_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Validate hardening target names are unique
+      ansible.builtin.assert:
+        that:
+          - debian_hardening_targets | map(attribute='name') | list | length
+            ==
+            debian_hardening_targets | map(attribute='name') | list | unique | length
+        fail_msg: "Target names must be unique in debian_hardening_targets."
+
+    # Empty user collapses to omit so the SSH client keeps falling back to
+    # the operator's own ssh config instead of receiving a blank value.
+    - name: Add hardening targets to in-memory inventory
+      ansible.builtin.add_host:
+        name: "{{ item.name }}"
+        groups: hardening_targets
+        ansible_host: "{{ item.address | default(item.name, true) }}"
+        ansible_user: "{{ (item.user | default('', true)) or omit }}"
+        ansible_port: "{{ item.port | default(22) }}"
+        ansible_become_password: "{{ (item.become_password | default('', true)) or omit }}"
+      loop: "{{ debian_hardening_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: false
+
+    - name: Display resolved hardening targets
+      ansible.builtin.debug:
+        msg: >-
+          targets={{ debian_hardening_targets | map(attribute='name') | list }}
 
 - name: Execute Debian hardening action
-  hosts: "{{ debian_hardening_target_group }}"
+  hosts: hardening_targets
   become: "{{ debian_become_enabled | default(true) | bool }}"
   become_method: "{{ debian_become_method | default('sudo') }}"
   become_user: "{{ debian_become_user | default('root') }}"
@@ -80,3 +147,11 @@
     - name: Run reboot workflow
       ansible.builtin.include_tasks: tasks/reboot.yml
       when: debian_hardening_action_effective == 'reboot'
+
+    - name: Run SSH hardening check workflow
+      ansible.builtin.include_tasks: tasks/ssh-check.yml
+      when: debian_hardening_action_effective == 'ssh-check'
+
+    - name: Run runtime diagnostics workflow
+      ansible.builtin.include_tasks: tasks/runtime-check.yml
+      when: debian_hardening_action_effective == 'runtime-check'

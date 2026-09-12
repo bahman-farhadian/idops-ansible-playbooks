@@ -5,16 +5,38 @@
 # -----------------------------------------------------------------------------
 # Workflow control
 # -----------------------------------------------------------------------------
-# Not blanked like the settings below: playbook.yml resolves this as the
-# play-level `hosts:` keyword at parse time, before settings.local.yml's
-# fail-guard task ever runs, so a blank value here breaks make check/make
-# lint outright. This is playbook wiring (which inventory group this run
-# targets), not per-environment data - the same role kvm-vm-provisioning
-# fills with a literal `hosts: hypervisor`.
-debian_hardening_target_group: "hardening_targets" # Inventory group targeted by playbook.yml.
-debian_become_enabled: ~                           # Run remote tasks with privilege escalation. Values: true | false.
-debian_become_method: ""                           # Privilege escalation method. Values: "sudo" | "su" | "doas".
-debian_become_user: ""                             # Privilege escalation target user. Example: "root".
+debian_become_enabled: ~ # Run remote tasks with privilege escalation. Values: true | false.
+debian_become_method: "" # Privilege escalation method. Values: "sudo" | "su" | "doas".
+debian_become_user: ""   # Privilege escalation target user. Example: "root".
+
+# -----------------------------------------------------------------------------
+# Target inventory
+# One list entry per host to harden, added to the "hardening_targets"
+# inventory group dynamically at runtime by playbook.yml - the same pattern
+# kvm-vm-provisioning uses for kvm_hypervisors. host.yml stays a static,
+# empty placeholder and is never hand-edited with real host data: a target's
+# real address, user and become_password belong here, in settings.local.yml,
+# never in a tracked file.
+#
+# Keys:
+# - name (required)  inventory hostname; used as ansible_host too when
+#                     address is not set
+# - address          SSH target. Values: FQDN | IP. Falls back to name
+#                     when omitted
+# - user             SSH user for this host
+# - port             SSH port. Values: integer 1-65535. Falls back to 22
+#                     when omitted
+# - become_password  Optional per-host sudo password. Leave empty ("")
+#                     for root SSH or passwordless sudo
+# -----------------------------------------------------------------------------
+debian_hardening_targets: [] # Values: [] | list of target host maps (name, address, user, ...).
+# Example (was the live default; see local settings for real values):
+# debian_hardening_targets:
+#  - name: "target-node-01"    # Inventory hostname.
+#    address: "203.0.113.10"   # SSH target host/IP.
+#    user: "idops"             # SSH user for this host.
+#    port: 22                  # SSH port.
+#    become_password: ""       # Optional per-host sudo password.
 
 # -----------------------------------------------------------------------------
 # APT repository settings
