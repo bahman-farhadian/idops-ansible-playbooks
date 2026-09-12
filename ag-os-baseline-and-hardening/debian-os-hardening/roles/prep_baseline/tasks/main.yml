@@ -615,112 +615,79 @@
     - prep_enforce_single_login_user | bool
     - prep_primary_user_name is defined
 
-- name: Create primary user .bash_profile when missing
-  ansible.builtin.template:
-    src: bash_profile.j2
+# bash_profile/bash_aliases/bashrc are adopted wholesale from
+# linux_terminal_dotfiles_configuration (the parts shared across every host
+# it documents; host-specific GNOME/desktop aliases are left out, and SSH
+# banner/motd/server policy stay owned by banner_hardening and ssh_hardening
+# below). This replaces the whole file on every run rather than templating a
+# handful of configurable aliases/prompt lines, so a manual edit on the
+# target does not survive the next hardening run; `backup: true` keeps a
+# timestamped copy of whatever was there first.
+- name: Deploy primary user .bash_profile
+  ansible.builtin.copy:
+    src: bash_profile
     dest: "{{ prep_primary_user_home }}/.bash_profile"
     owner: "{{ prep_primary_user_name }}"
     group: "{{ prep_primary_user_name }}"
     mode: "0644"
-    force: false
+    backup: true
   when:
     - prep_enabled | bool
     - prep_manage_primary_user | bool
     - prep_primary_user_name is defined
 
-- name: Create primary user .bash_aliases when missing
-  ansible.builtin.template:
-    src: bash_aliases.j2
+- name: Deploy primary user .bash_aliases
+  ansible.builtin.copy:
+    src: bash_aliases
     dest: "{{ prep_primary_user_home }}/.bash_aliases"
     owner: "{{ prep_primary_user_name }}"
     group: "{{ prep_primary_user_name }}"
     mode: "0644"
-    force: false
-  vars:
-    prep_alias_lines: "{{ prep_primary_user_aliases }}"
+    backup: true
   when:
     - prep_enabled | bool
     - prep_manage_primary_user | bool
     - prep_primary_user_name is defined
 
-- name: Ensure primary user .bashrc sources .bash_aliases
-  ansible.builtin.blockinfile:
-    path: "{{ prep_primary_user_home }}/.bashrc"
-    create: true
-    marker: "# {mark} ANSIBLE PREP ALIASES"
+- name: Deploy primary user .bashrc
+  ansible.builtin.copy:
+    src: bashrc
+    dest: "{{ prep_primary_user_home }}/.bashrc"
     owner: "{{ prep_primary_user_name }}"
     group: "{{ prep_primary_user_name }}"
     mode: "0644"
-    block: |
-      if [ -f ~/.bash_aliases ]; then
-          . ~/.bash_aliases
-      fi
+    backup: true
   when:
     - prep_enabled | bool
     - prep_manage_primary_user | bool
     - prep_primary_user_name is defined
 
-- name: Ensure primary user has color prompt
-  ansible.builtin.blockinfile:
-    path: "{{ prep_primary_user_home }}/.bashrc"
-    create: true
-    marker: "# {mark} ANSIBLE PREP PROMPT"
-    owner: "{{ prep_primary_user_name }}"
-    group: "{{ prep_primary_user_name }}"
-    mode: "0644"
-    block: |
-      # Colorized PS1 Prompt
-      {{ prep_primary_user_prompt_line }}
-  when:
-    - prep_enabled | bool
-    - prep_manage_primary_user | bool
-    - prep_primary_user_name is defined
-
-- name: Create root .bash_profile when missing
-  ansible.builtin.template:
-    src: bash_profile.j2
+- name: Deploy root .bash_profile
+  ansible.builtin.copy:
+    src: bash_profile
     dest: /root/.bash_profile
     owner: root
     group: root
     mode: "0644"
-    force: false
+    backup: true
   when: prep_enabled | bool
 
-- name: Create root .bash_aliases when missing
-  ansible.builtin.template:
-    src: bash_aliases.j2
+- name: Deploy root .bash_aliases
+  ansible.builtin.copy:
+    src: bash_aliases
     dest: /root/.bash_aliases
     owner: root
     group: root
     mode: "0644"
-    force: false
-  vars:
-    prep_alias_lines: "{{ prep_root_aliases }}"
+    backup: true
   when: prep_enabled | bool
 
-- name: Ensure root .bashrc sources .bash_aliases
-  ansible.builtin.blockinfile:
-    path: /root/.bashrc
-    create: true
-    marker: "# {mark} ANSIBLE PREP ALIASES"
+- name: Deploy root .bashrc
+  ansible.builtin.copy:
+    src: bashrc
+    dest: /root/.bashrc
     owner: root
     group: root
     mode: "0644"
-    block: |
-      if [ -f ~/.bash_aliases ]; then
-          . ~/.bash_aliases
-      fi
-  when: prep_enabled | bool
-
-- name: Ensure root has color prompt
-  ansible.builtin.blockinfile:
-    path: /root/.bashrc
-    create: true
-    marker: "# {mark} ANSIBLE PREP PROMPT"
-    owner: root
-    group: root
-    mode: "0644"
-    block: |
-      # Colorized PS1 Prompt
-      {{ prep_root_prompt_line }}
+    backup: true
   when: prep_enabled | bool

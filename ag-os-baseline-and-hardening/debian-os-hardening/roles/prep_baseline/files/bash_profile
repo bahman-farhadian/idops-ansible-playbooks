@@ -1,0 +1,5 @@
+# ~/.bash_profile — Linux login shell entry point
+
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi

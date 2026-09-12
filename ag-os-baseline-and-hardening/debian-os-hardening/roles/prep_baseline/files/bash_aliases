@@ -1,0 +1,251 @@
+# aliases — sourced by .bashrc
+# Linux · DevOps + Data Engineering/Science
+
+# Navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+alias ....='cd ../../..'
+alias ~='cd ~'
+
+# Listing — ls --color=auto is set in bashrc; extend it here
+alias ll='ls -AlhiF'
+alias l='ls -A'
+alias la='ls -A'
+
+# General
+alias c='clear'
+command -v btop &>/dev/null && alias b='btop' || { command -v htop &>/dev/null && alias b='htop'; }
+alias reload='exec $SHELL -l'
+alias path='echo $PATH | tr ":" "\n"'
+alias pubip='curl -s https://ipwho.is/ | jq .'
+# Every private address this host holds, named by the interface carrying it.
+# `hostname -I` prints the same addresses as one unlabelled line in kernel
+# interface order, which answers nothing on a machine like this: with a VPN up
+# and Docker and libvirt running there are five of them, and which one comes
+# first depends on the order the interfaces happened to appear. So print all of
+# them and say which is which.
+#
+# The default route is marked by asking the kernel which source address it
+# would route out with. That is a routing table lookup only — no packet is
+# sent, and 1.1.1.1 is never contacted.
+privip() {
+    local routed out
+    routed=$(ip -4 route get 1.1.1.1 2>/dev/null |
+             awk '{for (i = 1; i < NF; i++) if ($i == "src") { print $(i+1); exit }}')
+
+    # Sorted by the rank in column one, which is then cut away: the routed
+    # address first, the local bridges last — docker0 and virbr0 are this host
+    # talking to its own containers and guests, not addresses anything else
+    # reaches it on. sort -s keeps interface order within each rank.
+    out=$(ip -4 -o addr show scope global 2>/dev/null |
+          awk -v routed="$routed" '
+              {
+                  split($4, a, "/")
+                  rank = (a[1] == routed) ? 0 : ($2 ~ /^(docker|virbr|br-|veth)/ ? 2 : 1)
+                  mark = (a[1] == routed) ? "  ← default route" : ""
+                  printf "%d\t%-11s %s%s\n", rank, $2, a[1], mark
+              }' |
+          sort -s -k1,1n | cut -f2-)
+
+    if [ -n "$out" ]; then
+        printf '%s\n' "$out"
+    else
+        echo "No global IPv4 address on any interface." >&2
+        return 1
+    fi
+}
+# Prints the key and puts it on the clipboard, so it can go straight into a
+# GitHub form or an authorized_keys file. xclip is fed from the file rather than
+# through a pipe: it forks to own the selection and returns at once, so the
+# shell is never held waiting on it. On a headless host there is no X server to
+# own a selection, so it prints and says nothing about copying.
+#
+# X11 selections belong to a live process, so the copy lasts as long as the
+# shell that made it. Closing the terminal before pasting loses it, and the
+# clipboard falls back to whatever GNOME held before. The same is true of cpy.
+pubkey() {
+    local key
+    for key in ~/.ssh/id_ed25519.pub ~/.ssh/id_ecdsa.pub ~/.ssh/id_rsa.pub; do
+        [ -f "$key" ] || continue
+        cat "$key"
+        if command -v xclip &>/dev/null && [ -n "$DISPLAY" ]; then
+            xclip -selection clipboard < "$key"
+            echo "[key: $(basename "$key") — copied to clipboard]" >&2
+        else
+            echo "[key: $(basename "$key")]" >&2
+        fi
+        return
+    done
+    echo "No public key found (~/.ssh/id_ed25519.pub, id_ecdsa.pub, id_rsa.pub)" >&2
+    return 1
+}
+alias pubkeys='ls ~/.ssh/*.pub 2>/dev/null | xargs -I{} sh -c "echo \"=== {} ===\"; cat {}"'
+# openssl's base64 alphabet includes +, / and the = padding, none of which
+# belong in a password meant to be typed or pasted anywhere. Strip those and
+# keep generating until 48 alphanumeric characters have accumulated, then cut
+# to exactly that length — a single pass is virtually always enough, so the
+# loop only ever matters on the rare draw that falls short.
+password() {
+    local s=""
+    while [ "${#s}" -lt 48 ]; do
+        s+=$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9')
+    done
+    printf '%s\n' "${s:0:48}"
+}
+
+# System update — apt and flatpak together.
+# Functions rather than aliases: an alias cannot decide whether sudo is needed.
+_asroot() {
+    if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi
+}
+
+# What would change. Refreshes the sources, then lists it without touching
+# anything.
+update() {
+    _asroot apt update
+    apt list --upgradable
+    command -v flatpak >/dev/null 2>&1 && flatpak remote-ls --updates
+}
+
+# Apply it, then clean up after both.
+upgrade() {
+    _asroot apt full-upgrade
+    _asroot apt autoremove --purge
+    if command -v flatpak >/dev/null 2>&1; then
+        _asroot flatpak update
+        _asroot flatpak uninstall --unused
+    fi
+}
+
+# Editors
+alias nano='vim'
+alias v='vim'
+
+# Pipe filter — prints output and copies to clipboard if xclip is available;
+# on headless servers without X11/xclip it just prints (tee with no sink).
+cpy() {
+    if command -v xclip &>/dev/null && [ -n "$DISPLAY" ]; then
+        tee >(xclip -selection clipboard)
+    else
+        tee
+    fi
+}
+
+# Git
+alias g='git'
+alias gs='git status'
+alias ga='git add'
+alias gaa='git add --all'
+alias gc='git commit -m'
+alias gca='git commit --amend --no-edit'
+alias gco='git checkout'
+alias gcob='git checkout -b'
+alias gb='git branch'
+alias gba='git branch -a'
+alias gbd='git branch -d'
+alias gbD='git branch -D'
+alias gl='git log --oneline --graph --decorate --all'
+alias gll='git log --stat'
+alias gd='git diff'
+alias gds='git diff --staged'
+alias gp='git push'
+alias gpf='git push --force-with-lease'
+alias gpl='git pull'
+alias gpr='git pull --rebase'
+alias gst='git stash'
+alias gstp='git stash pop'
+alias gstl='git stash list'
+alias gf='git fetch --all --prune'
+alias grb='git rebase'
+alias grbi='git rebase -i'
+alias gcp='git cherry-pick'
+alias gtag='git tag'
+alias gclean='git clean -fd'
+alias gwip='git add -A && git commit -m "wip: checkpoint"'
+
+# Python / venv
+alias py='python3'
+alias pip='pip3'
+alias piv='python3 -m venv .venv'
+alias va='source .venv/bin/activate'
+alias vd='deactivate'
+alias pipi='pip3 install'
+alias pipu='pip3 install --upgrade'
+alias pipf='pip3 freeze'
+alias pipff='pip3 freeze > requirements.txt'
+alias pipr='pip3 install -r requirements.txt'
+alias pipuu='pip3 list --outdated | awk "NR>2 {print \$1}" | xargs pip3 install --upgrade'
+
+# Jupyter
+alias jn='jupyter notebook'
+alias jl='jupyter lab'
+alias jnb='jupyter nbconvert'
+
+# Docker
+alias d='docker'
+alias dps='docker ps'
+alias dpsa='docker ps -a'
+alias di='docker images'
+alias drm='docker rm'
+alias drmi='docker rmi'
+alias drmf='docker rm -f'
+alias dex='docker exec -it'
+alias dlogs='docker logs -f'
+alias dstop='docker stop'
+alias dstart='docker start'
+alias dprune='docker system prune -af --volumes'
+alias dc='docker compose'
+alias dcu='docker compose up -d'
+alias dcd='docker compose down'
+alias dcl='docker compose logs -f'
+alias dcr='docker compose restart'
+alias dcb='docker compose build'
+
+# Kubernetes
+alias k='kubectl'
+alias kgp='kubectl get pods'
+alias kgpa='kubectl get pods --all-namespaces'
+alias kgs='kubectl get services'
+alias kgn='kubectl get nodes'
+alias kgd='kubectl get deployments'
+alias kdes='kubectl describe'
+alias kdp='kubectl describe pod'
+alias kds='kubectl describe service'
+alias kdn='kubectl describe node'
+alias klogs='kubectl logs -f'
+alias kex='kubectl exec -it'
+alias kap='kubectl apply -f'
+alias kdel='kubectl delete -f'
+alias kctx='kubectl config get-contexts'
+alias kuse='kubectl config use-context'
+alias kns='kubectl config set-context --current --namespace'
+alias krun='kubectl run --rm -it --image=busybox debug -- sh'
+
+# Network
+# ss -p only shows the process for sockets you own, so this needs privilege to
+# name the service behind a system port.
+ports() { _asroot ss -tunlp; }
+
+# Filesystem / safety
+alias cp='cp -iv'
+alias mv='mv -iv'
+alias mkdir='mkdir -pv'
+alias df='df -h'
+alias du='du -sh'
+alias dud='du -sh -- *'
+
+# Directory stack
+alias pd='pushd'
+alias pp='popd'
+alias ds='dirs -v'
+
+# Find
+alias fd='find . -type d -name'
+alias ff='find . -type f -name'
+
+# Size and tree
+alias dsize='du -sh -- */ | sort -h'
+alias count='ls -1 | wc -l'
+alias t2='tree -L 2'
+alias t3='tree -L 3'
+alias th='tree -L 2 -a -I ".git|.venv|__pycache__|node_modules|*.pyc"'

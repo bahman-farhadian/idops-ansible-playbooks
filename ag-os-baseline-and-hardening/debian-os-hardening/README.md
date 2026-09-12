@@ -73,21 +73,26 @@ Notes:
 
 ## Terminal Dotfiles
 
-The `terminal_dotfiles` role configures the primary user (and, by default,
-root) with a shared tmux/vim/bash setup, adopted from
+The primary user (and, by default, root) get a shared tmux/vim/bash setup,
+adopted from
 [linux_terminal_dotfiles_configuration](https://github.com/bahman-farhadian/linux_terminal_dotfiles_configuration).
 Only the parts shared across every machine in that repository were brought
 over — the source project documents itself as three per-host configurations,
-not a distributable package, so this is a deliberate subset:
+not a distributable package, so this is a deliberate subset. Ownership is
+split across two roles because each already owned part of this ground:
 
-- **tmux** — `.tmux.conf`, applied as-is.
-- **vim** — `.vimrc`, the Gruvbox colorscheme, and the lightline/NERDTree
-  plugins, installed as native Vim 8 packages (no plugin manager needed).
-- **bash** — a Gruvbox prompt (git branch/status, venv, exit code), automatic
+- **`prep_baseline`** deploys `.bash_profile`, `.bash_aliases` and `.bashrc`
+  in full — a Gruvbox prompt (git branch/status, venv, exit code), automatic
   tmux session handling over SSH, extended history settings, and CLI
-  completions (kubectl, helm, docker, tmux). Added to `.bashrc` as its own
-  `blockinfile` marker, separate from `prep_baseline`'s own aliases block, so
-  the two coexist rather than one replacing the other.
+  completions (kubectl, helm, docker, tmux). These three files are replaced
+  outright on every run rather than templated from a handful of configurable
+  aliases/prompt lines, so this fully replaces `prep_baseline`'s previous,
+  much smaller aliases-and-prompt setup; a manual edit on the target does not
+  survive the next hardening run (`backup: true` keeps a timestamped copy of
+  whatever was there first).
+- **`terminal_dotfiles`** deploys `.tmux.conf` as-is, and `.vimrc` with the
+  Gruvbox colorscheme and the lightline/NERDTree plugins, installed as
+  native Vim 8 packages (no plugin manager needed).
 
 Deliberately **not** brought over, and left to the roles that already own
 that ground:
@@ -97,12 +102,15 @@ that ground:
 - SSH server policy (`PermitRootLogin`, and similar) — `ssh_hardening` owns
   this.
 - The source repository's own SSH *client* config
-  (`StrictHostKeyChecking no`) and every desktop-only piece (GNOME
-  shortcuts, the keyboard-lock service, GTK theming) — none of it applies to
-  a headless guest.
+  (`StrictHostKeyChecking no`), the one host-specific bash alias block
+  (GNOME keyboard-layout switching on a single machine), and every other
+  desktop-only piece (GNOME shortcuts, the keyboard-lock service, GTK
+  theming) — none of it applies to a headless guest.
 
-Toggle with `terminal_dotfiles_enabled` and `terminal_dotfiles_configure_root`
-in `vars/debian-hardening.yml`, or run it alone with `make role-terminal-dotfiles`.
+Toggle the tmux/vim half with `terminal_dotfiles_enabled` and
+`terminal_dotfiles_configure_root` in `vars/debian-hardening.yml`, or run it
+alone with `make role-terminal-dotfiles`. The bash half is part of
+`prep_baseline`, toggled with `prep_enabled`.
 
 ## Main Commands
 
