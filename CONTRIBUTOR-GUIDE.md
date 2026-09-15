@@ -214,10 +214,17 @@ cannot follow that pattern.
    nested-list fallback — to every play's `vars_files`.
 3. Add the `stat` + `fail` guard shown above as the first two tasks of the
    first play.
-4. Add a `settings` target calling
+4. Add the reporting step Rules For Operators requires: an `include_vars`
+   loading `vars/settings.local.yml` under its own name, then a `debug` task
+   printing how many keys it supplies and their names, both gated on the
+   same `stat` result, right after the guard. kvm-vm-provisioning's
+   "Load the machine-specific override file for reporting" /
+   "Report which settings come from the override file" tasks are the
+   template - copy them, renaming the fact and the tracked file it names.
+5. Add a `settings` target calling
    `$(PROJECT_ROOT)/scripts/generate-local-settings.py`, and list it in
    `make help`.
-5. Add `settings-clean`, `settings-clean-force` and `settings-clean-force-all`
+6. Add `settings-clean`, `settings-clean-force` and `settings-clean-force-all`
    targets calling `$(PROJECT_ROOT)/scripts/clean-local-settings.py`
    (`--vars-dir vars`, then `--remove-disposable`, then `--remove-active`
    respectively), and list all three in `make help`.
