@@ -24,12 +24,13 @@ script discards local edits. The previous file is copied to <output>.bak
 first, since git does not track or back up this file.
 
 Text is copied from the source vars files rather than round-tripped through a
-YAML parser, so ordering and formatting survive intact and the generated
-template cannot drift from what it documents. Each setting's own trailing
-comment is stripped, though: what a key means and what values it takes lives
-once, in the tracked file it came from, not duplicated here where it could
-drift out of sync. Read the tracked vars file for that; this file is values
-to edit, not documentation to read.
+YAML parser, so ordering, formatting, and each setting's own comment survive
+intact and the generated template cannot drift from what it documents. A key
+blanked to [] or {} carries a worked example immediately below it in the
+tracked file (a real host, a real instance, ...); that travels here too, as
+a comment right under the key it documents, since a bare [] gives no hint of
+the shape a real value should take the way a scalar's own inline comment
+does.
 
 Not handled on purpose: a key that disappears from the tracked vars files
 (renamed or removed) is left in the local file rather than pruned. Cleaning
@@ -38,11 +39,13 @@ new ones.
 
 Also not handled by the sync: a top-level key that is already live, such as
 `kvm_hypervisors` or `kvm_instance_definitions`, is a list of mappings, and
-once it exists at all the sync leaves its contents alone even if the tracked
-template later grows a nested field that no item in the local list has (a new
-per-host key, say). To see the full, current field list for one of those,
-read the tracked vars file it comes from - that file is the source of truth
-for what fields exist, and does not need a second, generated copy of itself.
+once it exists at all the sync leaves its contents (and the worked example
+comment it was generated with) alone even if the tracked template later
+grows a nested field that no item in the local list has (a new per-host
+key, say). The worked example shows the fields that existed when this file
+was generated or last synced, not necessarily every field that exists now -
+for the current, authoritative list, read the tracked vars file it comes
+from.
 
 A project's real secrets file (local-secrets.yml / local_secrets.yml, per
 the two spellings this repository's .gitignore already treats as secrets)
@@ -65,23 +68,9 @@ import sys
 LIVE_KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
 COMMENTED_KEY_RE = re.compile(r'^#\s?([A-Za-z_][A-Za-z0-9_]*):')
 BANNER_RE = re.compile(r'^# \d+\.\s+(.*)$')
-TRAILING_COMMENT_RE = re.compile(r'^([^#]*?)\s+#\s.*$')
 LIST_VALUE_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*:\s*\[\]')
 # Real secrets files, never a settings source - see the module docstring.
 SKIP = ('local-secrets.yml', 'local_secrets.yml')
-
-
-def strip_trailing_comment(line):
-    """Drop a line's own trailing '# ...' comment, keeping the value only.
-
-    What a setting means and what values it takes is documented once, in the
-    tracked file this line came from; duplicating it here would just be a
-    second copy to keep in sync. None of these files put a literal '#'
-    inside a value, so the match stops at the first one unconditionally
-    rather than trying to parse quoting.
-    """
-    match = TRAILING_COMMENT_RE.match(line)
-    return match.group(1) if match else line
 
 
 HEADER = """---
@@ -126,14 +115,24 @@ NEW_SECTION_HEADER = """
 
 
 def blocks(path):
-    """Yield (banner, key, [lines]) for every top-level key in a vars file."""
+    """Yield (banner, key, [lines]) for every top-level key in a vars file.
+
+    A key's own worked example, when one immediately follows with no blank
+    line in between (the "Example (was the live default...)" comment block
+    every blanked [] / {} key carries), travels with it: it documents the
+    shape of that exact key, not the file in general, and settings.local.yml
+    is where an operator has to know what to type.
+    """
     with open(path, encoding='utf-8') as handle:
         lines = handle.read().split('\n')
     banner, out, current = None, [], None
-    for line in lines:
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         match = BANNER_RE.match(line)
         if match:
             banner = match.group(1)
+            i += 1
             continue
         # A comment is a comment regardless of indentation - YAML gives '#'
         # that meaning at any column. Checking only line.startswith('#')
@@ -142,14 +141,33 @@ def blocks(path):
         # swallowed as if it were literal continuation content of the
         # preceding key.
         if line.lstrip().startswith('#') or not line.strip():
+            i += 1
             continue
         key_match = LIVE_KEY_RE.match(line)
         if key_match:
             if current is not None:
                 out.append(current)
-            current = (banner, key_match.group(1), [line])
+            block_lines = [line]
+            i += 1
+            # Only ever an exact "Example (was the live default..." block:
+            # that sentinel is how every one of these was authored, always
+            # immediately under the key it documents, so matching it exactly
+            # is precise. A generic "any following comment belongs to this
+            # key" rule is not: an ad-hoc explanatory note that precedes the
+            # NEXT key, not a worked example of THIS one, sits in exactly
+            # the same position and would be attributed to the wrong key.
+            if (
+                i < len(lines)
+                and lines[i].strip().startswith('# Example (was the live default')
+            ):
+                while i < len(lines) and lines[i].lstrip().startswith('#'):
+                    block_lines.append(lines[i])
+                    i += 1
+            current = (banner, key_match.group(1), block_lines)
+            continue
         elif current is not None and (line.startswith(' ') or line.startswith('-')):
             current[2].append(line)
+        i += 1
     if current is not None:
         out.append(current)
     return out
@@ -212,12 +230,10 @@ def warn_on_duplicate_keys(found):
 def render(sources, found, only_keys=None):
     """Render '# From <file>' groups, optionally restricted to only_keys.
 
-    Each value is written exactly as it appears in the tracked file, minus
-    its own trailing comment: live, ready to take effect immediately, with
-    nothing to read here but the value. Only the '# From <file>' and
-    '# --- section ---' groupings survive, so the file stays navigable
-    without becoming a second copy of the documentation the tracked file
-    already carries.
+    Each value, its own inline comment, and its own worked example (if one
+    immediately follows it in the tracked file) are written exactly as they
+    appear there: live, ready to take effect immediately, documented right
+    where it has to be read.
     """
     body, total = [], 0
     for name in sources:
@@ -233,7 +249,7 @@ def render(sources, found, only_keys=None):
             if banner and banner != seen_banner:
                 body.append(f'\n# --- {banner} ---')
                 seen_banner = banner
-            body.extend(strip_trailing_comment(line) for line in lines)
+            body.extend(lines)
             total += 1
     return body, total
 
