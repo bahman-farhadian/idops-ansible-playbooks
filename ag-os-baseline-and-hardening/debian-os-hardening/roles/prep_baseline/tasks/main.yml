@@ -691,3 +691,85 @@
     mode: "0644"
     backup: true
   when: prep_enabled | bool
+
+# Adopted from linux_terminal_dotfiles_configuration's own ssh/config, applied
+# the same way its own install.sh applies it: as a marked block appended at
+# the END of the file, never a full replace, because ssh takes the first
+# value it finds for each keyword - a `Host *` block placed above a real,
+# specific Host entry would silently override it. Any Host entries an
+# operator adds by hand stay untouched, above this block.
+#
+# StrictHostKeyChecking no / UserKnownHostsFile /dev/null are a deliberate
+# trade-off for a homelab of frequently rebuilt VMs, not a general
+# recommendation: it removes MITM protection on outbound SSH from this host.
+- name: Ensure primary user SSH client defaults are set
+  ansible.builtin.blockinfile:
+    path: "{{ prep_primary_user_home }}/.ssh/config"
+    create: true
+    owner: "{{ prep_primary_user_name }}"
+    group: "{{ prep_primary_user_name }}"
+    mode: "0644"
+    marker: "# {mark} ANSIBLE SSH CLIENT DEFAULTS"
+    block: "{{ lookup('file', 'ssh_client_defaults') }}"
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - prep_primary_user_name is defined
+
+- name: Ensure root SSH client defaults are set
+  ansible.builtin.blockinfile:
+    path: /root/.ssh/config
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+    marker: "# {mark} ANSIBLE SSH CLIENT DEFAULTS"
+    block: "{{ lookup('file', 'ssh_client_defaults') }}"
+  when: prep_enabled | bool
+
+# Debian ships no tmux completion package; the source project fetches this
+# from https://github.com/imomaliev/tmux-bash-completion at install time,
+# vendored here instead so hardening does not depend on a third-party URL
+# being reachable or unchanged. .bashrc's _bash_load_completions already
+# looks for it at this exact path.
+- name: Ensure primary user bash-completion directory exists
+  ansible.builtin.file:
+    path: "{{ prep_primary_user_home }}/.local/share/bash-completion/completions"
+    state: directory
+    owner: "{{ prep_primary_user_name }}"
+    group: "{{ prep_primary_user_name }}"
+    mode: "0755"
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - prep_primary_user_name is defined
+
+- name: Deploy primary user tmux bash-completion
+  ansible.builtin.copy:
+    src: tmux-bash-completion
+    dest: "{{ prep_primary_user_home }}/.local/share/bash-completion/completions/tmux"
+    owner: "{{ prep_primary_user_name }}"
+    group: "{{ prep_primary_user_name }}"
+    mode: "0644"
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - prep_primary_user_name is defined
+
+- name: Ensure root bash-completion directory exists
+  ansible.builtin.file:
+    path: /root/.local/share/bash-completion/completions
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: prep_enabled | bool
+
+- name: Deploy root tmux bash-completion
+  ansible.builtin.copy:
+    src: tmux-bash-completion
+    dest: /root/.local/share/bash-completion/completions/tmux
+    owner: root
+    group: root
+    mode: "0644"
+  when: prep_enabled | bool

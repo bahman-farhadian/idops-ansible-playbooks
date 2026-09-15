@@ -1,0 +1,6 @@
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    IdentityFile ~/.ssh/id_ed25519
+    AddKeysToAgent 5m
+    Port 22

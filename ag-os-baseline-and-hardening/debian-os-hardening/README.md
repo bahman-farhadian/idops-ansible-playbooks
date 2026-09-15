@@ -103,12 +103,21 @@ split across two roles because each already owned part of this ground:
 - **`prep_baseline`** deploys `.bash_profile`, `.bash_aliases` and `.bashrc`
   in full — a Gruvbox prompt (git branch/status, venv, exit code), automatic
   tmux session handling over SSH, extended history settings, and CLI
-  completions (kubectl, helm, docker, tmux). These three files are replaced
-  outright on every run rather than templated from a handful of configurable
-  aliases/prompt lines, so this fully replaces `prep_baseline`'s previous,
-  much smaller aliases-and-prompt setup; a manual edit on the target does not
-  survive the next hardening run (`backup: true` keeps a timestamped copy of
-  whatever was there first).
+  completions (kubectl, helm, docker, tmux, vendored from
+  [tmux-bash-completion](https://github.com/imomaliev/tmux-bash-completion)
+  since Debian ships none). These three files are replaced outright on every
+  run rather than templated from a handful of configurable aliases/prompt
+  lines, so this fully replaces `prep_baseline`'s previous, much smaller
+  aliases-and-prompt setup; a manual edit on the target does not survive the
+  next hardening run (`backup: true` keeps a timestamped copy of whatever
+  was there first). It also appends the source project's SSH *client*
+  defaults (`StrictHostKeyChecking no`, `UserKnownHostsFile /dev/null`) to
+  `~/.ssh/config` as a marked block at the end of the file, the same way the
+  source project's own installer does — never a full replace, since ssh
+  takes the first value it finds for each keyword and a personal `Host`
+  entry has to stay above these defaults to win. This is a deliberate
+  trade-off for a homelab of frequently rebuilt VMs: it removes MITM
+  protection on outbound SSH from this host.
 - **`terminal_dotfiles`** deploys `.tmux.conf` as-is, and `.vimrc` with the
   Gruvbox colorscheme and the lightline/NERDTree plugins, installed as
   native Vim 8 packages (no plugin manager needed).
@@ -119,12 +128,12 @@ that ground:
 - The SSH login banner and `/etc/motd` — `banner_hardening` sets these, and
   this project's own text, not the source repository's personal one.
 - SSH server policy (`PermitRootLogin`, and similar) — `ssh_hardening` owns
-  this.
-- The source repository's own SSH *client* config
-  (`StrictHostKeyChecking no`), the one host-specific bash alias block
-  (GNOME keyboard-layout switching on a single machine), and every other
-  desktop-only piece (GNOME shortcuts, the keyboard-lock service, GTK
-  theming) — none of it applies to a headless guest.
+  this. The adopted `~/.ssh/config` is a *client* default only; it has no
+  effect on how this host's own sshd behaves.
+- The one host-specific bash alias block (GNOME keyboard-layout switching on
+  a single machine) and every other desktop-only piece (GNOME shortcuts,
+  the keyboard-lock service, GTK theming) — none of it applies to a
+  headless guest.
 
 Toggle the tmux/vim half with `terminal_dotfiles_enabled` and
 `terminal_dotfiles_configure_root` in `vars/debian-hardening.yml`, or run it
@@ -141,6 +150,18 @@ make reboot
 ```
 
 `scan` and `harden` are explicit, separate workflows.
+
+## Firewall: Trusting Your Private Network
+
+The default firewall policy drops everything not explicitly allowed, which
+also blocks other hosts on your own LAN or libvirt guest network unless they
+happen to be reaching an allowed port. Set
+`firewall_allow_private_networks: true` in `vars/settings.local.yml` to
+accept all traffic (any port, any protocol) from RFC1918 IPv4 ranges
+(`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) and IPv6 ULA
+(`fc00::/7`), without needing to list ports one at a time. Traffic from
+outside those ranges is unaffected and still has to go through the normal
+SSH/port allow-lists.
 
 ## Dist-Upgrade Network Retry Controls
 
