@@ -16,10 +16,10 @@
 # 1. INSTANCE COMPUTE DEFAULTS
 # Applied to any VM in 06-instances.yml that omits the matching key.
 # -----------------------------------------------------------------------------
-kvm_default_instance_disk_extension: ""    # Default disk file extension/format. Example: "qcow2".
-kvm_default_root_disk_size_gb: ~           # Default total instance disk size in GiB for new instances. Example: 20.
-kvm_force_single_socket_vcpu_topology: ~   # CPU topology policy. Values: true (sockets=1, threads=1) | false (plain vcpu_count).
-kvm_allow_reuse_existing_instance_disks: ~ # Reuse pre-existing instance disk files when domain is missing. Values: true | false.
+kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
+kvm_default_root_disk_size_gb: 20              # Default total instance disk size in GiB for new instances.
+kvm_force_single_socket_vcpu_topology: true    # CPU topology policy. Values: true (sockets=1, threads=1) | false (plain vcpu_count).
+kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance disk files when domain is missing. Values: true | false.
 
 
 # -----------------------------------------------------------------------------
@@ -34,15 +34,15 @@ kvm_allow_reuse_existing_instance_disks: ~ # Reuse pre-existing instance disk fi
 # The cap is reconciled on every provision run, so toggling the flag on an
 # existing domain converges without recreating it.
 #
-# Enable it for one instance with:  cpu_share_enabled: true
+# Off by default: enable it for one instance with cpu_share_enabled: true.
 # -----------------------------------------------------------------------------
-kvm_default_cpu_share_enabled: ~           # Cap vCPU bandwidth by default. Values: true | false.
-kvm_cpu_share_vcpu_per_host_cpu: ~         # vCPUs worth one host CPU when capped. Values: integer >= 1, e.g. 2.
-kvm_cpu_share_period_microseconds: ~       # CFS enforcement period. Values: integer 1000-1000000, e.g. 100000.
-kvm_cpu_share_apply_to_running_domains: ~  # Also apply the cap live to already-running domains. Values: true | false.
-kvm_cpu_share_validate_host_capacity: ~    # Preflight guard on total host CPU demand. Values: true | false.
-kvm_cpu_share_host_cpu_reserve: ~          # Host CPUs held back for the hypervisor itself. Values: integer >= 0, e.g. 1.
-kvm_cpu_share_allow_capacity_overcommit: ~ # Allow demand above usable host CPUs. Values: true | false.
+kvm_default_cpu_share_enabled: false           # Cap vCPU bandwidth by default. Values: true | false.
+kvm_cpu_share_vcpu_per_host_cpu: 2             # vCPUs worth one host CPU when capped.
+kvm_cpu_share_period_microseconds: 100000      # CFS enforcement period (100ms, the Linux kernel's own default).
+kvm_cpu_share_apply_to_running_domains: true   # Also apply the cap live to already-running domains. Values: true | false.
+kvm_cpu_share_validate_host_capacity: true     # Preflight guard on total host CPU demand. Values: true | false.
+kvm_cpu_share_host_cpu_reserve: 0              # Host CPUs held back for the hypervisor itself.
+kvm_cpu_share_allow_capacity_overcommit: false # Allow demand above usable host CPUs. Values: true | false.
 
 
 # -----------------------------------------------------------------------------
@@ -57,6 +57,6 @@ kvm_cpu_share_allow_capacity_overcommit: ~ # Allow demand above usable host CPUs
 # - disk_extension (optional, default: instance_disk_extension)
 # - filesystem_label (optional, default: <instance>-<guest_device>, truncated)
 # -----------------------------------------------------------------------------
-kvm_default_instance_extra_disks_enabled: ~ # Enable additional disk provisioning. Values: true | false.
-kvm_default_instance_extra_disks: []        # Extra disk list. Values: [] | list of disk maps (guest_device, size_gb, mount_point, ...).
-kvm_allow_mount_var_on_extra_disk: ~        # Allow /var mount on fresh extra disk (unsafe). Values: true | false.
+kvm_default_instance_extra_disks_enabled: false # Enable additional disk provisioning by default. Values: true | false.
+kvm_default_instance_extra_disks: []            # Extra disk list. Values: [] | list of disk maps (guest_device, size_gb, mount_point, ...).
+kvm_allow_mount_var_on_extra_disk: false        # Allow /var mount on fresh extra disk (unsafe). Values: true | false.

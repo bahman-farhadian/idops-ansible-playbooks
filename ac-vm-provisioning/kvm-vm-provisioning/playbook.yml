@@ -9,10 +9,11 @@
     - vars/04-images.yml
     - vars/05-runtime.yml
     - vars/06-instances.yml
-    # Every tracked value above is blank: it exists to document the setting,
-    # not to be deployed with. This is the only source of real values, and it
-    # is required - see the "Fail when settings.local.yml is missing" task
-    # below. Loaded last so it wins; *.local.yml is never committed.
+    # The files above carry this project's generic, safe-to-ship defaults.
+    # The real, per-deployment values they deliberately leave out - real
+    # hypervisors, real instances, credentials - live only here, and this
+    # file is required - see the "Fail when settings.local.yml is missing"
+    # task below. Loaded last so it wins; *.local.yml is never committed.
     - vars/settings.local.yml
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
@@ -31,16 +32,17 @@
       changed_when: false
 
     # A missing vars_files entry is silently skipped by Ansible rather than
-    # failing, so every setting above would otherwise stay blank with no
-    # warning. Every tracked value is blank on purpose (see 01-hypervisors.yml
-    # onward), so there is no working fallback to fall through to.
+    # failing, so a missing settings.local.yml would leave every real
+    # hypervisor, instance and credential undefined with no warning, not
+    # merely fall back to a documented default - there is no hypervisor to
+    # fall back to.
     - name: Fail when settings.local.yml is missing
       ansible.builtin.fail:
         msg: >-
-          vars/settings.local.yml is required and was not found. Every
-          tracked setting is a blank placeholder; this file is the only
-          place real values live. Generate a starting point with:
-          make settings
+          vars/settings.local.yml is required and was not found. It is the
+          only place real, per-deployment values live - real hypervisors,
+          real instances, credentials; the tracked files only carry generic
+          defaults. Generate a starting point with: make settings
       when: not kvm_local_override_file.stat.exists
 
     - name: Load the machine-specific override file for reporting
