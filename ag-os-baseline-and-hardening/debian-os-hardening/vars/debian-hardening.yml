@@ -5,9 +5,9 @@
 # -----------------------------------------------------------------------------
 # Workflow control
 # -----------------------------------------------------------------------------
-debian_become_enabled: ~ # Run remote tasks with privilege escalation. Values: true | false.
-debian_become_method: "" # Privilege escalation method. Values: "sudo" | "su" | "doas".
-debian_become_user: ""   # Privilege escalation target user. Example: "root".
+debian_become_enabled: true  # Run remote tasks with privilege escalation. Values: true | false.
+debian_become_method: "sudo" # Privilege escalation method. Values: "sudo" | "su" | "doas".
+debian_become_user: "root"   # Privilege escalation target user.
 
 # -----------------------------------------------------------------------------
 # Target inventory
@@ -41,253 +41,259 @@ debian_hardening_targets: [] # Values: [] | list of target host maps (name, addr
 # -----------------------------------------------------------------------------
 # APT repository settings
 # -----------------------------------------------------------------------------
-common_repos_enabled: ~                   # Set to false to skip the common_repos role entirely. Values: true | false.
-apt_repository_url: ""                    # Debian base mirror URI (URL only — no deb/suite/components). Example: "http://deb.debian.org/debian".
-apt_security_repository_url: ""           # Debian security mirror URI. Example: "http://deb.debian.org/debian/debian-security".
-apt_debian_release_override: ""           # Optional suite override (empty = fact-based map). Example: "bookworm".
-apt_debian_disable_conflicting_sources: ~ # Disable conflicting Debian source entries in sources.list.d. Values: true | false.
-apt_debian_components: []                 # Repository components for Debian hosts. Values: [] | list of APT component names.
-# Example (was the live default; see local settings for real values):
-# apt_debian_components:
-#  - main
-#  - contrib
-#  - non-free
-#  - non-free-firmware
+common_repos_enabled: true                                           # Set to false to skip the common_repos role entirely. Values: true | false.
+apt_repository_url: "http://deb.debian.org/debian"                   # Debian base mirror URI (URL only — no deb/suite/components).
+apt_security_repository_url: "http://deb.debian.org/debian-security" # Debian security mirror URI.
+apt_debian_release_override: ""                                      # Optional suite override. Values: "" (fact-based map) | a suite name, e.g. "bookworm".
+apt_debian_disable_conflicting_sources: true                         # Disable conflicting Debian source entries in sources.list.d. Values: true | false.
+apt_debian_components:                                               # Repository components for Debian hosts.
+  - main
+  - contrib
+  - non-free
+  - non-free-firmware
 
 # -----------------------------------------------------------------------------
 # Lynis settings
+# lynis_repo_version pins a release, not a personal value, but it is not
+# "static" either: check https://github.com/CISOfy/lynis/releases for the
+# current one before relying on the value shipped here.
 # -----------------------------------------------------------------------------
-lynis_repo_url: ""                        # Lynis git repository URL. Example: "https://github.com/CISOfy/lynis".
-lynis_repo_version: ""                    # Lynis git revision/tag/branch. Example: "master".
-lynis_install_path: ""                    # Lynis install directory on target. Example: "/opt/lynis".
-lynis_report_output_dir: ""               # Control-node report output path. Example: "{{ playbook_dir }}/artifacts/lynis".
-lynis_quick_mode: ~                       # Run Lynis in quick mode. Values: true | false.
-lynis_offline_bundle_from_control_node: ~ # Values: true (clone+bundle on control node, then copy tar to target) | false.
-lynis_control_cache_dir: ""               # Control-node cache path for commit-tagged Lynis tar bundles. Example: "{{ playbook_dir }}/artifacts/cache/lynis".
+lynis_repo_url: "https://github.com/CISOfy/lynis"                   # Lynis git repository URL.
+lynis_repo_version: "3.1.7"                                         # Lynis git revision/tag/branch. Pinned release, not "master": check the repo for the current one.
+lynis_install_path: "/opt/lynis"                                    # Lynis install directory on target.
+lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis"       # Control-node report output path.
+lynis_quick_mode: true                                              # Run Lynis in quick mode. Values: true | false.
+lynis_offline_bundle_from_control_node: false                       # Values: true (clone+bundle on control node, then copy tar to target) | false (fetch directly on target).
+lynis_control_cache_dir: "{{ playbook_dir }}/artifacts/cache/lynis" # Control-node cache path for commit-tagged Lynis tar bundles.
 
 # -----------------------------------------------------------------------------
 # Preparation baseline
+# Both password fields and both SSH key lists stay blank on purpose: they
+# are real credentials and belong only in vars/settings.local.yml.
 # -----------------------------------------------------------------------------
-prep_enabled: ~                       # Enable preparation baseline role. Values: true | false.
-prep_root_authorized_keys: []         # Root authorized keys. Values: [] | list of "ssh-ed25519 AAAA..." strings.
-prep_manage_primary_user: ~           # Manage primary UID user baseline. Values: true | false.
-prep_primary_user_uid: ""             # UID used to identify primary template user. Example: "1000".
-prep_primary_user_desired_name: ""    # Desired primary user name. Values: "" (keeps detected name) | a username, e.g. "idops".
-prep_replace_primary_user: ~          # Replace detected UID user with desired name. Values: true | false.
-prep_enforce_single_login_user: ~     # Remove other human login users when true. Values: true | false.
-prep_primary_user_authorized_keys: [] # Primary user authorized keys. Values: [] | list of "ssh-ed25519 AAAA..." strings.
-prep_manage_primary_user_password: ~  # Set/rotate password for detected or renamed UID 1000 user. Values: true | false.
-prep_primary_user_plain_password: ""  # Primary user plaintext password. CHANGE THIS. Example: "a strong passphrase".
-prep_manage_root_password: ~          # Set/rotate root account password. Values: true | false.
-prep_root_plain_password: ""          # Root user plaintext password. CHANGE THIS. Example: "a strong passphrase".
+prep_enabled: true                       # Enable preparation baseline role. Values: true | false.
+prep_root_authorized_keys: []            # Root authorized keys. Values: [] | list of "ssh-ed25519 AAAA..." strings.
+prep_manage_primary_user: true           # Manage primary UID user baseline. Values: true | false.
+prep_primary_user_uid: "1000"            # UID used to identify primary template user.
+prep_primary_user_desired_name: "idops"  # Desired primary user name. Values: "" (keeps detected name) | a username.
+prep_replace_primary_user: false         # Replace detected UID user with desired name. Values: true | false.
+prep_enforce_single_login_user: false    # Remove other human login users when true. Values: true | false.
+prep_primary_user_authorized_keys: []    # Primary user authorized keys. Values: [] | list of "ssh-ed25519 AAAA..." strings.
+prep_manage_primary_user_password: false # Set/rotate password for detected or renamed UID 1000 user. Values: true | false.
+prep_primary_user_plain_password: ""     # Primary user plaintext password. CHANGE THIS. Example: "a strong passphrase".
+prep_manage_root_password: false         # Set/rotate root account password. Values: true | false.
+prep_root_plain_password: ""             # Root user plaintext password. CHANGE THIS. Example: "a strong passphrase".
 
 # -----------------------------------------------------------------------------
 # Terminal dotfiles (tmux, vim, bash prompt/history/completion)
 # Adopted from linux_terminal_dotfiles_configuration; the SSH banner, /etc/motd
 # and SSH server policy stay owned by banner_hardening and ssh_hardening below.
 # -----------------------------------------------------------------------------
-terminal_dotfiles_enabled: ~        # Enable terminal dotfiles role. Values: true | false.
-terminal_dotfiles_configure_root: ~ # Also configure root, not just the primary user. Values: true | false.
+terminal_dotfiles_enabled: true        # Enable terminal dotfiles role. Values: true | false.
+terminal_dotfiles_configure_root: true # Also configure root, not just the primary user. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Boot and runlevel hardening
 # -----------------------------------------------------------------------------
-boot_hardening_enabled: ~               # Enable boot hardening role. Values: true | false.
-boot_set_default_target: ~              # Set default systemd target. Values: true | false.
-boot_default_target: ""                 # Default target value. Example: "multi-user.target".
-boot_fix_runlevel_debian13: ~           # Apply Debian 13 runlevel compatibility adjustments. Values: true | false.
-boot_runlevel_compat_wrapper_enabled: ~ # Deploy runlevel compatibility wrapper when needed. Values: true | false.
-boot_manage_kernel_symlink_compat: ~    # Create /vmlinuz and /boot/vmlinuz compatibility symlinks when missing. Values: true | false.
+boot_hardening_enabled: true               # Enable boot hardening role. Values: true | false.
+boot_set_default_target: true              # Set default systemd target. Values: true | false.
+boot_default_target: "multi-user.target"   # Default target value.
+boot_fix_runlevel_debian13: true           # Apply Debian 13 runlevel compatibility adjustments. Values: true | false.
+boot_runlevel_compat_wrapper_enabled: true # Deploy runlevel compatibility wrapper when needed. Values: true | false.
+boot_manage_kernel_symlink_compat: true    # Create /vmlinuz and /boot/vmlinuz compatibility symlinks when missing. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Network identity hardening
+# network_identity_hostname / network_identity_fqdn default to computed
+# formulas (derived from inventory_hostname), not blank placeholders: they
+# already work for any host without editing, the same way kvm-vm-provisioning
+# has no per-host hostname setting to fill in either. Override with a
+# literal value only if a target's real hostname needs to differ from what
+# Ansible already knows it as.
 # -----------------------------------------------------------------------------
-network_identity_manage_hosts: ~                         # Manage /etc/hosts. Values: true | false.
-network_identity_manage_resolv_conf: ~                   # Manage /etc/resolv.conf. Values: true | false.
-network_identity_manage_systemd_resolved_when_symlink: ~ # When resolv.conf is a symlink, manage DNS via systemd-resolved drop-in. Values: true | false.
-network_identity_primary_ipv4: ""                        # Optional primary IPv4 for host mapping. Example: "192.168.1.10".
-network_identity_nameservers: []                         # Resolver list for resolv.conf. Values: [] | list of IPv4 addresses.
-# Example (was the live default; see local settings for real values):
-# network_identity_nameservers:
-#  - "8.8.8.8"
+network_identity_manage_hosts: true                         # Manage /etc/hosts. Values: true | false.
+network_identity_manage_resolv_conf: true                   # Manage /etc/resolv.conf. Values: true | false.
+network_identity_manage_systemd_resolved_when_symlink: true # When resolv.conf is a symlink, manage DNS via systemd-resolved drop-in. Values: true | false.
+network_identity_primary_ipv4: ""                           # Optional primary IPv4 for host mapping. Values: "" (none) | an IPv4 address.
+network_identity_nameservers:                               # Resolver list for resolv.conf.
+  - "8.8.8.8"
 network_identity_search_domains: [] # Search domain list. Values: [] | list of domain names, e.g. ["example.com"].
-network_identity_set_hostname: ~    # Enforce hostname on target. Values: true | false.
-network_identity_hostname: ""       # Computed short hostname (left-most label of FQDN). Values: "" (computed automatically, see example below) | a literal hostname.
-# Example (was the live default; see local settings for real values):
-# network_identity_hostname: >-        # Computed short hostname (left-most label of FQDN).
-#  {{
-#    (
-#      network_identity_fqdn
-#      if (network_identity_fqdn | length > 0)
-#      else inventory_hostname
-#    ).split('.')[0]
-#  }}
-network_identity_fqdn: "" # Computed FQDN fallback (<inventory_hostname>.localdomain when needed). Values: "" (computed automatically, see example below) | a literal FQDN.
-# Example (was the live default; see local settings for real values):
-# network_identity_fqdn: >             # Computed FQDN fallback (<inventory_hostname>.localdomain when needed).
-#  {{
-#    inventory_hostname
-#    if '.' in inventory_hostname
-#    else inventory_hostname ~ '.localdomain'
-#  }}
-network_identity_manage_loopback_fqdn: ~           # Ensure loopback FQDN mapping. Values: true | false.
-network_identity_manage_hosts_via_template: ~      # Render /etc/hosts from template. Values: true | false.
-network_identity_cleanup_stale_hostname_entries: ~ # Remove stale hostname entries from hosts file. Values: true | false.
-network_identity_extra_hosts_entries: []           # Additional static /etc/hosts lines. Values: [] | list of "IP hostname" strings, e.g. "10.0.0.5 db01".
-network_identity_local_repo_hosts_enabled: ~       # Enable static local repo host mappings. Values: true | false.
-network_identity_local_repo_hosts_entries: []      # Local repo host mapping entries. Values: [] | list of "IP hostname" strings.
+network_identity_set_hostname: true # Enforce hostname on target. Values: true | false.
+network_identity_hostname: >-       # Computed short hostname (left-most label of FQDN).
+  {{
+    (
+      network_identity_fqdn
+      if (network_identity_fqdn | length > 0)
+      else inventory_hostname
+    ).split('.')[0]
+  }}
+network_identity_fqdn: > # Computed FQDN fallback (<inventory_hostname>.localdomain when needed).
+  {{
+    inventory_hostname
+    if '.' in inventory_hostname
+    else inventory_hostname ~ '.localdomain'
+  }}
+network_identity_manage_loopback_fqdn: true           # Ensure loopback FQDN mapping. Values: true | false.
+network_identity_manage_hosts_via_template: true      # Render /etc/hosts from template. Values: true | false.
+network_identity_cleanup_stale_hostname_entries: true # Remove stale hostname entries from hosts file. Values: true | false.
+network_identity_extra_hosts_entries: []              # Additional static /etc/hosts lines. Values: [] | list of "IP hostname" strings, e.g. "10.0.0.5 db01".
+network_identity_local_repo_hosts_enabled: false      # Enable static local repo host mappings. Values: true | false.
+network_identity_local_repo_hosts_entries: []         # Local repo host mapping entries. Values: [] | list of "IP hostname" strings.
 
 # -----------------------------------------------------------------------------
 # Package and update hardening
 # -----------------------------------------------------------------------------
-package_hardening_enabled: ~                           # Set to false to skip the package_hardening role entirely. Values: true | false.
-package_hardening_enable_unattended_upgrades: ~        # Enable unattended-upgrades. Values: true | false.
-package_hardening_run_dist_upgrade: ~                  # Run dist-upgrade as part of hardening. Values: true | false.
-package_hardening_debsums_cron_check: ""               # Debsums periodic check frequency. Values: "daily" | "weekly" | "monthly".
-package_hardening_purge_removed_packages: ~            # Purge residual removed packages. Values: true | false.
-package_hardening_enable_lynis_dnssec_probe_support: ~ # Install DNSSEC probe tooling for Lynis (systemd-resolved/resolvectl) when missing. Values: true | false.
-package_hardening_enable_lynis_exim_probe_support: ~   # Install/start local Exim for Lynis mail checks when missing. Values: true | false.
+package_hardening_enabled: true                            # Set to false to skip the package_hardening role entirely. Values: true | false.
+package_hardening_enable_unattended_upgrades: true         # Enable unattended-upgrades. Values: true | false.
+package_hardening_run_dist_upgrade: true                   # Run dist-upgrade as part of hardening. Values: true | false.
+package_hardening_debsums_cron_check: "weekly"             # Debsums periodic check frequency. Values: "daily" | "weekly" | "monthly".
+package_hardening_purge_removed_packages: true             # Purge residual removed packages. Values: true | false.
+package_hardening_enable_lynis_dnssec_probe_support: false # Install DNSSEC probe tooling for Lynis (systemd-resolved/resolvectl) when missing. Values: true | false.
+package_hardening_enable_lynis_exim_probe_support: false   # Install/start local Exim for Lynis mail checks when missing. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Service hardening
 # -----------------------------------------------------------------------------
-service_hardening_enabled: ~ # Enable systemd service hardening drop-ins. Values: true | false.
-service_hardening_units: []  # Services to harden. Values: [] | list of systemd unit names.
-# Example (was the live default; see local settings for real values):
-# service_hardening_units:
-#  - ssh.service
-#  - fail2ban.service
-#  - rsyslog.service
-#  - cron.service
-#  - unattended-upgrades.service
+service_hardening_enabled: true # Enable systemd service hardening drop-ins. Values: true | false.
+service_hardening_units:        # Services to harden.
+  - ssh.service
+  - fail2ban.service
+  - rsyslog.service
+  - cron.service
+  - unattended-upgrades.service
 service_hardening_disable_units: [] # Optional service units to stop/disable. Values: [] | list of systemd unit names.
 
 # -----------------------------------------------------------------------------
 # Authentication hardening
 # -----------------------------------------------------------------------------
-auth_apply_to_existing_local_users: ~ # Apply auth policies to existing users. Values: true | false.
-auth_apply_to_root: ~                 # Apply auth policies to root account. Values: true | false.
-auth_skip_users: []                   # Users excluded from auth policy updates. Values: [] | list of usernames.
+auth_apply_to_existing_local_users: true # Apply auth policies to existing users. Values: true | false.
+auth_apply_to_root: true                 # Apply auth policies to root account. Values: true | false.
+auth_skip_users: []                      # Users excluded from auth policy updates. Values: [] | list of usernames.
 
 # -----------------------------------------------------------------------------
 # SSH hardening
+# firewall_allow_ssh_from_anywhere defaults true below for the same reason
+# ssh_allowed_users defaults to []: a hardened default that also locked
+# every operator out unless they pre-populate a CIDR/user list would be a
+# footgun, not a safer default.
 # -----------------------------------------------------------------------------
-ssh_port: ~ # SSH port enforced by hardening. Example: 2222.
+ssh_port: 2222 # SSH port enforced by hardening.
 # SSH password authentication is always disabled by this hardening profile.
 # Root SSH login is always forced to key-only mode: PermitRootLogin prohibit-password.
-ssh_allowed_users: []     # Optional explicit allowed SSH users. Values: [] (all users allowed) | list of usernames.
-ssh_disable_pam_motd: ~   # Disable PAM MOTD output. Values: true | false.
-ssh_print_last_log: ~     # Show last login information. Values: true | false.
-ssh_clean_login_output: ~ # Reduce noisy login output. Values: true | false.
-ssh_disable_motd_news: ~  # Disable motd-news on Debian/Ubuntu. Values: true | false.
+ssh_allowed_users: []        # Optional explicit allowed SSH users. Values: [] (all users allowed) | list of usernames.
+ssh_disable_pam_motd: true   # Disable PAM MOTD output. Values: true | false.
+ssh_print_last_log: true     # Show last login information. Values: true | false.
+ssh_clean_login_output: true # Reduce noisy login output. Values: true | false.
+ssh_disable_motd_news: true  # Disable motd-news on Debian/Ubuntu. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Login banners
 # -----------------------------------------------------------------------------
-banner_issue_text: "" # Local login banner text (/etc/issue). Values: "" | banner text, see example below.
-# Example (was the live default; see local settings for real values):
-# banner_issue_text: |      # Local login banner text (/etc/issue).
-#  +------------------------------------------------------------------+
-#  | IDOPS SECURITY NOTICE                                            |
-#  | AUTHORIZED USE ONLY - MONITORED SYSTEM                           |
-#  |                                                                  |
-#  | This system and all connected resources are restricted to        |
-#  | approved users of the IdOps platform.                            |
-#  |                                                                  |
-#  | Actions are logged, audited, and attributable.                   |
-#  | Unauthorized access is prohibited and may be prosecuted.         |
-#  | Disconnect now if you are not authorized.                        |
-#  +------------------------------------------------------------------+
-banner_issue_net_text: "" # Remote login banner text (/etc/issue.net). Values: "" | banner text, see example below.
-# Example (was the live default; see local settings for real values):
-# banner_issue_net_text: |  # Remote login banner text (/etc/issue.net).
-#  +------------------------------------------------------------------+
-#  | IDOPS SSH SECURITY NOTICE                                        |
-#  | AUTHORIZED ACCESS ONLY - SESSION RECORDING ENABLED               |
-#  |                                                                  |
-#  | This SSH endpoint is part of the IdOps-managed environment.      |
-#  | All login attempts and commands are monitored and logged.        |
-#  |                                                                  |
-#  | Unauthorized use is forbidden and may result in legal action.    |
-#  | Disconnect now if you are not explicitly authorized.             |
-#  +------------------------------------------------------------------+
+banner_issue_text: | # Local login banner text (/etc/issue).
+  +------------------------------------------------------------------+
+  | IDOPS SECURITY NOTICE                                            |
+  | AUTHORIZED USE ONLY - MONITORED SYSTEM                           |
+  |                                                                  |
+  | This system and all connected resources are restricted to        |
+  | approved users of the IdOps platform.                            |
+  |                                                                  |
+  | Actions are logged, audited, and attributable.                   |
+  | Unauthorized access is prohibited and may be prosecuted.         |
+  | Disconnect now if you are not authorized.                        |
+  +------------------------------------------------------------------+
+banner_issue_net_text: | # Remote login banner text (/etc/issue.net).
+  +------------------------------------------------------------------+
+  | IDOPS SSH SECURITY NOTICE                                        |
+  | AUTHORIZED ACCESS ONLY - SESSION RECORDING ENABLED               |
+  |                                                                  |
+  | This SSH endpoint is part of the IdOps-managed environment.      |
+  | All login attempts and commands are monitored and logged.        |
+  |                                                                  |
+  | Unauthorized use is forbidden and may result in legal action.    |
+  | Disconnect now if you are not explicitly authorized.             |
+  +------------------------------------------------------------------+
 
 # -----------------------------------------------------------------------------
 # Kernel and module hardening
 # -----------------------------------------------------------------------------
-kernel_sysctl_dropin_path: ""      # Sysctl drop-in file path. Example: "/etc/sysctl.d/99-zz-hardening.conf".
-kernel_disable_usb_storage: ~      # Disable usb-storage module. Values: true | false.
-kernel_disable_firewire_storage: ~ # Disable firewire storage module. Values: true | false.
-kernel_disable_core_dumps: ~       # Disable core dumps. Values: true | false.
-kernel_lock_module_loading: ~      # Lock module loading after boot (high impact). Values: true | false.
+kernel_sysctl_dropin_path: "/etc/sysctl.d/99-zz-hardening.conf" # Sysctl drop-in file path.
+kernel_disable_usb_storage: true                                # Disable usb-storage module. Values: true | false.
+kernel_disable_firewire_storage: true                           # Disable firewire storage module. Values: true | false.
+kernel_disable_core_dumps: true                                 # Disable core dumps. Values: true | false.
+kernel_lock_module_loading: false                               # Lock module loading after boot (high impact). Values: true | false.
 
 # -----------------------------------------------------------------------------
 # File permissions hardening
 # -----------------------------------------------------------------------------
-file_permissions_hardening_enabled: ~ # Enable permissions hardening role. Values: true | false.
+file_permissions_hardening_enabled: true # Enable permissions hardening role. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Integrity tooling
 # -----------------------------------------------------------------------------
-integrity_hardening_enabled: ~        # Set to false to skip the integrity_hardening role entirely. Values: true | false.
-integrity_initialize_aide: ~          # Initialize AIDE database. Values: true | false.
-integrity_aide_checksum_algorithm: "" # AIDE checksum algorithm. Values: "sha256" | "sha512".
+integrity_hardening_enabled: true           # Set to false to skip the integrity_hardening role entirely. Values: true | false.
+integrity_initialize_aide: true             # Initialize AIDE database. Values: true | false.
+integrity_aide_checksum_algorithm: "sha512" # AIDE checksum algorithm. Values: "sha256" | "sha512".
 
 # -----------------------------------------------------------------------------
 # Remote syslog forwarding
+# Off by default: there is no universal default host to forward to.
 # -----------------------------------------------------------------------------
-remote_syslog_enabled: ~   # Enable remote rsyslog forwarding. Values: true | false.
-remote_syslog_host: ""     # Remote syslog hostname/IP. Example: "syslog.example.com".
-remote_syslog_port: ~      # Remote syslog port. Example: 514.
-remote_syslog_protocol: "" # Remote syslog protocol. Values: "tcp" | "udp".
+remote_syslog_enabled: false  # Enable remote rsyslog forwarding. Values: true | false.
+remote_syslog_host: ""        # Remote syslog hostname/IP. Values: "" (disabled) | a hostname or IP.
+remote_syslog_port: 514       # Remote syslog port.
+remote_syslog_protocol: "tcp" # Remote syslog protocol. Values: "tcp" | "udp".
 
 # -----------------------------------------------------------------------------
 # Firewall policy (iptables-persistent)
+# The three *_interface / *_lan_cidr fields under IPv4 forwarding stay blank:
+# forwarding itself defaults off, and a real interface name only makes sense
+# once an operator turns it on for a specific host.
 # -----------------------------------------------------------------------------
-firewall_default_input_policy: ""        # Default INPUT policy. Values: "DROP" | "ACCEPT".
-firewall_default_forward_policy: ""      # Default FORWARD policy. Values: "DROP" | "ACCEPT".
-firewall_default_output_policy: ""       # Default OUTPUT policy. Values: "ACCEPT" | "DROP".
-firewall_allow_icmp_v4: ~                # Allow ICMPv4. Values: true | false.
-firewall_allow_icmp_v6: ~                # Allow ICMPv6. Values: true | false.
-firewall_enable_extra_input_hardening: ~ # Enable additional input chain hardening. Values: true | false.
-firewall_allow_ssh_from_anywhere: ~      # Allow SSH from all sources. Values: true | false.
-firewall_allowed_ssh_cidrs: []           # SSH CIDR allow list when not open to all. Values: [] | list of CIDR strings, e.g. ["10.0.0.0/24"].
-firewall_allow_private_networks: ~       # Accept all traffic (any port/protocol) from RFC1918 IPv4 / ULA IPv6 ranges. Values: true | false.
-firewall_allowed_tcp_ports: []           # Additional allowed TCP ports (IPv4). Values: [] | list of port numbers.
-firewall_allowed_udp_ports: []           # Additional allowed UDP ports (IPv4). Values: [] | list of port numbers.
-firewall_allowed_tcp_ports_v6: []        # Additional allowed TCP ports (IPv6). Values: [] | list of port numbers.
-firewall_allowed_udp_ports_v6: []        # Additional allowed UDP ports (IPv6). Values: [] | list of port numbers.
-firewall_forward_ipv4_enabled: ~         # Enable IPv4 forwarding. Values: true | false.
-firewall_forward_ipv4_lan_interface: ""  # LAN interface for forwarding. Example: "eth1".
-firewall_forward_ipv4_wan_interface: ""  # WAN interface for forwarding. Example: "eth0".
-firewall_forward_ipv4_lan_cidr: ""       # LAN CIDR for forwarding rules. Example: "192.168.1.0/24".
-firewall_nat_ipv4_enabled: ~             # Enable IPv4 NAT masquerade. Values: true | false.
+firewall_default_input_policy: "DROP"       # Default INPUT policy. Values: "DROP" | "ACCEPT".
+firewall_default_forward_policy: "DROP"     # Default FORWARD policy. Values: "DROP" | "ACCEPT".
+firewall_default_output_policy: "ACCEPT"    # Default OUTPUT policy. Values: "ACCEPT" | "DROP".
+firewall_allow_icmp_v4: true                # Allow ICMPv4. Values: true | false.
+firewall_allow_icmp_v6: true                # Allow ICMPv6. Values: true | false.
+firewall_enable_extra_input_hardening: true # Enable additional input chain hardening. Values: true | false.
+firewall_allow_ssh_from_anywhere: true      # Allow SSH from all sources. Values: true | false.
+firewall_allowed_ssh_cidrs: []              # SSH CIDR allow list when not open to all. Values: [] | list of CIDR strings, e.g. ["10.0.0.0/24"].
+firewall_allow_private_networks: true       # Accept all traffic (any port/protocol) from RFC1918 IPv4 / ULA IPv6 ranges. Values: true | false.
+firewall_allowed_tcp_ports: []              # Additional allowed TCP ports (IPv4). Values: [] | list of port numbers.
+firewall_allowed_udp_ports: []              # Additional allowed UDP ports (IPv4). Values: [] | list of port numbers.
+firewall_allowed_tcp_ports_v6: []           # Additional allowed TCP ports (IPv6). Values: [] | list of port numbers.
+firewall_allowed_udp_ports_v6: []           # Additional allowed UDP ports (IPv6). Values: [] | list of port numbers.
+firewall_forward_ipv4_enabled: false        # Enable IPv4 forwarding. Values: true | false.
+firewall_forward_ipv4_lan_interface: ""     # LAN interface for forwarding. Values: "" (disabled) | an interface name, e.g. "eth1".
+firewall_forward_ipv4_wan_interface: ""     # WAN interface for forwarding. Values: "" (disabled) | an interface name, e.g. "eth0".
+firewall_forward_ipv4_lan_cidr: ""          # LAN CIDR for forwarding rules. Values: "" (disabled) | a CIDR, e.g. "192.168.1.0/24".
+firewall_nat_ipv4_enabled: false            # Enable IPv4 NAT masquerade. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Fail2ban settings
 # -----------------------------------------------------------------------------
-fail2ban_bantime: ""  # Ban duration. Example: "1h".
-fail2ban_findtime: "" # Detection window. Example: "10m".
-fail2ban_maxretry: ~  # Retry count before ban. Example: 10.
+fail2ban_bantime: "1h"   # Ban duration.
+fail2ban_findtime: "10m" # Detection window.
+fail2ban_maxretry: 10    # Retry count before ban.
 
 # -----------------------------------------------------------------------------
 # Session logging
 # -----------------------------------------------------------------------------
-ssh_session_log_file: ""       # Session audit log file. Example: "/var/log/ssh_sessions.log".
-ssh_session_logrotate_days: ~  # Session log retention days. Example: 30.
-ssh_command_logging_enabled: ~ # Enable per-command SSH logging. Values: true | false.
-ssh_command_log_file: ""       # Command audit log file. Example: "/var/log/ssh_commands.log".
-ssh_command_logrotate_days: ~  # Command log retention days. Example: 30.
-ssh_command_log_facility: ""   # Syslog facility for command logs. Example: "local6".
-ssh_command_log_priority: ""   # Syslog priority for command logs. Example: "notice".
-ssh_command_logger_tag: ""     # Syslog tag for command logs. Example: "ssh-command".
+ssh_session_log_file: "/var/log/ssh_sessions.log" # Session audit log file.
+ssh_session_logrotate_days: 30                    # Session log retention days.
+ssh_command_logging_enabled: true                 # Enable per-command SSH logging. Values: true | false.
+ssh_command_log_file: "/var/log/ssh_commands.log" # Command audit log file.
+ssh_command_logrotate_days: 30                    # Command log retention days.
+ssh_command_log_facility: "local6"                # Syslog facility for command logs.
+ssh_command_log_priority: "notice"                # Syslog priority for command logs.
+ssh_command_logger_tag: "ssh-command"             # Syslog tag for command logs.
 
 # -----------------------------------------------------------------------------
 # GRUB credentials
 # Keep real secret values in vars/local-secrets.yml (git-ignored).
+# grub_password_plaintext stays blank on purpose: it is a real credential.
 # -----------------------------------------------------------------------------
-grub_hardening_enabled: ~                 # Enable GRUB superuser/password hardening. Values: true | false.
-grub_hardening_allow_unrestricted_boot: ~ # Allow normal OS boot without GRUB login; still require password for GRUB edit/console. Values: true | false.
-grub_superuser: ""                        # GRUB superuser name. Example: "root".
-grub_password_plaintext: ""               # GRUB plaintext password input. CHANGE THIS FOR REAL ENVIRONMENTS. Example: "a strong passphrase".
-grub_hardening_force_rotate_password: ~   # Regenerate GRUB PBKDF2 hash from plaintext on next run. Values: true | false.
+grub_hardening_enabled: true                 # Enable GRUB superuser/password hardening. Values: true | false.
+grub_hardening_allow_unrestricted_boot: true # Allow normal OS boot without GRUB login; still require password for GRUB edit/console. Values: true | false.
+grub_superuser: "root"                       # GRUB superuser name.
+grub_password_plaintext: ""                  # GRUB plaintext password input. CHANGE THIS FOR REAL ENVIRONMENTS. Example: "a strong passphrase".
+grub_hardening_force_rotate_password: false  # Regenerate GRUB PBKDF2 hash from plaintext on next run. Values: true | false.
