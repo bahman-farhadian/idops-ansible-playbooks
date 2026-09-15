@@ -32,6 +32,21 @@
           make settings
       when: not template_local_settings_file.stat.exists
 
+    - name: Load the machine-specific override file for reporting
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/vars/settings.local.yml"
+        name: template_local_overrides
+      when: template_local_settings_file.stat.exists
+
+    - name: Report which settings come from the override file
+      ansible.builtin.debug:
+        msg: >-
+          vars/settings.local.yml is in effect and overrides
+          {{ template_local_overrides | length }} setting(s):
+          {{ template_local_overrides.keys() | list | join(', ') }}.
+          Edit those there; the same keys in vars/template-config.yml are ignored.
+      when: template_local_settings_file.stat.exists
+
     - name: Validate requested action
       ansible.builtin.assert:
         that:

@@ -32,6 +32,21 @@
           make settings
       when: not debian_hardening_local_settings_file.stat.exists
 
+    - name: Load the machine-specific override file for reporting
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/vars/settings.local.yml"
+        name: debian_hardening_local_overrides
+      when: debian_hardening_local_settings_file.stat.exists
+
+    - name: Report which settings come from the override file
+      ansible.builtin.debug:
+        msg: >-
+          vars/settings.local.yml is in effect and overrides
+          {{ debian_hardening_local_overrides | length }} setting(s):
+          {{ debian_hardening_local_overrides.keys() | list | join(', ') }}.
+          Edit those there; the same keys in vars/debian-hardening.yml are ignored.
+      when: debian_hardening_local_settings_file.stat.exists
+
     - name: Validate hardening action value
       ansible.builtin.assert:
         that:
