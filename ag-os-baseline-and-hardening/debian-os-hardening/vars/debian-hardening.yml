@@ -252,6 +252,7 @@ firewall_allow_icmp_v6: ~                # Allow ICMPv6. Values: true | false.
 firewall_enable_extra_input_hardening: ~ # Enable additional input chain hardening. Values: true | false.
 firewall_allow_ssh_from_anywhere: ~      # Allow SSH from all sources. Values: true | false.
 firewall_allowed_ssh_cidrs: []           # SSH CIDR allow list when not open to all. Values: [] | list of CIDR strings, e.g. ["10.0.0.0/24"].
+firewall_allow_private_networks: ~       # Accept all traffic (any port/protocol) from RFC1918 IPv4 / ULA IPv6 ranges. Values: true | false.
 firewall_allowed_tcp_ports: []           # Additional allowed TCP ports (IPv4). Values: [] | list of port numbers.
 firewall_allowed_udp_ports: []           # Additional allowed UDP ports (IPv4). Values: [] | list of port numbers.
 firewall_allowed_tcp_ports_v6: []        # Additional allowed TCP ports (IPv6). Values: [] | list of port numbers.

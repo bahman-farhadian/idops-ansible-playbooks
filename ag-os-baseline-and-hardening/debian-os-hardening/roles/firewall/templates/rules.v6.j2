@@ -9,6 +9,9 @@
 {% if firewall_allow_icmp_v6 %}
 -A INPUT -p ipv6-icmp -j ACCEPT
 {% endif %}
+{% if firewall_allow_private_networks | bool %}
+-A INPUT -s fc00::/7 -j ACCEPT
+{% endif %}
 {% if firewall_allow_ssh_from_anywhere | bool %}
 {% for port in firewall_effective_ssh_ports | default([ssh_port | int]) %}
 -A INPUT -p tcp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
