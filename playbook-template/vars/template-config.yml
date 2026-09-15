@@ -4,14 +4,20 @@
 
 # -----------------------------------------------------------------------------
 # Target connection
+# These are placeholder examples, safe to ship live: "target.example.internal"
+# uses the reserved example.com domain (RFC 2606), not a real host. Replace
+# with the new project's own real default, or leave blank if there isn't one.
 # -----------------------------------------------------------------------------
-template_target_host: ""               # SSH target host for this template project. Example: "target.example.internal".
-template_target_python_interpreter: "" # Python path on target host. Example: "/usr/bin/python3".
+template_target_host: "target.example.internal"        # SSH target host for this template project.
+template_target_python_interpreter: "/usr/bin/python3" # Python path on target host.
 
 # -----------------------------------------------------------------------------
 # Example credentials (replace with project-specific keys)
+# The password and SSH key stay blank: even a placeholder credential
+# invites someone to ship it unchanged. Everything else here is a generic,
+# safe-to-ship-live example.
 # -----------------------------------------------------------------------------
-template_operator_user: ""            # Initial operator username. Example: "idops".
+template_operator_user: "idops"       # Initial operator username.
 template_operator_password: ""        # CHANGE THIS PASSWORD BEFORE PRODUCTION. Example: "a strong passphrase".
 template_operator_ssh_public_keys: [] # CHANGE THIS KEY BEFORE PRODUCTION. Values: [] | list of "ssh-ed25519 AAAA..." strings.
 # Example (was the live default; see local settings for real values):
@@ -21,5 +27,5 @@ template_operator_ssh_public_keys: [] # CHANGE THIS KEY BEFORE PRODUCTION. Value
 # -----------------------------------------------------------------------------
 # Example project metadata
 # -----------------------------------------------------------------------------
-template_project_name: ""     # Human-readable project label. Example: "new-playbook-project".
-template_environment_name: "" # Environment marker. Values: "dev" | "staging" | "production".
+template_project_name: "new-playbook-project" # Human-readable project label.
+template_environment_name: "staging"          # Environment marker. Values: "dev" | "staging" | "production".

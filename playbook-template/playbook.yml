@@ -4,8 +4,9 @@
   gather_facts: false
   vars_files:
     - vars/template-config.yml
-    # Every tracked value above is blank: it exists to document the setting,
-    # not to be deployed with. This is the only source of real values, and it
+    # The file above carries this scaffold's generic, safe-to-ship defaults.
+    # The real, per-deployment values it deliberately leaves out -
+    # credentials, a real target's address - live only here, and this file
     # is required - see the "Fail when settings.local.yml is missing" task
     # below. Loaded last so it wins; *.local.yml is never committed.
     - vars/settings.local.yml
@@ -20,16 +21,16 @@
       changed_when: false
 
     # A missing vars_files entry is silently skipped by Ansible rather than
-    # failing, so every setting above would otherwise stay blank with no
-    # warning. Every tracked value is blank on purpose, so there is no
-    # working fallback to fall through to.
+    # failing, so a missing settings.local.yml would leave real credentials
+    # and the real target undefined with no warning, not merely fall back
+    # to a documented default - there is no real target to fall back to.
     - name: Fail when settings.local.yml is missing
       ansible.builtin.fail:
         msg: >-
-          vars/settings.local.yml is required and was not found. Every
-          tracked setting is a blank placeholder; this file is the only
-          place real values live. Generate a starting point with:
-          make settings
+          vars/settings.local.yml is required and was not found. It is the
+          only place real, per-deployment values live - a real target,
+          credentials; the tracked file only carries generic defaults.
+          Generate a starting point with: make settings
       when: not template_local_settings_file.stat.exists
 
     - name: Load the machine-specific override file for reporting
