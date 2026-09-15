@@ -66,6 +66,7 @@ LIVE_KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*):')
 COMMENTED_KEY_RE = re.compile(r'^#\s?([A-Za-z_][A-Za-z0-9_]*):')
 BANNER_RE = re.compile(r'^# \d+\.\s+(.*)$')
 TRAILING_COMMENT_RE = re.compile(r'^([^#]*?)\s+#\s.*$')
+LIST_VALUE_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*:\s*\[\]')
 # Real secrets files, never a settings source - see the module docstring.
 SKIP = ('local-secrets.yml', 'local_secrets.yml')
 
@@ -134,7 +135,13 @@ def blocks(path):
         if match:
             banner = match.group(1)
             continue
-        if line.startswith('#') or not line.strip():
+        # A comment is a comment regardless of indentation - YAML gives '#'
+        # that meaning at any column. Checking only line.startswith('#')
+        # missed an indented one (the "add a second host" example under
+        # kvm_hypervisors, indented to read as nested prose) and let it get
+        # swallowed as if it were literal continuation content of the
+        # preceding key.
+        if line.lstrip().startswith('#') or not line.strip():
             continue
         key_match = LIVE_KEY_RE.match(line)
         if key_match:
@@ -237,8 +244,18 @@ def write_fresh(args, sources, found):
         shutil.copy2(args.output, backup)
         print(f"Backed up existing {args.output} to {backup}.")
 
-    list_example = next((key for _, (_, key, lines) in found if len(lines) > 1),
-                         'a list value')
+    # A key with genuine multi-line content is the best example (its shape is
+    # visible right there); every tracked file in this repository blanks
+    # composites to a single-line [] instead, so fall back to naming any
+    # blank list-typed key by name rather than the generic, unhelpful
+    # "a list value" that used to show up here once no file had one anymore.
+    list_example = next(
+        (key for _, (_, key, lines) in found if len(lines) > 1),
+        None,
+    ) or next(
+        (key for _, (_, key, lines) in found if LIST_VALUE_RE.match(lines[0])),
+        'a list value',
+    )
     body, total = render(sources, found)
     content = HEADER.format(list_example=list_example) + '\n'.join(body)
     with open(args.output, 'w', encoding='utf-8') as handle:
