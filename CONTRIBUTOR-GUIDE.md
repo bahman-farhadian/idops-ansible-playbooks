@@ -46,7 +46,28 @@ migration note. New work belongs in a domain directory, scaffolded from
     SSH keys, and the hosts/instances/targets someone actually deploys to or
     tests against. When in doubt, ask: would committing this value leak
     something about a specific person or machine? If not, it is a default,
-    not a placeholder. A default chosen for being safe/conventional is not
+    not a placeholder.
+
+    A real-infrastructure path an operator chooses (where VM disks or image
+    caches live, say) belongs in this same blank category even though it
+    names no person or machine: its correctness depends on host-specific
+    storage layout and security policy (AppArmor/SELinux/ACLs) that the
+    tracked file cannot know. A generic default such as
+    `/var/lib/libvirt/images/...` can work by coincidence on a host whose
+    security policy happens to already whitelist it, which is worse than an
+    obviously-wrong placeholder: it hides the need to verify a real path
+    until the operator changes it to their actual layout, at which point a
+    permission failure surfaces deep in a mutating run instead of at
+    preflight. Blank it instead, so a project's preflight stage (a `-check`
+    Make target, or the equivalent early validation) fails immediately with a
+    clear message until the operator sets a real value - a plain
+    `--syntax-check` never executes an `assert` task, so this depends on the
+    project actually running one -
+    see `kvm_image_cache_path`, `kvm_instance_disk_pool_path`, and
+    `kvm_snapshot_overlay_path` in kvm-vm-provisioning, and the existing
+    `is match('^/')` assert in `tasks/provision-preflight.yml` that already
+    fails cleanly against a blank string with no new validation code needed.
+    A default chosen for being safe/conventional is not
     a claim that it is bit-identical to whatever this project shipped with
     originally; say so if it is a considered choice rather than a recovered
     one. A default that pins a version or a release (`lynis_repo_version`,

@@ -45,14 +45,19 @@ kvm_require_explicit_hypervisor: false                # Force every instance to 
 # Paths derived from these follow automatically: the trusted checksum store
 # sits under the image cache, and snapshot overlays under the disk pool.
 #
-# Defaults follow libvirt's own storage convention (/var/lib/libvirt/images/...
-# - the same paths playbook.yml's own validation error messages use as the
-# example), not this project's original hosts. Restate per host below if a
-# host's real layout differs.
+# kvm_image_cache_path and kvm_instance_disk_pool_path stay blank on purpose:
+# a generic default such as /var/lib/libvirt/images/... can work by
+# coincidence on a host whose AppArmor/SELinux/ACL policy already whitelists
+# it, which silently hides the need to verify a real path until the operator
+# points this at their actual storage layout - at which point a permission
+# failure surfaces deep in a mutating run instead of at preflight. Blank
+# here means make check/the preflight stage fails immediately with a clear
+# message until a real path is set. Restate per host below if a host's real
+# layout differs.
 # -----------------------------------------------------------------------------
-kvm_image_cache_path: "/var/lib/libvirt/images/base"             # Base-image cache directory on hypervisor.
+kvm_image_cache_path: "" # Base-image cache directory on hypervisor. CHANGE THIS. Example: "/var/lib/libvirt/images/base".
 kvm_auto_create_image_cache_path: true                           # Auto-create kvm_image_cache_path when missing. Values: true | false.
-kvm_instance_disk_pool_path: "/var/lib/libvirt/images/instances" # Per-instance VM disk directory.
+kvm_instance_disk_pool_path: "" # Per-instance VM disk directory. CHANGE THIS. Example: "/var/lib/libvirt/images/instances".
 kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"       # Temporary cloud-init file workspace.
 kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-init workspace at end of provision stage. Values: true | false.
 

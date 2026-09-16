@@ -101,7 +101,10 @@ first provisioning run, edit the real values `make settings` wrote there
    KVM host, plus its `user` and `ssh_private_key_file` if it needs them. Add
    more entries to deploy across several hosts.
 2. Set `kvm_libvirt_connection_uri` (`qemu:///system` is the default and recommended value).
-3. Set `kvm_image_cache_path` and `kvm_instance_disk_pool_path`.
+3. Set `kvm_image_cache_path`, `kvm_instance_disk_pool_path`, and
+   `kvm_snapshot_overlay_path`. These have no default and `make provision-check`
+   (or `make provision`) fails until you set them - see "Critical Storage
+   Paths Have No Default" below.
 4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
 5. Pin each profile in `kvm_cloud_image_catalog` to an explicit `image_version`
    (Debian build token, e.g. `20260706-2531`). URLs, filenames, and the checksum
@@ -129,6 +132,26 @@ first provisioning run, edit the real values `make settings` wrote there
 13. Set `kvm_force_single_socket_vcpu_topology` to `true` for a
     single-socket/single-thread CPU topology, or `false` for libvirt's plain
     `vcpu_count` topology.
+
+### Critical Storage Paths Have No Default
+
+`kvm_image_cache_path`, `kvm_instance_disk_pool_path`, and
+`kvm_snapshot_overlay_path` ship blank on purpose, unlike most other
+settings in this project. A generic default such as
+`/var/lib/libvirt/images/...` can work by coincidence on a host whose
+AppArmor/SELinux/ACL policy already whitelists it - which is worse than an
+obviously-wrong placeholder, because it hides the need to verify a real path
+until you point it at your actual storage layout, and a mismatch there then
+surfaces as a permission failure deep into `make provision` instead of at
+preflight. Leaving them blank means `make provision-check` (or `make
+provision` itself) fails immediately with a clear message telling you which
+one to set. Once set, `kvm_validate_runtime_pool_access` still checks that
+the libvirt runtime user (`kvm_libvirt_runtime_user`) can actually reach
+those paths, and `kvm_auto_fix_runtime_pool_access` controls whether the
+role applies an ACL fix automatically or only reports the problem - that
+check covers Linux ACLs, not a MAC layer like AppArmor/SELinux, so a custom
+path outside what your host's security policy already allows may still need
+a manual policy change even with auto-fix enabled.
 
 Then run:
 
@@ -211,7 +234,8 @@ toggles in user variables.
 Developer note: libvirt internal snapshots are not supported for pflash UEFI
 guests on this host. The playbook uses an external disk snapshot instead. The
 base disks remain in `kvm_instance_disk_pool_path`; writable overlays are
-created in `kvm_snapshot_overlay_path` (default: `<instance-pool>/snapshots`).
+created in `kvm_snapshot_overlay_path`, which you must set (it has no default
+- see "Critical Storage Paths Have No Default" below).
 Cloud-init seed media and UEFI NVRAM are deliberately excluded. After cloud-init
 completion, the seed device is detached from the persistent domain definition
 and its seed image is removed before snapshot creation.

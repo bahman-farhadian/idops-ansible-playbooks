@@ -25,11 +25,16 @@ kvm_shutdown_wait_delay_seconds: 2             # Delay between clean-shutdown st
 
 # -----------------------------------------------------------------------------
 # 2. SNAPSHOT BEHAVIOR
+# kvm_snapshot_overlay_path stays blank on purpose, for the same reason as
+# kvm_image_cache_path and kvm_instance_disk_pool_path in 01-hypervisors.yml:
+# a generic default can work by coincidence on a host whose security policy
+# already whitelists it, hiding the need to verify a real path until it is
+# changed to this host's actual layout.
 # -----------------------------------------------------------------------------
 kvm_snapshot_enabled: true                                     # Mandatory external baseline snapshot reconciliation for declared domains. Values: true | false.
 kvm_snapshot_name: "baseline"                                  # Snapshot name label.
 kvm_snapshot_description: "Post-provision baseline snapshot"   # Snapshot description.
-kvm_snapshot_overlay_path: "/var/lib/libvirt/images/snapshots" # External snapshot qcow2 overlay directory.
+kvm_snapshot_overlay_path: "" # External snapshot qcow2 overlay directory. CHANGE THIS. Example: "/var/lib/libvirt/images/snapshots".
 kvm_start_instances_after_snapshot: true                       # Start reconciled instances after creating a missing snapshot. Values: true | false.
 
 
