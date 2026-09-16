@@ -23,8 +23,8 @@
   when:
     - boot_hardening_enabled | bool
     - boot_fix_runlevel_debian13 | bool
-    - ansible_distribution == 'Debian'
-    - ansible_distribution_major_version == '13'
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] == '13'
 
 - name: Run Debian 13 runlevel compatibility services
   ansible.builtin.systemd:
@@ -35,8 +35,8 @@
   when:
     - boot_hardening_enabled | bool
     - boot_fix_runlevel_debian13 | bool
-    - ansible_distribution == 'Debian'
-    - ansible_distribution_major_version == '13'
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] == '13'
 
 - name: Check runlevel command output
   ansible.builtin.command: runlevel
@@ -46,8 +46,8 @@
   when:
     - boot_hardening_enabled | bool
     - boot_fix_runlevel_debian13 | bool
-    - ansible_distribution == 'Debian'
-    - ansible_distribution_major_version == '13'
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] == '13'
 
 - name: Deploy Debian 13 runlevel compatibility wrapper when runlevel is unknown
   ansible.builtin.template:
@@ -60,8 +60,8 @@
     - boot_hardening_enabled | bool
     - boot_fix_runlevel_debian13 | bool
     - boot_runlevel_compat_wrapper_enabled | bool
-    - ansible_distribution == 'Debian'
-    - ansible_distribution_major_version == '13'
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] == '13'
     - boot_runlevel_check.stdout is search('unknown')
 
 - name: Remove runlevel compatibility wrapper when disabled or not needed
@@ -73,8 +73,8 @@
         boot_hardening_enabled | bool
         and boot_fix_runlevel_debian13 | bool
         and boot_runlevel_compat_wrapper_enabled | bool
-        and ansible_distribution == 'Debian'
-        and ansible_distribution_major_version == '13'
+        and ansible_facts['distribution'] == 'Debian'
+        and ansible_facts['distribution_major_version'] == '13'
       )
 
 - name: Re-check runlevel command output after compatibility updates
@@ -85,8 +85,8 @@
   when:
     - boot_hardening_enabled | bool
     - boot_fix_runlevel_debian13 | bool
-    - ansible_distribution == 'Debian'
-    - ansible_distribution_major_version == '13'
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] == '13'
 
 - name: Warn when runlevel still reports unknown
   ansible.builtin.debug:
@@ -97,8 +97,8 @@
   when:
     - boot_hardening_enabled | bool
     - boot_fix_runlevel_debian13 | bool
-    - ansible_distribution == 'Debian'
-    - ansible_distribution_major_version == '13'
+    - ansible_facts['distribution'] == 'Debian'
+    - ansible_facts['distribution_major_version'] == '13'
     - boot_runlevel_check_post.stdout is search('unknown')
 
 - name: Capture running kernel release

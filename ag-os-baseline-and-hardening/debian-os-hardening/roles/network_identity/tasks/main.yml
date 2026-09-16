@@ -9,7 +9,7 @@
           else (
             inventory_hostname
             if '.' in inventory_hostname
-            else ansible_hostname
+            else ansible_facts['hostname']
           )
         ) | trim
       }}
@@ -47,11 +47,11 @@
         network_identity_primary_ipv4
         if network_identity_primary_ipv4 | length > 0
         else (
-          (ansible_default_ipv4.address | default(''))
-          if (ansible_default_ipv4 is defined and ansible_default_ipv4.address is defined)
+          (ansible_facts['default_ipv4'].address | default(''))
+          if (ansible_facts['default_ipv4'] is defined and ansible_facts['default_ipv4'].address is defined)
           else (
-            (ansible_all_ipv4_addresses | default([]) | first | default(''))
-            if (ansible_all_ipv4_addresses | default([]) | length) > 0
+            (ansible_facts['all_ipv4_addresses'] | default([]) | first | default(''))
+            if (ansible_facts['all_ipv4_addresses'] | default([]) | length) > 0
             else (
               (ansible_host | default(''))
               if ((ansible_host | default('')) is match('^([0-9]{1,3}\\.){3}[0-9]{1,3}$'))
@@ -97,14 +97,14 @@
 - name: Remove stale non-loopback hosts entries for previous hostname
   ansible.builtin.lineinfile:
     path: /etc/hosts
-    regexp: '^(?!127\.0\.0\.1|127\.0\.1\.1|::1)\S+\s+.*\b{{ ansible_hostname | regex_escape }}\b.*$'
+    regexp: '^(?!127\.0\.0\.1|127\.0\.1\.1|::1)\S+\s+.*\b{{ ansible_facts[''hostname''] | regex_escape }}\b.*$'
     state: absent
   when:
     - network_identity_manage_hosts | bool
     - not (network_identity_manage_hosts_via_template | bool)
     - network_identity_cleanup_stale_hostname_entries | bool
-    - ansible_hostname != network_identity_effective_short_hostname
-    - ansible_hostname != network_identity_effective_fqdn
+    - ansible_facts['hostname'] != network_identity_effective_short_hostname
+    - ansible_facts['hostname'] != network_identity_effective_fqdn
 
 - name: Ensure loopback FQDN host mapping exists in /etc/hosts
   ansible.builtin.lineinfile:

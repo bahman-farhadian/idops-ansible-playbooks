@@ -28,4 +28,4 @@
   ansible.builtin.command: systemctl reset-failed fail2ban.service
   changed_when: false
   failed_when: false
-  when: ansible_service_mgr == 'systemd'
+  when: ansible_facts['service_mgr'] == 'systemd'

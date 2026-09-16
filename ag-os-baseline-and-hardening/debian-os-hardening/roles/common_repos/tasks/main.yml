@@ -6,19 +6,19 @@
         (apt_debian_release_override | default('') | trim)
         if (apt_debian_release_override | default('') | trim | length > 0)
         else (
-          apt_debian_release_map[ansible_distribution_major_version]
-          if (ansible_distribution_major_version in apt_debian_release_map)
-          else ansible_distribution_release
+          apt_debian_release_map[ansible_facts['distribution_major_version']]
+          if (ansible_facts['distribution_major_version'] in apt_debian_release_map)
+          else ansible_facts['distribution_release']
         )
       }}
-  when: ansible_distribution == 'Debian'
+  when: ansible_facts['distribution'] == 'Debian'
 
 - name: Ensure effective Debian repository suite is set
   ansible.builtin.assert:
     that:
       - apt_debian_effective_release | length > 0
     fail_msg: "Unable to determine Debian suite name from facts. Set apt_debian_release_override in vars/debian-hardening.yml."
-  when: ansible_distribution == 'Debian'
+  when: ansible_facts['distribution'] == 'Debian'
 
 - name: Find one-line APT source files under /etc/apt/sources.list.d
   ansible.builtin.find:
@@ -27,7 +27,7 @@
     file_type: file
   register: apt_sources_list_d_files
   when:
-    - ansible_distribution == 'Debian'
+    - ansible_facts['distribution'] == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
 
 - name: Comment conflicting Debian entries in /etc/apt/sources.list.d/*.list
@@ -38,7 +38,7 @@
     replace: "# Disabled by Ansible common_repos (managed in /etc/apt/sources.list): \\1"
   loop: "{{ apt_sources_list_d_files.files | default([]) }}"
   when:
-    - ansible_distribution == 'Debian'
+    - ansible_facts['distribution'] == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
 
 - name: Find deb822 APT source files under /etc/apt/sources.list.d
@@ -48,7 +48,7 @@
     file_type: file
   register: apt_sources_deb822_files
   when:
-    - ansible_distribution == 'Debian'
+    - ansible_facts['distribution'] == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
 
 - name: Remove conflicting deb822 source files containing current Debian suite
@@ -57,7 +57,7 @@
     state: absent
   loop: "{{ apt_sources_deb822_files.files | default([]) }}"
   when:
-    - ansible_distribution == 'Debian'
+    - ansible_facts['distribution'] == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
 
 - name: Configure Debian APT repositories in /etc/apt/sources.list
@@ -67,7 +67,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: ansible_distribution == 'Debian'
+  when: ansible_facts['distribution'] == 'Debian'
 
 - name: Update apt cache
   block:
@@ -96,4 +96,4 @@
       retries: "{{ apt_package_retries | default(6) }}"
       delay: "{{ apt_package_retry_delay | default(10) }}"
       until: common_repos_apt_update_retry is succeeded
-  when: ansible_distribution == 'Debian'
+  when: ansible_facts['distribution'] == 'Debian'
