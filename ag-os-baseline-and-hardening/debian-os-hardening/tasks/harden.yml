@@ -1,4 +1,13 @@
 ---
+# Tagged `always`: this is a dynamic include (include_role), and Ansible
+# does not propagate a tag from an outer include down through an untagged
+# inner one - the outer "Run OS hardening workflow" step in playbook.yml
+# being tagged always only decided whether THIS task runs, not whether
+# os_hardening's own per-role include_role tasks (each individually tagged,
+# e.g. tags: [common_repos]) are reachable at all. Without this, every
+# `make role-*` target's --tags <role> filtering never got this far and
+# silently ran nothing.
 - name: Apply orchestrated OS hardening role
   ansible.builtin.include_role:
     name: os_hardening
+  tags: always
