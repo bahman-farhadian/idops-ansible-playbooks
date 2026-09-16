@@ -384,18 +384,22 @@ can, point at them instead of generating a copy of them.
 
 ### Secrets
 
-Secrets stay separate. `ag-os-baseline-and-hardening/debian-os-hardening` keeps
-them in `vars/local-secrets.yml` with a committed `.example` alongside. Use the
-local settings file for machine-specific configuration, and a secrets file for
-credentials.
+None of this repository's current projects use a separate secrets file:
+`vars/settings.local.yml` is gitignored the same as any other `*.local.yml`
+file, so a credential set there is exactly as uncommitted as one set in a
+dedicated secrets file - there is no separation benefit to splitting it out
+when a single settings file already covers a project's real values.
 
-`make settings` never reads a project's secrets file (`local-secrets.yml` or
-`local_secrets.yml`, either spelling) as a settings source, on purpose: that
-file is loaded by its own `include_vars` task, independent of and with higher
-precedence than `settings.local.yml`, so copying its keys in here would
-duplicate a real secret into a second file and leave a copy that looks
-editable but is silently ignored at runtime. If a future project's secrets
-file uses a different name, add it to `SKIP` in
+A project may still add a dedicated secrets file (`local-secrets.yml` or
+`local_secrets.yml`, either spelling; both are gitignored repository-wide -
+see `.gitignore`) if it has a concrete reason to keep some values out of
+`settings.local.yml` even though both are equally untracked. `make settings`
+never reads a project's secrets file as a settings source, on purpose: that
+file would be loaded by its own `include_vars` task, independent of and with
+higher precedence than `settings.local.yml`, so copying its keys into the
+generated file would duplicate a real secret into a second file and leave a
+copy that looks editable but is silently ignored at runtime. If a project
+adds one under a different name, add it to `SKIP` in
 `scripts/generate-local-settings.py` before wiring it up.
 
 ### Declaring Real Hosts Without Tracking Them

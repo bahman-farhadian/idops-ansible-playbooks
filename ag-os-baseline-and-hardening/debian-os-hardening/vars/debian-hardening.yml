@@ -289,7 +289,7 @@ ssh_command_logger_tag: "ssh-command"             # Syslog tag for command logs.
 
 # -----------------------------------------------------------------------------
 # GRUB credentials
-# Keep real secret values in vars/local-secrets.yml (git-ignored).
+# Keep the real password in vars/settings.local.yml (git-ignored).
 # grub_password_plaintext stays blank on purpose: it is a real credential.
 # -----------------------------------------------------------------------------
 grub_hardening_enabled: true                 # Enable GRUB superuser/password hardening. Values: true | false.

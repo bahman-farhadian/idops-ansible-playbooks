@@ -153,17 +153,9 @@
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
 
   pre_tasks:
-    # Both tagged `always` for the same reason as the first play's tasks:
-    # a role-scoped `make role-*` run (--tags <role>) must still load real
-    # secrets (grub_hardening needs its password every time, not only on an
-    # untagged full run) and still pass the OS-support preflight check.
-    - name: Load optional local secrets overrides
-      ansible.builtin.include_vars:
-        dir: "{{ playbook_dir }}/vars"
-        files_matching: '^local-secrets\.yml$'
-        ignore_unknown_extensions: true
-      tags: always
-
+    # Tagged `always` for the same reason as the first play's tasks: a
+    # role-scoped `make role-*` run (--tags <role>) must still pass the
+    # OS-support preflight check.
     - name: Run hardening preflight checks for OS support
       ansible.builtin.include_tasks: tasks/preflight.yml
       when: debian_hardening_action_effective in ['scan', 'harden']

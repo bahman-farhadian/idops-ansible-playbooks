@@ -24,7 +24,6 @@ This project follows repository standards:
   `ssh-check.yml`, `runtime-check.yml`)
 - `roles/` (migrated hardening and Lynis roles)
 - `vars/debian-hardening.yml`
-- `vars/local-secrets.yml.example`
 - `host.yml`
 - `ansible.cfg`
 - `requirements.txt`
@@ -196,10 +195,7 @@ Lynis reports are collected under:
 
 ## Secrets
 
-Copy and edit local secrets (git-ignored):
-
-```bash
-cp vars/local-secrets.yml.example vars/local-secrets.yml
-```
-
-Use `vars/local-secrets.yml` for sensitive values (for example GRUB password).
+Sensitive values (for example the GRUB password, `grub_password_plaintext`)
+are settings like any other: generate `vars/settings.local.yml` with
+`make settings` and set them there. That file is git-ignored, so nothing
+sensitive is ever committed.
