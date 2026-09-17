@@ -8,14 +8,16 @@ Two tiers, deliberately not treated the same way:
               a retired generator mode. Both regenerate or are recreated by
               `make settings`, so removing them loses nothing irreplaceable.
 
-  active      settings.local.yml itself. This holds real, hand-built
-              configuration - hosts, credentials, instance definitions -
-              that took real work to create. It is gitignored on purpose, so
-              git does not back it up either: removing it is not reversible.
+  active      any *.local.yml except the retired settings-reference file.
+              Each holds real, hand-built configuration - hosts, credentials,
+              instance definitions - that took real work to create. They are
+              gitignored on purpose, so git does not back them up either:
+              removing one is not reversible.
 
 Default action is --list: print what exists in each tier and remove nothing.
 --remove-disposable deletes only the disposable tier.
---remove-active deletes the disposable tier AND settings.local.yml.
+--remove-active deletes the disposable tier AND either one --output file
+or every active *.local.yml when --output is omitted.
 Neither flag ever touches a file outside these two tiers.
 """
 
@@ -30,8 +32,18 @@ def find_files(vars_dir):
         glob.glob(os.path.join(vars_dir, 'settings-reference.local.yml'))
         + glob.glob(os.path.join(vars_dir, '*.local.yml.bak'))
     )
-    active = sorted(glob.glob(os.path.join(vars_dir, 'settings.local.yml')))
+    all_local = sorted(glob.glob(os.path.join(vars_dir, '*.local.yml')))
+    active = [
+        path for path in all_local
+        if os.path.basename(path) != 'settings-reference.local.yml'
+    ]
     return disposable, active
+
+
+def resolve_output_path(vars_dir, output):
+    if os.path.isabs(output) or os.path.exists(output):
+        return os.path.normpath(output)
+    return os.path.normpath(os.path.join(vars_dir, os.path.basename(output)))
 
 
 def list_files(vars_dir, disposable, active):
@@ -52,7 +64,8 @@ def list_files(vars_dir, disposable, active):
     if disposable:
         print("Remove only the disposable ones with: make settings-clean-force")
     if active:
-        print("Also remove your active settings with: make settings-clean-force-all")
+        print("Remove one active file with:")
+        print("  make settings-clean-force-all LOCAL_SETTINGS_FILE=<path>")
         print("That is not reversible: back up anything you cannot recreate first.")
 
 
@@ -70,10 +83,13 @@ def main():
     parser.add_argument('--remove-disposable', action='store_true',
                          help='Delete *.local.yml.bak files and any leftover '
                               'settings-reference.local.yml. Never touches '
-                              'settings.local.yml.')
+                              'active *.local.yml files.')
     parser.add_argument('--remove-active', action='store_true',
-                         help='Delete the disposable tier AND '
-                              'settings.local.yml. Not reversible.')
+                         help='Delete the disposable tier AND either --output '
+                              'or every active *.local.yml. Not reversible.')
+    parser.add_argument('--output',
+                         help='When --remove-active, delete only this '
+                              '*.local.yml file instead of every active file.')
     args = parser.parse_args()
 
     disposable, active = find_files(args.vars_dir)
@@ -84,7 +100,18 @@ def main():
 
     removed = remove_files(disposable)
     if args.remove_active:
-        removed += remove_files(active)
+        if args.output:
+            target = resolve_output_path(args.vars_dir, args.output)
+            if not target.endswith('.local.yml'):
+                sys.stderr.write(
+                    f"{target} is not a *.local.yml file; refusing to delete.\n")
+                return 1
+            if os.path.exists(target):
+                removed += remove_files([target])
+            else:
+                print(f"{target}: not found.")
+        else:
+            removed += remove_files(active)
 
     if not removed:
         print(f"{args.vars_dir}: nothing to remove.")
@@ -94,10 +121,17 @@ def main():
     for f in removed:
         print(f"  {f}")
 
-    if args.remove_disposable and not args.remove_active and active:
+    remaining_active = [
+        path for path in active
+        if path not in removed and os.path.exists(path)
+    ]
+    if args.remove_disposable and not args.remove_active and remaining_active:
         print()
-        print(f"Your active settings were left in place: {active[0]}")
-        print("Remove that too with: make settings-clean-force-all")
+        print("Active settings were left in place:")
+        for path in remaining_active:
+            print(f"  {path}")
+        print("Remove one with: make settings-clean-force-all "
+              "LOCAL_SETTINGS_FILE=<path>")
     return 0
 
 

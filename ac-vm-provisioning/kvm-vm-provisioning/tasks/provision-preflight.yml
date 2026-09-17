@@ -9,13 +9,14 @@
       - kvm_image_cache_path is match('^/')
       - kvm_instance_disk_pool_path is defined
       - kvm_instance_disk_pool_path is match('^/')
-      - kvm_snapshot_overlay_path is defined
-      - kvm_snapshot_overlay_path is match('^/')
       - kvm_cloud_init_workspace_path is defined
       - kvm_cloud_init_workspace_path is match('^/')
+      - kvm_snapshot_overlay_path == kvm_instance_disk_pool_path
     fail_msg: >-
-      kvm_image_cache_path, kvm_instance_disk_pool_path, kvm_snapshot_overlay_path,
-      and kvm_cloud_init_workspace_path must be absolute paths on the hypervisor.
+      kvm_image_cache_path, kvm_instance_disk_pool_path, and
+      kvm_cloud_init_workspace_path must be absolute paths on the hypervisor.
+      Snapshot overlays are always written in kvm_instance_disk_pool_path
+      (got overlay '{{ kvm_snapshot_overlay_path | default('') }}').
 
 - name: Ensure image cache path exists when auto-create is enabled
   ansible.builtin.file:
@@ -114,7 +115,7 @@
       virt-install -> virtinst,
       runuser -> util-linux.
       Example:
-      sudo apt update && sudo apt install -y libvirt-clients qemu-utils cloud-image-utils virtinst acl util-linux
+      sudo apt update && sudo apt install -y libvirt-clients qemu-utils cloud-image-utils virtinst ovmf acl util-linux
   when: >-
     (
       preflight_command_checks.results
@@ -122,6 +123,29 @@
       | list
       | length
     ) > 0
+
+- name: Validate required UEFI firmware files exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/share/OVMF/OVMF_CODE_4M.ms.fd
+    - /usr/share/OVMF/OVMF_VARS_4M.ms.fd
+  loop_control:
+    label: "{{ item }}"
+  register: preflight_uefi_firmware_stats
+  changed_when: false
+
+- name: Fail when required UEFI firmware files are missing
+  ansible.builtin.fail:
+    msg: >-
+      Required UEFI firmware file is missing: {{ item.item }}.
+      This project boots every guest with OVMF (firmware_boot_mode=uefi).
+      Install the ovmf package on the hypervisor:
+      sudo apt update && sudo apt install -y ovmf
+  loop: "{{ preflight_uefi_firmware_stats.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not (item.stat.exists | default(false))
 
 - name: Mark command availability checks as complete for this run
   ansible.builtin.set_fact:

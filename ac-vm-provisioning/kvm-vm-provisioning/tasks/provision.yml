@@ -230,6 +230,27 @@
                   kvm_default_cloud_init_packages
                   + (item.cloud_init_packages | default([]))
                   + ['openssh-server', 'qemu-guest-agent']
+                  + (
+                    ['xfsprogs']
+                    if (
+                      (item.instance_extra_disks_enabled | default(kvm_default_instance_extra_disks_enabled) | default(false) | bool)
+                      and
+                      (
+                        (
+                          item.instance_extra_disks
+                          | default(kvm_default_instance_extra_disks)
+                          | default([])
+                        )
+                        | selectattr('filesystem', 'defined')
+                        | map(attribute='filesystem')
+                        | map('lower')
+                        | select('equalto', 'xfs')
+                        | list
+                        | length > 0
+                      )
+                    )
+                    else []
+                  )
                 ) | unique
               )
             })

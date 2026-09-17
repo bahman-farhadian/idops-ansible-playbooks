@@ -10,13 +10,20 @@
     - vars/05-runtime.yml
     - vars/06-instances.yml
     # The files above carry this project's generic, safe-to-ship defaults.
-    # The real, per-deployment values they deliberately leave out - real
-    # hypervisors, real instances, credentials - live only here, and this
-    # file is required - see the "Fail when settings.local.yml is missing"
-    # task below. Loaded last so it wins; *.local.yml is never committed.
-    - vars/settings.local.yml
+    # Real per-deployment values live in a gitignored *.local.yml file,
+    # selected with kvm_local_settings_file (default vars/settings.local.yml).
+    # A missing vars_files entry is silently skipped, so the fail task below
+    # is required. Loaded last so it wins.
+    - "{{ kvm_local_settings_file | default('vars/settings.local.yml') }}"
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
+    kvm_selected_local_settings_file: "{{ kvm_local_settings_file | default('vars/settings.local.yml') }}"
+    kvm_local_settings_path: >-
+      {{
+        kvm_selected_local_settings_file
+        if kvm_selected_local_settings_file is match('^/')
+        else (playbook_dir ~ '/' ~ kvm_selected_local_settings_file)
+      }}
 
   tasks:
     - name: Validate requested action
@@ -25,36 +32,48 @@
           - kvm_action in ['provision', 'cleanup', 'ping']
         fail_msg: "kvm_action must be 'provision', 'cleanup', or 'ping'."
 
+    - name: Validate selected local settings file name
+      ansible.builtin.assert:
+        that:
+          - kvm_selected_local_settings_file is match('\\.local\\.yml$')
+        fail_msg: >-
+          kvm_local_settings_file must be a gitignored *.local.yml file
+          (got '{{ kvm_selected_local_settings_file }}'). Use
+          LOCAL_SETTINGS_FILE=vars/settings.local.yml or
+          LOCAL_SETTINGS_FILE=vars/settings.<name>.local.yml.
+
     - name: Check for a machine-specific override file
       ansible.builtin.stat:
-        path: "{{ playbook_dir }}/vars/settings.local.yml"
+        path: "{{ kvm_local_settings_path }}"
       register: kvm_local_override_file
       changed_when: false
 
     # A missing vars_files entry is silently skipped by Ansible rather than
-    # failing, so a missing settings.local.yml would leave every real
+    # failing, so a missing local settings file would leave every real
     # hypervisor, instance and credential undefined with no warning, not
     # merely fall back to a documented default - there is no hypervisor to
     # fall back to.
-    - name: Fail when settings.local.yml is missing
+    - name: Fail when the selected local settings file is missing
       ansible.builtin.fail:
         msg: >-
-          vars/settings.local.yml is required and was not found. It is the
-          only place real, per-deployment values live - real hypervisors,
-          real instances, credentials; the tracked files only carry generic
-          defaults. Generate a starting point with: make settings
+          {{ kvm_selected_local_settings_file }} is required and was not
+          found. It is the only place real, per-deployment values live -
+          real hypervisors, real instances, credentials; the tracked files
+          only carry generic defaults. Generate a starting point with:
+          make settings
+          (or make settings LOCAL_SETTINGS_FILE={{ kvm_selected_local_settings_file }}).
       when: not kvm_local_override_file.stat.exists
 
     - name: Load the machine-specific override file for reporting
       ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/vars/settings.local.yml"
+        file: "{{ kvm_local_settings_path }}"
         name: kvm_local_overrides
       when: kvm_local_override_file.stat.exists
 
     - name: Report which settings come from the override file
       ansible.builtin.debug:
         msg: >-
-          vars/settings.local.yml is in effect and overrides
+          {{ kvm_selected_local_settings_file }} is in effect and overrides
           {{ kvm_local_overrides | length }} setting(s):
           {{ kvm_local_overrides.keys() | list | join(', ') }}.
           Edit those there; the same keys in the numbered files are ignored.
@@ -305,9 +324,8 @@
     - vars/04-images.yml
     - vars/05-runtime.yml
     - vars/06-instances.yml
-    # Required; see the matching comment and fail task in the first play,
-    # which always runs first and aborts the whole run when this is missing.
-    - vars/settings.local.yml
+    # Required; same selected local file as the first play.
+    - "{{ kvm_local_settings_file | default('vars/settings.local.yml') }}"
   environment:
     LIBVIRT_DEFAULT_URI: "{{ kvm_host_libvirt_uri | default(kvm_libvirt_connection_uri) }}"
   vars:

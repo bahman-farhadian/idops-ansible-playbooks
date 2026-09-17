@@ -82,6 +82,20 @@
     label: "{{ item.item.instance_name }}"
   when: kvm_run_mutation_phases | bool
 
+- name: Fail when provisioned domain XML is not OVMF UEFI
+  ansible.builtin.assert:
+    that:
+      - "'OVMF_CODE_4M.ms.fd' in item.stdout"
+      - "'pflash' in item.stdout"
+    fail_msg: >-
+      Domain {{ item.item.instance_name }} is missing the required OVMF UEFI
+      firmware (OVMF_CODE_4M.ms.fd, pflash) after provisioning. Install ovmf
+      on the hypervisor and rebuild with make cleanup-force-disks && make provision.
+  loop: "{{ runtime_guest_agent_channel_results.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when: kvm_run_mutation_phases | bool
+
 - name: Resolve persistent root-disk sources
   ansible.builtin.shell: |
     set -euo pipefail

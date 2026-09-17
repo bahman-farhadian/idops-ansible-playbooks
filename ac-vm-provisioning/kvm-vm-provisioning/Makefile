@@ -13,17 +13,17 @@ VENV_ACTIVATE := . $(VENV)/bin/activate
 PYTHON ?= python3
 LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
 FORCE ?=
-LIMIT ?=
 EXTRA_ARGS ?=
+SETTINGS_ARG := -e kvm_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 
 help:
 	@printf "kvm-vm-provisioning - KVM/libvirt guest provisioning\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
-	@printf "  %-28s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
+	@printf "  %-28s %s\n" "make settings" "create/update a machine-local settings file"
 	@printf "  %-28s %s\n" "make settings-clean" "list machine-local settings files for this project"
-	@printf "  %-28s %s\n" "make settings-clean-force" "delete disposable settings files (keeps settings.local.yml)"
-	@printf "  %-28s %s\n" "make settings-clean-force-all" "also delete settings.local.yml (not reversible)"
+	@printf "  %-28s %s\n" "make settings-clean-force" "delete disposable settings files (keeps *.local.yml)"
+	@printf "  %-28s %s\n" "make settings-clean-force-all" "delete LOCAL_SETTINGS_FILE (not reversible)"
 	@printf "  %-28s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-28s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "syntax-check playbook entrypoint"
@@ -35,9 +35,9 @@ help:
 	@printf "  %-28s %s\n" "make provision-check" "run preflight stage in --check mode (no mutation by default)"
 	@printf "  %-28s %s\n" "make cleanup" "preview cleanup scope (declared instance names only)"
 	@printf "  %-28s %s\n" "make cleanup-force" "execute cleanup for declared instance names only (keeps disks by default)"
-	@printf "  %-28s %s\n" "make cleanup-force-disks" "execute cleanup and remove declared instance disks"
+	@printf "  %-28s %s\n" "make cleanup-force-disks" "execute cleanup and remove declared instance disks and snapshots"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit run to named hypervisor(s)"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "local settings file (default: vars/settings.local.yml)"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
 settings:
@@ -52,7 +52,7 @@ settings-clean-force:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-disposable
 
 settings-clean-force-all:
-	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active --output "$(LOCAL_SETTINGS_FILE)"
 
 venv:
 	$(MAKE) -C $(PROJECT_ROOT) venv
@@ -71,28 +71,28 @@ lint: require-venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
 check: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check $(SETTINGS_ARG)
 
 ping: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=ping $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=ping $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 image-cache: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 checksum-refresh: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache -e kvm_force_manifest_refresh=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache -e kvm_force_manifest_refresh=true $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 provision-check: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --check -e kvm_action=provision -e kvm_provision_stage=preflight $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --check -e kvm_action=provision -e kvm_provision_stage=preflight $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 provision: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup-force: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup-force-disks: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true -e kvm_cleanup_remove_instance_disks=true $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true -e kvm_cleanup_remove_instance_disks=true $(SETTINGS_ARG) $(EXTRA_ARGS)

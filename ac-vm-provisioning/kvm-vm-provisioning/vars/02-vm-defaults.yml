@@ -52,7 +52,8 @@ kvm_cpu_share_allow_capacity_overcommit: false # Allow demand above usable host 
 # - size_gb (required, integer > 0)
 # - mount_point (required, absolute path, example: /data or /var/lib/app)
 #   NOTE: /var is blocked by default because mounting a fresh disk on /var can break boot.
-# - filesystem (optional, ext4 | xfs, default: ext4)
+# - filesystem (optional, ext4 | xfs, default: ext4). xfs installs xfsprogs
+#   in the guest and readiness checks mkfs.xfs plus the mount.
 # - mount_options (optional, default: defaults,nofail)
 # - disk_extension (optional, default: instance_disk_extension)
 # - filesystem_label (optional, default: <instance>-<guest_device>, truncated)

@@ -1,10 +1,60 @@
 ---
+- name: "Readiness | Build guest checkpoints | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.set_fact:
+    runtime_readiness_checkpoints:
+      - label: cloud-init completion marker
+        command: test -f /var/lib/cloud/instance/boot-finished
+      - label: ssh.service active
+        command: systemctl is-active --quiet ssh
+      - label: "TCP/{{ runtime_readiness_instance.ssh_port }} listening"
+        command: >-
+          ss -H -lnt 'sport = :{{ runtime_readiness_instance.ssh_port }}' | grep -q .
+
+- name: "Readiness | Add xfsprogs checkpoint when extra disks use xfs | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.set_fact:
+    runtime_readiness_checkpoints: >-
+      {{
+        runtime_readiness_checkpoints
+        + [{'label': 'xfsprogs installed', 'command': 'command -v mkfs.xfs'}]
+      }}
+  when:
+    - runtime_readiness_instance.instance_extra_disks_enabled | default(false) | bool
+    - >-
+      (
+        (runtime_readiness_instance.instance_extra_disks | default([]))
+        | selectattr('filesystem', 'defined')
+        | map(attribute='filesystem')
+        | map('lower')
+        | select('equalto', 'xfs')
+        | list
+        | length
+      ) > 0
+
+- name: "Readiness | Add xfs mount checkpoints | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.set_fact:
+    runtime_readiness_checkpoints: >-
+      {{
+        runtime_readiness_checkpoints
+        + [
+            {
+              'label': 'xfs mount ' ~ item.mount_point,
+              'command': 'mountpoint -q ' ~ item.mount_point
+            }
+          ]
+      }}
+  loop: "{{ runtime_readiness_instance.instance_extra_disks | default([]) }}"
+  loop_control:
+    label: "{{ item.mount_point | default('missing-mount') }}"
+  when:
+    - runtime_readiness_instance.instance_extra_disks_enabled | default(false) | bool
+    - item.mount_point is defined
+    - (item.filesystem | default('ext4') | lower) == 'xfs'
+
 - name: "Readiness | Explain checkpoints | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.debug:
     msg: >-
       Waiting up to {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds per checkpoint.
-      Checkpoints: QEMU Guest Agent, cloud-init completion, ssh.service active,
-      and TCP/{{ runtime_readiness_instance.ssh_port }} listening inside the guest.
+      Checkpoints: {{ runtime_readiness_checkpoints | map(attribute='label') | list | join(', ') }}.
 
 - name: "Readiness | Wait for QEMU Guest Agent | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.command:
@@ -90,14 +140,7 @@
     QGA_DOMAIN: "{{ runtime_readiness_instance.instance_name }}"
     QGA_CHECK: "{{ item.command }}"
     QGA_LABEL: "{{ item.label }}"
-  loop:
-    - label: cloud-init completion marker
-      command: test -f /var/lib/cloud/instance/boot-finished
-    - label: ssh.service active
-      command: systemctl is-active --quiet ssh
-    - label: "TCP/{{ runtime_readiness_instance.ssh_port }} listening"
-      command: >-
-        ss -H -lnt 'sport = :{{ runtime_readiness_instance.ssh_port }}' | grep -q .
+  loop: "{{ runtime_readiness_checkpoints }}"
   loop_control:
     label: "{{ runtime_readiness_instance.instance_name }}: {{ item.label }}"
   register: runtime_qga_checkpoint_result
@@ -131,5 +174,6 @@
 - name: "Readiness | Complete | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.debug:
     msg: >-
-      QEMU Guest Agent, cloud-init, ssh.service, and the configured SSH listener
-      are ready. Snapshot reconciliation may continue.
+      Guest checkpoints are ready
+      ({{ runtime_readiness_checkpoints | map(attribute='label') | list | join(', ') }}).
+      Snapshot reconciliation may continue.

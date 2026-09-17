@@ -7,7 +7,7 @@ Provider-specific VM provisioning implementations.
 
 ## Current Providers
 
-- `kvm-vm-provisioning/`: KVM/libvirt VM clone + customize workflow
+- `kvm-vm-provisioning/`: KVM/libvirt cloud-image provisioning (Debian generic + cloud-init)
 
 ## Migration Notes
 

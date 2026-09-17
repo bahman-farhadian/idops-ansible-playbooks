@@ -28,6 +28,14 @@
         (kvm_host_cloud_init_workspace_path | default(kvm_cloud_init_workspace_path))
         | regex_replace('/+$', '')
       }}
+    # Overlays live next to the VM disks. A separate snapshot directory is not
+    # a setting: trailing slashes on the disk pool would otherwise make later
+    # virsh path comparisons fail closed against a guest this playbook created.
+    kvm_snapshot_overlay_path: >-
+      {{
+        (kvm_host_instance_disk_pool_path | default(kvm_instance_disk_pool_path))
+        | regex_replace('/+$', '')
+      }}
     kvm_auto_create_image_cache_path: >-
       {{
         kvm_host_auto_create_image_cache_path

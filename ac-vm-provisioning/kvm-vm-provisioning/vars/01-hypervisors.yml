@@ -42,8 +42,9 @@ kvm_require_explicit_hypervisor: false                # Force every instance to 
 # Where each host keeps images, VM disks and scratch files. Hosts rarely share
 # a storage layout, so every value here can be restated per host below;
 # these are only the fill-ins for hosts that do not.
-# Paths derived from these follow automatically: the trusted checksum store
-# sits under the image cache, and snapshot overlays under the disk pool.
+# Snapshot overlays are written in kvm_instance_disk_pool_path (or this
+# host's instance_disk_pool_path). They are not a separate path. The trusted
+# checksum store is kvm_image_checksum_cache_path in 04-images.yml.
 #
 # kvm_image_cache_path and kvm_instance_disk_pool_path stay blank on purpose:
 # a generic default such as /var/lib/libvirt/images/... can work by
@@ -79,8 +80,7 @@ kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-
 # vars/settings.local.yml - see the example below for the shape to copy.
 #
 # Keys:
-# - name (required)                 logical host name; instances target it and
-#                                   it is the inventory name matched by LIMIT
+# - name (required)                 logical host name; instances target it
 # - address                         SSH target. Values: FQDN | IP | SSH alias
 # - user                            SSH user for this host
 # - ssh_private_key_file            SSH private key for this host
