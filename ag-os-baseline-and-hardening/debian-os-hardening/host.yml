@@ -5,7 +5,7 @@
 # dynamically at runtime by playbook.yml, the same pattern
 # kvm-vm-provisioning uses for its hypervisor fleet. Editing this file with
 # a real host's address, user or password would put that data in a tracked
-# file - see Required Standard 12 in CONTRIBUTOR-GUIDE.md.
+# file - see Required Standard 19 in CONTRIBUTOR-GUIDE.md.
 all:
   children:
     local:

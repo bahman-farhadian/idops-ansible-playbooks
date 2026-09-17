@@ -5,13 +5,20 @@
   vars_files:
     - vars/debian-hardening.yml
     # The file above carries this project's generic hardening defaults.
-    # The real, per-deployment values it deliberately leaves out - real
-    # targets, credentials - live only here, and this file is required -
-    # see the "Fail when settings.local.yml is missing" task below. Loaded
-    # last so it wins; *.local.yml is never committed.
-    - vars/settings.local.yml
+    # Real per-deployment values live in a gitignored *.local.yml file,
+    # selected with debian_local_settings_file (default
+    # vars/settings.local.yml). A missing vars_files entry is silently
+    # skipped, so the fail task below is required. Loaded last so it wins.
+    - "{{ debian_local_settings_file | default('vars/settings.local.yml') }}"
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
+    debian_selected_local_settings_file: "{{ debian_local_settings_file | default('vars/settings.local.yml') }}"
+    debian_local_settings_path: >-
+      {{
+        debian_selected_local_settings_file
+        if debian_selected_local_settings_file is match('^/')
+        else (playbook_dir ~ '/' ~ debian_selected_local_settings_file)
+      }}
 
   tasks:
     # Every task in this play is tagged `always`: this play's job is to fail
@@ -20,30 +27,42 @@
     # matter which --tags a role-scoped `make role-*` target passes. Without
     # it, `--tags <role>` runs no task here at all - add_host never fires,
     # and the second play silently matches no hosts.
+    - name: Validate selected local settings file name
+      ansible.builtin.assert:
+        that:
+          - debian_selected_local_settings_file is match('\\.local\\.yml$')
+        fail_msg: >-
+          debian_local_settings_file must be a gitignored *.local.yml file
+          (got '{{ debian_selected_local_settings_file }}'). Use
+          LOCAL_SETTINGS_FILE=vars/settings.local.yml or
+          LOCAL_SETTINGS_FILE=vars/settings.<name>.local.yml.
+      tags: always
+
     - name: Check for the machine-specific settings file
       ansible.builtin.stat:
-        path: "{{ playbook_dir }}/vars/settings.local.yml"
+        path: "{{ debian_local_settings_path }}"
       register: debian_hardening_local_settings_file
       changed_when: false
       tags: always
 
     # A missing vars_files entry is silently skipped by Ansible rather than
-    # failing, so a missing settings.local.yml would leave every real
+    # failing, so a missing local settings file would leave every real
     # target and credential undefined with no warning, not merely fall
     # back to a documented default - there is no target to fall back to.
-    - name: Fail when settings.local.yml is missing
+    - name: Fail when the selected local settings file is missing
       ansible.builtin.fail:
         msg: >-
-          vars/settings.local.yml is required and was not found. It is the
-          only place real, per-deployment values live - real targets,
-          credentials; the tracked file only carries generic defaults.
-          Generate a starting point with: make settings
+          {{ debian_selected_local_settings_file }} is required and was not
+          found. It is the only place real, per-deployment values live -
+          real targets, credentials; the tracked file only carries generic
+          defaults. Generate a starting point with: make settings
+          (or make settings LOCAL_SETTINGS_FILE={{ debian_selected_local_settings_file }}).
       when: not debian_hardening_local_settings_file.stat.exists
       tags: always
 
     - name: Load the machine-specific override file for reporting
       ansible.builtin.include_vars:
-        file: "{{ playbook_dir }}/vars/settings.local.yml"
+        file: "{{ debian_local_settings_path }}"
         name: debian_hardening_local_overrides
       when: debian_hardening_local_settings_file.stat.exists
       tags: always
@@ -51,7 +70,7 @@
     - name: Report which settings come from the override file
       ansible.builtin.debug:
         msg: >-
-          vars/settings.local.yml is in effect and overrides
+          {{ debian_selected_local_settings_file }} is in effect and overrides
           {{ debian_hardening_local_overrides | length }} setting(s):
           {{ debian_hardening_local_overrides.keys() | list | join(', ') }}.
           Edit those there; the same keys in vars/debian-hardening.yml are ignored.
@@ -146,9 +165,8 @@
   gather_facts: "{{ debian_hardening_action_effective in ['scan', 'harden'] }}"
   vars_files:
     - vars/debian-hardening.yml
-    # Required; see the matching comment and fail task in the first play,
-    # which always runs first and aborts the whole run when this is missing.
-    - vars/settings.local.yml
+    # Required; same selected local file as the first play.
+    - "{{ debian_local_settings_file | default('vars/settings.local.yml') }}"
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
 

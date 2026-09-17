@@ -13,17 +13,17 @@ VENV_ACTIVATE := . $(VENV)/bin/activate
 PYTHON ?= python3
 LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
 FORCE ?=
-LIMIT ?=
 EXTRA_ARGS ?=
+SETTINGS_ARG := -e template_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 
 help:
 	@printf "playbook-template - scaffold for new implementation projects\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-20s %s\n" "make help" "show this help"
-	@printf "  %-20s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
+	@printf "  %-20s %s\n" "make settings" "create/update a machine-local settings file"
 	@printf "  %-20s %s\n" "make settings-clean" "list machine-local settings files for this project"
-	@printf "  %-20s %s\n" "make settings-clean-force" "delete disposable settings files (keeps settings.local.yml)"
-	@printf "  %-20s %s\n" "make settings-clean-force-all" "also delete settings.local.yml (not reversible)"
+	@printf "  %-20s %s\n" "make settings-clean-force" "delete disposable settings files (keeps *.local.yml)"
+	@printf "  %-20s %s\n" "make settings-clean-force-all" "delete LOCAL_SETTINGS_FILE (not reversible)"
 	@printf "  %-20s %s\n" "make venv" "create/update the shared repository-root environment"
 	@printf "  %-20s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-20s %s\n" "make lint" "run ansible-lint"
@@ -32,7 +32,7 @@ help:
 	@printf "  %-20s %s\n" "make provision" "run provision workflow"
 	@printf "  %-20s %s\n" "make cleanup" "run cleanup workflow"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LIMIT=<host_pattern>" "limit inventory scope"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "local settings file (default: vars/settings.local.yml)"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
 settings:
@@ -47,7 +47,7 @@ settings-clean-force:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-disposable
 
 settings-clean-force-all:
-	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active --output "$(LOCAL_SETTINGS_FILE)"
 
 venv:
 	$(MAKE) -C $(PROJECT_ROOT) venv
@@ -66,13 +66,13 @@ lint: require-venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
 check: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) -i "managed_target," $(PLAYBOOK_FILE) --syntax-check
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) -i "managed_target," $(PLAYBOOK_FILE) --syntax-check $(SETTINGS_ARG)
 
 ping: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=ping $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=ping $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 provision: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=provision $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=provision $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=cleanup $(if $(LIMIT),-l $(LIMIT),) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=cleanup $(SETTINGS_ARG) $(EXTRA_ARGS)

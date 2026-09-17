@@ -17,7 +17,6 @@ WHEELHOUSE := $(PROJECT_ROOT)/wheelhouse
 PYTHON ?= python3
 PIP := $(VENV)/bin/pip
 VENV_ACTIVATE := . $(VENV)/bin/activate
-LIMIT ?=
 FORKS ?=
 TAGS ?=
 SKIP_TAGS ?=
@@ -27,17 +26,17 @@ DIFF ?= false
 EXTRA_ARGS ?=
 LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
 FORCE ?=
+SETTINGS_ARG := -e debian_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 
 BOOL_TRUE := 1 true yes TRUE YES
 
-LIMIT_ARG := $(if $(LIMIT),-l $(LIMIT),)
 FORKS_ARG := $(if $(FORKS),--forks $(FORKS),)
 TAGS_ARG := $(if $(TAGS),--tags $(TAGS),)
 SKIP_TAGS_ARG := $(if $(SKIP_TAGS),--skip-tags $(SKIP_TAGS),)
 EXTRA_VARS_ARG := $(if $(EXTRA_VARS),-e "$(EXTRA_VARS)",)
 CHECK_ARG := $(if $(filter $(CHECK),$(BOOL_TRUE)),--check,)
 DIFF_ARG := $(if $(filter $(DIFF),$(BOOL_TRUE)),--diff,)
-PLAY_ARGS := $(LIMIT_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
+PLAY_ARGS := $(SETTINGS_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
 
 help:
 	@printf "debian-os-hardening - Debian/Ubuntu baseline hardening\n\n"
@@ -47,10 +46,10 @@ help:
 	@printf "  %-24s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
 	@printf "  %-24s %s\n" "make check" "syntax-check playbook entrypoint"
 	@printf "  %-24s %s\n" "make lint" "run ansible-lint"
-	@printf "  %-24s %s\n" "make settings" "create/update vars/settings.local.yml for this machine"
+	@printf "  %-24s %s\n" "make settings" "create/update a machine-local settings file"
 	@printf "  %-24s %s\n" "make settings-clean" "list machine-local settings files for this project"
-	@printf "  %-24s %s\n" "make settings-clean-force" "delete disposable settings files (keeps settings.local.yml)"
-	@printf "  %-24s %s\n" "make settings-clean-force-all" "also delete settings.local.yml (not reversible)"
+	@printf "  %-24s %s\n" "make settings-clean-force" "delete disposable settings files (keeps *.local.yml)"
+	@printf "  %-24s %s\n" "make settings-clean-force-all" "delete LOCAL_SETTINGS_FILE (not reversible)"
 	@printf "  %-24s %s\n" "make ping" "test connectivity to hardening targets"
 	@printf "  %-24s %s\n" "make scan" "run Lynis baseline scan workflow"
 	@printf "  %-24s %s\n" "make harden" "run Debian/Ubuntu hardening workflow"
@@ -83,7 +82,7 @@ help:
 	@printf "  %-32s %s\n" "make role-file-permissions" "apply file_permissions_hardening role only"
 	@printf "  %-32s %s\n" "make role-session-logging" "apply session_logging role only"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LIMIT=<host_or_group>" "limit inventory scope"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "local settings file (default: vars/settings.local.yml)"
 	@printf "  %-28s %s\n" "FORKS=<n>" "set Ansible fork parallelism"
 	@printf "  %-28s %s\n" "TAGS=<tag1,tag2>" "run only selected tags"
 	@printf "  %-28s %s\n" "SKIP_TAGS=<tag1,tag2>" "skip selected tags"
@@ -104,7 +103,7 @@ settings-clean-force:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-disposable
 
 settings-clean-force-all:
-	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active
+	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active --output "$(LOCAL_SETTINGS_FILE)"
 
 venv:
 	$(MAKE) -C $(PROJECT_ROOT) venv
@@ -123,7 +122,7 @@ lint: require-venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
 check: require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check $(SETTINGS_ARG)
 
 ping: require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=ping $(PLAY_ARGS)
@@ -154,7 +153,7 @@ runtime-check: require-venv
 
 # ── Per-role targets ──────────────────────────────────────────────────────────
 # Each target runs the full harden workflow scoped to a single role via --tags.
-# Accepts all standard runtime options: LIMIT, FORKS, CHECK, DIFF, EXTRA_ARGS.
+# Accepts all standard runtime options: LOCAL_SETTINGS_FILE, FORKS, CHECK, DIFF, EXTRA_ARGS.
 
 roles:
 	@printf "Available role targets:\n"
