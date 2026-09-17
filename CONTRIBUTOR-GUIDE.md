@@ -86,17 +86,12 @@ migration note. New work belongs in a domain directory, scaffolded from
     credential value lives - a real target's address, an SSH key, a
     password - and the only standard way to point a project at a real
     environment; editing tracked settings files to do it is not.
-14. Every implementation `Makefile` must include `make settings`, every
+14. Every implementation `Makefile` must include `make settings`. Every
     `playbook.yml` must load the selected override file in every play as a
     plain, required `vars_files` entry (never the "first found" nested-list
-    form), selected only by `LOCAL_SETTINGS_FILE` with **no default**. Every
-    Make target that generates settings, deletes an active settings file, or
-    runs `ansible-playbook` must fail in Make before Ansible starts if
-    `LOCAL_SETTINGS_FILE` is unset or empty, with a message that shows how
-    to pass it. The first play must also fail immediately if that file does
-    not exist — a missing `vars_files` entry is silently skipped by Ansible
-    rather than erroring, so this guard is not optional. `make help`,
-    `make venv`, `make lint`, and `make deps-bundle` are the exceptions.
+    form). `LOCAL_SETTINGS_FILE` has **no default**: the operator names the
+    file on every action that can touch a host. See "Named Settings Files
+    (No Default)" — that section is the rule, not a suggestion.
 15. Implementation Makefiles must not define `LIMIT`, must not pass
     `--limit` or `-l` to `ansible-playbook`, and must not list `LIMIT` in
     `make help`. `--limit` skips the localhost play that runs `add_host`,
@@ -154,7 +149,7 @@ Minimum structure for each implementation project:
 - `inventory.*`
 - `ansible.cfg`
 - `requirements.txt`
-- `Makefile`
+- `Makefile` (must include `require-local-settings`; see "Named Settings Files (No Default)")
 - `README.md`
 
 Optional but recommended:
@@ -302,6 +297,11 @@ cannot follow that pattern.
 7. Do not add `LIMIT=` / `--limit` to the Makefile. `make help` must not
    list it. Target a subset of hosts with `LOCAL_SETTINGS_FILE`, Required
    Standard 15.
+8. Copy `require-local-settings` from `kvm-vm-provisioning/Makefile` (or
+   the template). Depend on it from every target that generates settings,
+   deletes an active settings file, or runs `ansible-playbook`. Do not
+   assign `LOCAL_SETTINGS_FILE ?= ...`. See "Named Settings Files (No
+   Default)".
 
 `make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml` writes that file
 containing every setting the
@@ -391,16 +391,65 @@ A project should report which keys the local file supplies at the start of a
 run, so a tracked-file edit that appears to do nothing is explained where it
 happens rather than found by comparing two files.
 
+### Named Settings Files (No Default)
+
+These playbooks create guests, delete disks, rewrite SSH, and install a
+DROP firewall. A silent default of `vars/settings.local.yml` is convenient
+and is also how an operator with two files on disk types `make provision`
+from muscle memory and mutates the wrong hosts. That is the same class of
+mistake `--limit` had: the command looks successful and the operator did
+not say which world they meant.
+
+Tracked `vars/` files are generic defaults, not a deployment. Real hosts,
+keys, and storage paths live only in a gitignored `*.local.yml`. Naming
+that file on every action is the operator saying "this file is the desired
+state for this run." Convenience is not worth an implicit target.
+
+**The rule** (every implementation project, including `playbook-template/`):
+
+1. The Makefile must not assign `LOCAL_SETTINGS_FILE ?= ...` or any other
+   default path. There is no "the" settings file.
+2. Every Make target that generates settings, deletes an active settings
+   file, or runs `ansible-playbook` must depend on `require-local-settings`
+   and fail in Make **before Ansible starts** if the variable is unset,
+   empty, or not a `*.local.yml` path.
+3. The fail message is this shape (the first example line uses the target
+   the operator just typed):
+
+```
+LOCAL_SETTINGS_FILE is required.
+Example: make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
+     or: make provision LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
+Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
+```
+
+4. `make help` must list `LOCAL_SETTINGS_FILE=<path>` as required, with no
+   default.
+5. The playbook must not treat `vars/settings.local.yml` as an operator
+   default. If the extra-var is missing or empty, the first play fails.
+   A dummy `vars/.syntax-check.local.yml` in `vars_files` exists only so
+   `ansible-lint --syntax-check` can parse the templated entry; it is not
+   a settings file and must not exist on disk as a real deployment.
+6. Exempt, because they do not talk to hosts: `make help`, `make venv`,
+   `make lint`, `make deps-bundle`, and local-only greps (`score`,
+   `suggestions`, `gap-report`).
+
+Copy `require-local-settings` from an existing project Makefile. Do not
+re-invent a shorter message or a fallback path.
+
+This does not stop someone passing the *wrong* file. It stops the
+unspecified case, which is the one that actually hurts.
+
 ### Multiple Local Settings Files
 
-`--limit` / `make LIMIT=` is the wrong tool for "run this against one
-server". Real hosts are added in the first play on `localhost` with
-`add_host`. `--limit some-host` excludes `localhost`, that play never
-runs, and the command can exit 0 having done nothing. It also leaves the
-operator editing one giant local file and hoping the limit matches it.
+`--limit` / `make LIMIT=` is forbidden (Required Standard 15). Real hosts
+are added in the first play on `localhost` with `add_host`. `--limit
+some-host` excludes `localhost`, that play never runs, and the command
+can exit 0 having done nothing. It also leaves the operator editing one
+giant local file and hoping the limit matches it.
 
 Keep one complete local settings file per job instead. Every action names
-the file; Make has no default:
+the file; Make has no default (see "Named Settings Files (No Default)"):
 
 ```bash
 make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
@@ -418,14 +467,8 @@ make provision LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
 make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
 ```
 
-A bare `make provision` must fail with:
-
-```
-LOCAL_SETTINGS_FILE is required.
-Example: make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
-     or: make provision LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
-Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
-```
+A bare `make provision` must fail with the message defined in "Named
+Settings Files (No Default)".
 
 Rules:
 
@@ -437,13 +480,12 @@ Rules:
 3. Do not pass `--limit` / `LIMIT=` against the dynamic inventory group.
    If the job should not touch a host, that host (and its instances) must
    not be in this file.
-4. `make settings LOCAL_SETTINGS_FILE=...` is additive on that file the
-   same way the default file is: it never rewrites keys already present.
+4. `make settings LOCAL_SETTINGS_FILE=...` is additive on that named file:
+   it never rewrites keys already present.
 
 This is required of every implementation project, including
-`playbook-template/`. A Makefile that still exposes `LIMIT=` is unfinished.
-New playbooks copied from the template must keep `LOCAL_SETTINGS_FILE` and
-must not add `--limit`.
+`playbook-template/`. A Makefile that still exposes `LIMIT=`, or that
+runs `ansible-playbook` without `LOCAL_SETTINGS_FILE`, is unfinished.
 
 ### Keeping Local Settings Out Of Git
 
@@ -483,9 +525,9 @@ can, point at them instead of generating a copy of them.
 
 | Project | Status |
 |---------|--------|
-| `ac-vm-provisioning/kvm-vm-provisioning` | adopted (`LOCAL_SETTINGS_FILE`, no `LIMIT`) |
-| `ag-os-baseline-and-hardening/debian-os-hardening` | adopted (`LOCAL_SETTINGS_FILE`, no `LIMIT`) |
-| `playbook-template` | adopted, so new projects inherit `LOCAL_SETTINGS_FILE` and must not add `LIMIT` |
+| `ac-vm-provisioning/kvm-vm-provisioning` | adopted (named `LOCAL_SETTINGS_FILE`, no default, no `LIMIT`) |
+| `ag-os-baseline-and-hardening/debian-os-hardening` | adopted (named `LOCAL_SETTINGS_FILE`, no default, no `LIMIT`) |
+| `playbook-template` | adopted, so new projects inherit the rule and must not add a default or `LIMIT` |
 
 ### Secrets
 
