@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
+.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv require-local-settings deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
         roles \
         role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-terminal-dotfiles role-common-repos \
         role-package-hardening role-service-hardening role-firewall role-kernel-hardening role-auth-hardening \
@@ -24,9 +24,9 @@ EXTRA_VARS ?=
 CHECK ?= false
 DIFF ?= false
 EXTRA_ARGS ?=
-LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
 FORCE ?=
 SETTINGS_ARG := -e debian_local_settings_file="$(LOCAL_SETTINGS_FILE)"
+MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 BOOL_TRUE := 1 true yes TRUE YES
 
@@ -82,7 +82,7 @@ help:
 	@printf "  %-32s %s\n" "make role-file-permissions" "apply file_permissions_hardening role only"
 	@printf "  %-32s %s\n" "make role-session-logging" "apply session_logging role only"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "local settings file (default: vars/settings.local.yml)"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "required *.local.yml for every action (no default)"
 	@printf "  %-28s %s\n" "FORKS=<n>" "set Ansible fork parallelism"
 	@printf "  %-28s %s\n" "TAGS=<tag1,tag2>" "run only selected tags"
 	@printf "  %-28s %s\n" "SKIP_TAGS=<tag1,tag2>" "skip selected tags"
@@ -91,7 +91,7 @@ help:
 	@printf "  %-28s %s\n" "DIFF=true" "enable Ansible --diff"
 	@printf "  %-28s %s\n" "EXTRA_ARGS='<raw args>'" "pass raw ansible args"
 
-settings:
+settings: require-local-settings
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
 		--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
 		$(if $(filter 1,$(FORCE)),--force,)
@@ -102,7 +102,7 @@ settings-clean:
 settings-clean-force:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-disposable
 
-settings-clean-force-all:
+settings-clean-force-all: require-local-settings
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active --output "$(LOCAL_SETTINGS_FILE)"
 
 venv:
@@ -115,25 +115,43 @@ require-venv:
 		exit 1; \
 	}
 
+require-local-settings:
+	@if [ -z "$(strip $(LOCAL_SETTINGS_FILE))" ]; then \
+		printf '%s\n' \
+			"LOCAL_SETTINGS_FILE is required." \
+			"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml" \
+			"     or: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml" \
+			"Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
+		exit 1; \
+	fi
+	@case "$(LOCAL_SETTINGS_FILE)" in \
+		*.local.yml) ;; \
+		*) \
+			printf '%s\n' \
+				"LOCAL_SETTINGS_FILE must be a gitignored *.local.yml file (got $(LOCAL_SETTINGS_FILE))." \
+				"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
+			exit 1 ;; \
+	esac
+
 deps-bundle: require-venv
 	$(VENV_ACTIVATE) && pip download -r $(PROJECT_ROOT)/requirements.txt -d $(WHEELHOUSE)
 
 lint: require-venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
-check: require-venv
+check: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check $(SETTINGS_ARG)
 
-ping: require-venv
+ping: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=ping $(PLAY_ARGS)
 
-scan: require-venv
+scan: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=scan $(PLAY_ARGS)
 
-harden: require-venv
+harden: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden $(PLAY_ARGS)
 
-reboot: require-venv
+reboot: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=reboot $(PLAY_ARGS)
 
 score:
@@ -142,13 +160,13 @@ score:
 suggestions:
 	@grep '^suggestion\[\]=' artifacts/lynis/*/lynis-report.dat || true
 
-ssh-check: require-venv
+ssh-check: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=ssh-check $(PLAY_ARGS)
 
 gap-report:
 	@grep -E '^hardening_index=|^warning\[]=|^suggestion\[]=|^details\[]=(KRNL-6000|SSH-7408|FIRE-4513|NETW-2705|NAME-4028|NAME-4404|LOGG-2154|BOOT-5122|FILE-6310|PKGS-7346|ACCT-9630)' artifacts/lynis/*/lynis-report.dat || true
 
-runtime-check: require-venv
+runtime-check: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=runtime-check $(PLAY_ARGS)
 
 # ── Per-role targets ──────────────────────────────────────────────────────────
@@ -178,62 +196,62 @@ roles:
 	@printf "  make role-file-permissions\n"
 	@printf "  make role-session-logging\n"
 
-role-network-identity: require-venv
+role-network-identity: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags network_identity $(PLAY_ARGS)
 
-role-boot-hardening: require-venv
+role-boot-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags boot_hardening $(PLAY_ARGS)
 
-role-grub-hardening: require-venv
+role-grub-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags grub_hardening $(PLAY_ARGS)
 
-role-prep-baseline: require-venv
+role-prep-baseline: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags prep_baseline $(PLAY_ARGS)
 
-role-terminal-dotfiles: require-venv
+role-terminal-dotfiles: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags terminal_dotfiles $(PLAY_ARGS)
 
-role-common-repos: require-venv
+role-common-repos: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags common_repos $(PLAY_ARGS)
 
-role-package-hardening: require-venv
+role-package-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags package_hardening $(PLAY_ARGS)
 
-role-service-hardening: require-venv
+role-service-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags service_hardening $(PLAY_ARGS)
 
-role-firewall: require-venv
+role-firewall: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags firewall $(PLAY_ARGS)
 
-role-kernel-hardening: require-venv
+role-kernel-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags kernel_hardening $(PLAY_ARGS)
 
-role-auth-hardening: require-venv
+role-auth-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags auth_hardening $(PLAY_ARGS)
 
-role-banner-hardening: require-venv
+role-banner-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags banner_hardening $(PLAY_ARGS)
 
-role-ssh-hardening: require-venv
+role-ssh-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags ssh_hardening $(PLAY_ARGS)
 
-role-fail2ban: require-venv
+role-fail2ban: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags fail2ban $(PLAY_ARGS)
 
-role-auditd: require-venv
+role-auditd: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags auditd $(PLAY_ARGS)
 
-role-accounting-hardening: require-venv
+role-accounting-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags accounting_hardening $(PLAY_ARGS)
 
-role-integrity-hardening: require-venv
+role-integrity-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags integrity_hardening $(PLAY_ARGS)
 
-role-compiler-hardening: require-venv
+role-compiler-hardening: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags compiler_hardening $(PLAY_ARGS)
 
-role-file-permissions: require-venv
+role-file-permissions: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags file_permissions_hardening $(PLAY_ARGS)
 
-role-session-logging: require-venv
+role-session-logging: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags session_logging $(PLAY_ARGS)

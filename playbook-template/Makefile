@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv deps-bundle lint check ping provision cleanup
+.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv require-local-settings deps-bundle lint check ping provision cleanup
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -11,10 +11,10 @@ PYTHON ?= python3
 PIP := $(VENV)/bin/pip
 VENV_ACTIVATE := . $(VENV)/bin/activate
 PYTHON ?= python3
-LOCAL_SETTINGS_FILE ?= vars/settings.local.yml
 FORCE ?=
 EXTRA_ARGS ?=
 SETTINGS_ARG := -e template_local_settings_file="$(LOCAL_SETTINGS_FILE)"
+MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 help:
 	@printf "playbook-template - scaffold for new implementation projects\n\n"
@@ -32,10 +32,10 @@ help:
 	@printf "  %-20s %s\n" "make provision" "run provision workflow"
 	@printf "  %-20s %s\n" "make cleanup" "run cleanup workflow"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "local settings file (default: vars/settings.local.yml)"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "required *.local.yml for every action (no default)"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
 
-settings:
+settings: require-local-settings
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
 		--vars-dir vars --output "$(LOCAL_SETTINGS_FILE)" \
 		$(if $(filter 1,$(FORCE)),--force,)
@@ -46,7 +46,7 @@ settings-clean:
 settings-clean-force:
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-disposable
 
-settings-clean-force-all:
+settings-clean-force-all: require-local-settings
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/clean-local-settings.py --vars-dir vars --remove-active --output "$(LOCAL_SETTINGS_FILE)"
 
 venv:
@@ -59,20 +59,38 @@ require-venv:
 		exit 1; \
 	}
 
+require-local-settings:
+	@if [ -z "$(strip $(LOCAL_SETTINGS_FILE))" ]; then \
+		printf '%s\n' \
+			"LOCAL_SETTINGS_FILE is required." \
+			"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml" \
+			"     or: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml" \
+			"Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
+		exit 1; \
+	fi
+	@case "$(LOCAL_SETTINGS_FILE)" in \
+		*.local.yml) ;; \
+		*) \
+			printf '%s\n' \
+				"LOCAL_SETTINGS_FILE must be a gitignored *.local.yml file (got $(LOCAL_SETTINGS_FILE))." \
+				"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
+			exit 1 ;; \
+	esac
+
 deps-bundle: require-venv
 	$(VENV_ACTIVATE) && pip download -r $(PROJECT_ROOT)/requirements.txt -d $(WHEELHOUSE)
 
 lint: require-venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
-check: require-venv
+check: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) -i "managed_target," $(PLAYBOOK_FILE) --syntax-check $(SETTINGS_ARG)
 
-ping: require-venv
+ping: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=ping $(SETTINGS_ARG) $(EXTRA_ARGS)
 
-provision: require-venv
+provision: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=provision $(SETTINGS_ARG) $(EXTRA_ARGS)
 
-cleanup: require-venv
+cleanup: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e template_action=cleanup $(SETTINGS_ARG) $(EXTRA_ARGS)

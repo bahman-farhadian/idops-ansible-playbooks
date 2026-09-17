@@ -10,14 +10,14 @@
     - vars/05-runtime.yml
     - vars/06-instances.yml
     # The files above carry this project's generic, safe-to-ship defaults.
-    # Real per-deployment values live in a gitignored *.local.yml file,
-    # selected with kvm_local_settings_file (default vars/settings.local.yml).
-    # A missing vars_files entry is silently skipped, so the fail task below
-    # is required. Loaded last so it wins.
-    - "{{ kvm_local_settings_file | default('vars/settings.local.yml') }}"
+    # Real per-deployment values live in a gitignored *.local.yml file
+    # selected with kvm_local_settings_file. There is no operator default.
+    # The dummy path exists only so ansible-lint --syntax-check can parse
+    # this entry; it is not a settings file. Loaded last so a real file wins.
+    - "{{ kvm_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
-    kvm_selected_local_settings_file: "{{ kvm_local_settings_file | default('vars/settings.local.yml') }}"
+    kvm_selected_local_settings_file: "{{ kvm_local_settings_file | default('') }}"
     kvm_local_settings_path: >-
       {{
         kvm_selected_local_settings_file
@@ -31,6 +31,14 @@
         that:
           - kvm_action in ['provision', 'cleanup', 'ping']
         fail_msg: "kvm_action must be 'provision', 'cleanup', or 'ping'."
+
+    - name: Fail when no local settings file was selected
+      ansible.builtin.fail:
+        msg: >-
+          No local settings file was selected. This playbook has no default.
+          Run it through Make:
+          make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
+      when: kvm_selected_local_settings_file | length == 0
 
     - name: Validate selected local settings file name
       ansible.builtin.assert:
@@ -324,8 +332,8 @@
     - vars/04-images.yml
     - vars/05-runtime.yml
     - vars/06-instances.yml
-    # Required; same selected local file as the first play.
-    - "{{ kvm_local_settings_file | default('vars/settings.local.yml') }}"
+    # Required; same selected local file as the first play. No operator default.
+    - "{{ kvm_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   environment:
     LIBVIRT_DEFAULT_URI: "{{ kvm_host_libvirt_uri | default(kvm_libvirt_connection_uri) }}"
   vars:

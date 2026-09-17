@@ -89,7 +89,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - `playbook-template/` is the baseline scaffold for new implementation projects.
 - Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
 - Repository-wide work queue: `TODO.md`.
-- Makefile standard: every project must provide `make ping`, all user commands must appear in `make help`, and Makefiles must not pass `--limit` (use `LOCAL_SETTINGS_FILE` instead; see `CONTRIBUTOR-GUIDE.md`).
+- Makefile standard: every project must provide `make ping`, all user commands must appear in `make help`, Makefiles must not pass `--limit`, and every action that talks to hosts must take `LOCAL_SETTINGS_FILE` with no default (see `CONTRIBUTOR-GUIDE.md`).
 
 ## Ignore Policy
 

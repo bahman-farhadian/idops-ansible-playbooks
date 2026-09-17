@@ -5,14 +5,14 @@
   vars_files:
     - vars/debian-hardening.yml
     # The file above carries this project's generic hardening defaults.
-    # Real per-deployment values live in a gitignored *.local.yml file,
-    # selected with debian_local_settings_file (default
-    # vars/settings.local.yml). A missing vars_files entry is silently
-    # skipped, so the fail task below is required. Loaded last so it wins.
-    - "{{ debian_local_settings_file | default('vars/settings.local.yml') }}"
+    # Real per-deployment values live in a gitignored *.local.yml file
+    # selected with debian_local_settings_file. There is no operator default.
+    # The dummy path exists only so ansible-lint --syntax-check can parse
+    # this entry; it is not a settings file. Loaded last so a real file wins.
+    - "{{ debian_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
-    debian_selected_local_settings_file: "{{ debian_local_settings_file | default('vars/settings.local.yml') }}"
+    debian_selected_local_settings_file: "{{ debian_local_settings_file | default('') }}"
     debian_local_settings_path: >-
       {{
         debian_selected_local_settings_file
@@ -27,6 +27,15 @@
     # matter which --tags a role-scoped `make role-*` target passes. Without
     # it, `--tags <role>` runs no task here at all - add_host never fires,
     # and the second play silently matches no hosts.
+    - name: Fail when no local settings file was selected
+      ansible.builtin.fail:
+        msg: >-
+          No local settings file was selected. This playbook has no default.
+          Run it through Make:
+          make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
+      when: debian_selected_local_settings_file | length == 0
+      tags: always
+
     - name: Validate selected local settings file name
       ansible.builtin.assert:
         that:
@@ -165,8 +174,8 @@
   gather_facts: "{{ debian_hardening_action_effective in ['scan', 'harden'] }}"
   vars_files:
     - vars/debian-hardening.yml
-    # Required; same selected local file as the first play.
-    - "{{ debian_local_settings_file | default('vars/settings.local.yml') }}"
+    # Required; same selected local file as the first play. No operator default.
+    - "{{ debian_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
 

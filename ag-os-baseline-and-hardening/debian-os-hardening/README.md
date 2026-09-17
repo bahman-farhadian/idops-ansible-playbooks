@@ -34,12 +34,12 @@ This project follows repository standards:
 ```bash
 cd ag-os-baseline-and-hardening/debian-os-hardening
 make venv
-make settings
-# edit the real values make settings just wrote into vars/settings.local.yml
+make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
+# edit the real values that file just wrote
 # for a second deployment: make settings LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
-make check
-make ping
-make harden
+make check LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make ping LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make harden LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
 
 ## Inventory
@@ -149,10 +149,10 @@ alone with `make role-terminal-dotfiles`. The bash half is part of
 ## Main Commands
 
 ```bash
-make ping
-make scan
-make harden
-make reboot
+make ping LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make scan LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make harden LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make reboot LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
 
 `scan` and `harden` are explicit, separate workflows.

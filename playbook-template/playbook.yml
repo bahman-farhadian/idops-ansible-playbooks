@@ -5,14 +5,14 @@
   vars_files:
     - vars/template-config.yml
     # The file above carries this scaffold's generic, safe-to-ship defaults.
-    # Real per-deployment values live in a gitignored *.local.yml file,
-    # selected with template_local_settings_file (default
-    # vars/settings.local.yml). A missing vars_files entry is silently
-    # skipped, so the fail task below is required. Loaded last so it wins.
-    - "{{ template_local_settings_file | default('vars/settings.local.yml') }}"
+    # Real per-deployment values live in a gitignored *.local.yml file
+    # selected with template_local_settings_file. There is no operator default.
+    # The dummy path exists only so ansible-lint --syntax-check can parse
+    # this entry; it is not a settings file. Loaded last so a real file wins.
+    - "{{ template_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   vars:
     template_action: "{{ template_action | default('provision') }}"
-    template_selected_local_settings_file: "{{ template_local_settings_file | default('vars/settings.local.yml') }}"
+    template_selected_local_settings_file: "{{ template_local_settings_file | default('') }}"
     template_local_settings_path: >-
       {{
         template_selected_local_settings_file
@@ -21,6 +21,14 @@
       }}
 
   tasks:
+    - name: Fail when no local settings file was selected
+      ansible.builtin.fail:
+        msg: >-
+          No local settings file was selected. This playbook has no default.
+          Run it through Make:
+          make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
+      when: template_selected_local_settings_file | length == 0
+
     - name: Validate selected local settings file name
       ansible.builtin.assert:
         that:
@@ -83,8 +91,8 @@
   gather_facts: false
   vars_files:
     - vars/template-config.yml
-    # Required; same selected local file as the first play.
-    - "{{ template_local_settings_file | default('vars/settings.local.yml') }}"
+    # Required; same selected local file as the first play. No default.
+    - "{{ template_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   vars:
     template_action: "{{ template_action | default('provision') }}"
 

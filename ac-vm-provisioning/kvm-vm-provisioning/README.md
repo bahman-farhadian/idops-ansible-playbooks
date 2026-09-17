@@ -55,11 +55,11 @@ Scope: this playbook supports **Debian images only**. Catalog `image_variant` is
 ```bash
 cd ac-vm-provisioning/kvm-vm-provisioning
 make venv
-make settings
-# edit the real values make settings just wrote into vars/settings.local.yml
+make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
+# edit the real values that file just wrote
 # for a second deployment: make settings LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
-make check
-make ping
+make check LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make ping LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
 
 `make venv` delegates to the repository root and creates the single shared
@@ -165,8 +165,8 @@ change even with auto-fix enabled.
 Then run:
 
 ```bash
-make image-cache
-make provision
+make image-cache LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
 
 ## Make Targets
@@ -176,16 +176,19 @@ make help
 make venv
 make deps-bundle
 make lint
-make check
-make ping
-make image-cache
-make checksum-refresh
-make provision
-make provision-check
-make cleanup
-make cleanup-force
-make cleanup-force-disks
+make check LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make ping LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make image-cache LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make checksum-refresh LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make provision-check LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make cleanup LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make cleanup-force LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
+
+`help`, `venv`, `lint`, and `deps-bundle` do not take a settings file. Every
+other target above requires `LOCAL_SETTINGS_FILE`.
 
 `make provision-check` runs `preflight` in Ansible check mode.
 
@@ -276,7 +279,7 @@ to one of those network names.
 Optional runtime flag to auto-start inactive required networks:
 
 ```bash
-make provision EXTRA_ARGS="-e kvm_auto_start_required_libvirt_networks=true"
+make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml EXTRA_ARGS="-e kvm_auto_start_required_libvirt_networks=true"
 ```
 
 If readiness fails, the task identifies the QEMU Guest Agent or in-guest
@@ -405,16 +408,17 @@ opening any one of them shows where everything else lives.
 ### Machine-Specific Values
 
 Anything true only of your machine — real host addresses, SSH keys, local
-storage pools — belongs in a gitignored `*.local.yml` file (default
-`vars/settings.local.yml`). It is loaded last, so it overrides the tracked
-files, and it is required: the playbook fails immediately if that file does
-not exist. Use a second file for a second deployment; see "Multiple Local
-Settings Files" below.
+storage pools — belongs in a gitignored `*.local.yml` file. There is no
+default: every Make action that talks to a host must be given
+`LOCAL_SETTINGS_FILE`. It is loaded last, so it overrides the tracked
+files, and the playbook fails immediately if that file does not exist. Use
+a second file for a second deployment; see "Multiple Local Settings Files"
+below.
 
 Generate it rather than writing it by hand:
 
 ```bash
-make settings
+make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
 
 That writes every setting the project exposes, grouped by the file it comes
@@ -579,13 +583,13 @@ Keep one complete local file per job instead. Each file lists the hosts and
 instances that job should converge; running it twice is the idempotent path.
 
 ```bash
-make settings
+make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
 # vars/settings.local.yml - hypervisor A and its VMs
 
 make settings LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
 # a second file - hypervisor B, or a different instance list
 
-make provision
+make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make provision LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
 make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
 ```
