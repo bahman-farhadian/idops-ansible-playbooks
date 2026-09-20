@@ -74,6 +74,20 @@ kvm_cloud_image_catalog:
     seed_device_bus: "scsi"             # Keep aligned with Debian profiles.
     firmware_boot_mode: "uefi"          # Required for the tested cloud-image workflow.
 
+  ubuntu-26:
+    image_distro: "ubuntu"              # Cloud image family. Values: "debian" | "ubuntu".
+    image_codename: "resolute"          # Ubuntu series name used in the releases URL.
+    image_major: "26.04"                # Major version used in the image filename.
+    # Pick this profile's image_version from https://cloud-images.ubuntu.com/releases/resolute/
+    # Pin is https://cloud-images.ubuntu.com/releases/resolute/release-20260918/
+    image_version: "20260918"           # REQUIRED: pin an Ubuntu release serial. Example: 20260918.
+    image_checksum_algorithm: "sha256"  # Checksum algorithm used by the manifest.
+    # libosinfo on this stack has no ubuntu26.04 id yet; ubuntu25.10 is the newest Ubuntu variant.
+    virt_install_os_variant: "ubuntu25.10" # OS variant for virt-install.
+    virt_install_machine_type: "q35"    # Keep aligned with Debian profiles.
+    seed_device_bus: "scsi"             # Keep aligned with Debian profiles.
+    firmware_boot_mode: "uefi"          # Required for the tested cloud-image workflow.
+
 
 # -----------------------------------------------------------------------------
 # 2. IMAGE CACHE POLICY AND TRUSTED CHECKSUMS
