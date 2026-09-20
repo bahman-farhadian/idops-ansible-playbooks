@@ -50,7 +50,18 @@
   loop_control:
     label: "{{ item.key }}"
 
-- name: Expand cloud image catalog URLs from version pin
+- name: Fail when image_distro has no catalog URL template
+  ansible.builtin.fail:
+    msg: >-
+      Profile {{ item.key }} image_distro
+      '{{ item.value.image_distro | default('') }}' has no catalog URL
+      template. Supported: debian.
+  when: (item.value.image_distro | default('')) not in ['debian']
+  loop: "{{ kvm_cloud_image_catalog | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Expand Debian cloud image catalog URLs from version pin
   ansible.builtin.set_fact:
     expanded_cloud_image_catalog: >-
       {{
@@ -74,6 +85,7 @@
             }, recursive=True))
           })
       }}
+  when: (item.value.image_distro | default('')) == 'debian'
   loop: "{{ kvm_cloud_image_catalog | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
