@@ -27,6 +27,17 @@
       - kvm_cloud_image_catalog | length > 0
     fail_msg: "Define at least one image profile in vars/04-images.yml under kvm_cloud_image_catalog."
 
+- name: Assert every image profile sets image_distro
+  ansible.builtin.assert:
+    that:
+      - kvm_cloud_image_catalog[item.key].image_distro is defined
+      - (kvm_cloud_image_catalog[item.key].image_distro | default('')) == 'debian'
+    fail_msg: >-
+      Profile {{ item.key }} must set image_distro to 'debian'.
+  loop: "{{ kvm_cloud_image_catalog | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
 - name: Assert every image profile pins image_version
   ansible.builtin.assert:
     that:

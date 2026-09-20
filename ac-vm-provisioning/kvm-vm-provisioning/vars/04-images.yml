@@ -34,6 +34,7 @@
 # -----------------------------------------------------------------------------
 kvm_cloud_image_catalog:
   debian-12:
+    image_distro: "debian"              # Cloud image family. Values: "debian".
     image_codename: "bookworm"          # Debian codename for this major.
     image_major: "12"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
@@ -47,6 +48,7 @@ kvm_cloud_image_catalog:
     firmware_boot_mode: "uefi"          # Required for the tested Debian cloud-image workflow.
 
   debian-13:
+    image_distro: "debian"              # Cloud image family. Values: "debian".
     image_codename: "trixie"            # Debian codename for this major.
     image_major: "13"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
