@@ -7,3 +7,4 @@ lynis_quick_mode: true
 lynis_offline_bundle_from_control_node: false
 lynis_control_cache_dir: "{{ playbook_dir }}/artifacts/cache/lynis"
 lynis_control_repo_dir: "{{ lynis_control_cache_dir }}/lynis-repo"
+lynis_min_hardening_index: 86

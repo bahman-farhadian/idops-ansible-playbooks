@@ -156,6 +156,16 @@
   ansible.builtin.debug:
     msg: "Lynis hardening index for {{ inventory_hostname }}: {{ lynis_hardening_index }}"
 
+- name: Assert Lynis hardening index meets the minimum
+  ansible.builtin.assert:
+    that:
+      - lynis_hardening_index | length > 0
+      - lynis_hardening_index is match('^[0-9]+$')
+      - (lynis_hardening_index | int) >= (lynis_min_hardening_index | int)
+    fail_msg: >-
+      Lynis hardening index for {{ inventory_hostname }} is
+      {{ lynis_hardening_index }} (minimum {{ lynis_min_hardening_index }}).
+
 - name: Show suggestion extraction hint
   ansible.builtin.debug:
     msg: >-

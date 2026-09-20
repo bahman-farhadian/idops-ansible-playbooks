@@ -51,7 +51,7 @@ help:
 	@printf "  %-24s %s\n" "make settings-clean-force" "delete disposable settings files (keeps *.local.yml)"
 	@printf "  %-24s %s\n" "make settings-clean-force-all" "delete LOCAL_SETTINGS_FILE (not reversible)"
 	@printf "  %-24s %s\n" "make ping" "test connectivity to hardening targets"
-	@printf "  %-24s %s\n" "make scan" "run Lynis baseline scan workflow"
+	@printf "  %-24s %s\n" "make scan" "run Lynis scan; fail below lynis_min_hardening_index (86)"
 	@printf "  %-24s %s\n" "make harden" "run Debian/Ubuntu hardening workflow"
 	@printf "  %-24s %s\n" "make reboot" "reboot hardening targets"
 	@printf "  %-24s %s\n" "make score" "show Lynis hardening_index values"
