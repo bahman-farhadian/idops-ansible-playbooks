@@ -6,6 +6,6 @@
       - >-
         (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_major_version'] in ['12', '13'])
         or
-        (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_version'] in ['22.04', '24.04'])
+        (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_version'] in ['22.04', '24.04', '26.04'])
     fail_msg: >-
-      Unsupported OS/version. Supported targets are Debian 12/13 and Ubuntu 22.04/24.04.
+      Unsupported OS/version. Supported targets are Debian 12/13 and Ubuntu 22.04/24.04/26.04.

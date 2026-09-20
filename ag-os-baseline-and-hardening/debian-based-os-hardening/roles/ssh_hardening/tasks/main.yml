@@ -95,6 +95,20 @@
     - ssh_disable_motd_news | bool
     - ssh_motd_news_file.stat.exists
 
+- name: Detect systemd ssh.socket unit
+  ansible.builtin.command: systemctl list-unit-files ssh.socket
+  register: ssh_socket_unit_files
+  changed_when: false
+  failed_when: false
+
+- name: Disable ssh.socket so sshd_config Port is used
+  ansible.builtin.systemd:
+    name: ssh.socket
+    enabled: false
+    state: stopped
+  when: "'ssh.socket' in (ssh_socket_unit_files.stdout | default(''))"
+  notify: Restart ssh
+
 - name: Ensure SSH service is enabled and running
   ansible.builtin.service:
     name: "{{ 'ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd' }}"
