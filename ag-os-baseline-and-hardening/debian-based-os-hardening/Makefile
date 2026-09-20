@@ -58,7 +58,7 @@ help:
 	@printf "  %-24s %s\n" "make suggestions" "show Lynis suggestions from collected reports"
 	@printf "  %-24s %s\n" "make ssh-check" "inspect effective sshd hardening settings"
 	@printf "  %-24s %s\n" "make gap-report" "show focused Lynis warning/suggestion gaps"
-	@printf "  %-24s %s\n" "make runtime-check" "collect runtime state diagnostics from targets"
+	@printf "  %-24s %s\n" "make runtime-check" "collect runtime diagnostics; fail on leftover UFW/cloud-init/public SMTP"
 	@printf "\nPer-role targets (run a single role from the harden workflow):\n"
 	@printf "  %-32s %s\n" "make roles" "list all available role targets"
 	@printf "  %-32s %s\n" "make role-network-identity" "apply network_identity role only"

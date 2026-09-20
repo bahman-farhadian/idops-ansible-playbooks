@@ -87,3 +87,94 @@
   when:
     - service_hardening_enabled | bool
     - service_hardening_disable_target_units | default([]) | length > 0
+
+- name: Check for Postfix postconf
+  ansible.builtin.stat:
+    path: /usr/sbin/postconf
+  register: service_hardening_postfix_postconf
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_bind_mta_loopback | default(true) | bool
+
+- name: Read Postfix inet_interfaces
+  ansible.builtin.command: postconf -h inet_interfaces
+  register: service_hardening_postfix_inet
+  changed_when: false
+  failed_when: false
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_bind_mta_loopback | default(true) | bool
+    - service_hardening_postfix_postconf.stat.exists | default(false)
+
+- name: Bind Postfix SMTP to loopback
+  ansible.builtin.command: postconf -e inet_interfaces=loopback-only
+  register: service_hardening_postfix_bind
+  changed_when: true
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_bind_mta_loopback | default(true) | bool
+    - service_hardening_postfix_postconf.stat.exists | default(false)
+    - (service_hardening_postfix_inet.stdout | default('') | trim) != 'loopback-only'
+
+# Reload does not re-bind smtpd. Ubuntu 24 postfix.service is Type=oneshot,
+# so the master process keeps the old 0.0.0.0:25 sockets until restart.
+- name: Check whether Postfix is still listening on a public address
+  ansible.builtin.shell: |
+    set -o pipefail
+    ss -lnt | awk '{print $4}' | grep -Eq '(^|[^0-9])0\.0\.0\.0:25$|\[::\]:25$|\*:25$'
+  args:
+    executable: /bin/bash
+  register: service_hardening_postfix_public_listen
+  changed_when: false
+  failed_when: false
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_bind_mta_loopback | default(true) | bool
+    - service_hardening_postfix_postconf.stat.exists | default(false)
+
+- name: Restart Postfix so loopback bind replaces public SMTP sockets
+  ansible.builtin.systemd:
+    name: postfix.service
+    state: restarted
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_bind_mta_loopback | default(true) | bool
+    - service_hardening_postfix_postconf.stat.exists | default(false)
+    - >-
+      (service_hardening_postfix_bind is changed)
+      or (service_hardening_postfix_public_listen.rc | default(1) == 0)
+
+- name: Check for Exim update-exim4.conf.conf
+  ansible.builtin.stat:
+    path: /etc/exim4/update-exim4.conf.conf
+  register: service_hardening_exim_conf
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_bind_mta_loopback | default(true) | bool
+
+- name: Bind Exim SMTP to loopback
+  ansible.builtin.lineinfile:
+    path: /etc/exim4/update-exim4.conf.conf
+    regexp: '^dc_local_interfaces='
+    line: "dc_local_interfaces='127.0.0.1 ; ::1'"
+  register: service_hardening_exim_bind
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_bind_mta_loopback | default(true) | bool
+    - service_hardening_exim_conf.stat.exists | default(false)
+
+- name: Rebuild Exim configuration after loopback bind
+  ansible.builtin.command: update-exim4.conf
+  changed_when: true
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_exim_bind is changed
+
+- name: Reload Exim after loopback bind
+  ansible.builtin.systemd:
+    name: exim4.service
+    state: reloaded
+  failed_when: false
+  when:
+    - service_hardening_enabled | bool
+    - service_hardening_exim_bind is changed

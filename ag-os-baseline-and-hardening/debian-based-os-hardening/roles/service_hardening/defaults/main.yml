@@ -8,6 +8,9 @@ service_hardening_units:
   - cron.service
   - unattended-upgrades.service
 service_hardening_disable_units: []
+# Ubuntu postfix defaults to inet_interfaces=all; RFC1918 allow then
+# exposes SMTP on the guest LAN. Debian Exim is already loopback-only.
+service_hardening_bind_mta_loopback: true
 service_hardening_directives:
   NoNewPrivileges: "yes"
   PrivateTmp: "yes"

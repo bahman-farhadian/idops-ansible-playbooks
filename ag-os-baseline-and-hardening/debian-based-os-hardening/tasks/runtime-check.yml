@@ -2,6 +2,7 @@
 - name: Collect runtime state diagnostics
   ansible.builtin.shell: |
     set -o pipefail
+    leftover_fail=0
     echo '== sshd -T =='
     sshd -T | egrep 'port|permitrootlogin|passwordauthentication|banner|printmotd|printlastlog|maxauthtries|maxsessions|loglevel'
     echo '== issue.net =='
@@ -28,11 +29,69 @@
     auditctl -l || true
     echo '== residual rc packages =='
     dpkg -l | awk '/^rc/{print $2}'
+    echo '== leftover ufw =='
+    if dpkg-query -W -f='${Status}\n' ufw 2>/dev/null | grep -q 'install ok installed'; then
+      echo 'FAIL ufw package is installed'
+      leftover_fail=1
+    else
+      echo 'PASS ufw package is not installed'
+    fi
+    if [ -e /etc/ufw ] || [ -e /etc/default/ufw ] || [ -e /var/lib/ufw ]; then
+      echo 'FAIL leftover UFW paths still present'
+      leftover_fail=1
+    else
+      echo 'PASS no leftover UFW paths'
+    fi
+    echo '== leftover cloud-init sudoers =='
+    if [ -e /etc/sudoers.d/90-cloud-init-users ]; then
+      echo 'FAIL /etc/sudoers.d/90-cloud-init-users still present'
+      leftover_fail=1
+    else
+      echo 'PASS cloud-init sudoers absent'
+    fi
+    echo '== cloud-init disable =='
+    if [ -f /etc/cloud/cloud-init.disabled ]; then
+      echo 'PASS /etc/cloud/cloud-init.disabled present'
+    else
+      echo 'FAIL /etc/cloud/cloud-init.disabled missing'
+      leftover_fail=1
+    fi
+    ci_en="$(systemctl is-enabled cloud-init.service 2>/dev/null || true)"
+    echo "INFO cloud-init.service enabled=${ci_en}"
+    case "${ci_en}" in
+      enabled|enabled-runtime|alias)
+        echo 'FAIL cloud-init.service is still enabled'
+        leftover_fail=1
+        ;;
+      *)
+        echo 'PASS cloud-init.service is not enabled'
+        ;;
+    esac
+    echo '== smtp listeners =='
+    ss -lnt 2>/dev/null | sed 's/^/INFO  ss-lnt: /' || true
+    if ss -lnt 2>/dev/null | awk '{print $4}' | grep -Eq '(^|[^0-9])0\.0\.0\.0:25$|\[::\]:25$|\*:25$'; then
+      echo 'FAIL SMTP is listening on a non-loopback address'
+      leftover_fail=1
+    else
+      echo 'PASS SMTP is not listening on a non-loopback address'
+    fi
+    echo "== leftover_result leftover_fail=${leftover_fail} =="
+    exit "${leftover_fail}"
   args:
     executable: /bin/bash
   register: debian_hardening_runtime_check_result
   changed_when: false
+  failed_when: false
 
 - name: Show runtime state diagnostics
   ansible.builtin.debug:
     var: debian_hardening_runtime_check_result.stdout_lines
+
+- name: Fail when leftover UFW, cloud-init, or public SMTP state remains
+  ansible.builtin.assert:
+    that:
+      - debian_hardening_runtime_check_result.rc == 0
+    fail_msg: >-
+      Guest leftover checks failed on {{ inventory_hostname }}.
+      Look for FAIL lines in the runtime-check output (UFW paths,
+      90-cloud-init-users, cloud-init still enabled, or SMTP on 0.0.0.0:25).
