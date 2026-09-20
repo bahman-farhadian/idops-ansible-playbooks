@@ -39,7 +39,7 @@ DIFF_ARG := $(if $(filter $(DIFF),$(BOOL_TRUE)),--diff,)
 PLAY_ARGS := $(SETTINGS_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
 
 help:
-	@printf "debian-os-hardening - Debian/Ubuntu baseline hardening\n\n"
+	@printf "debian-based-os-hardening - Debian/Ubuntu baseline hardening\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-24s %s\n" "make help" "show this help"
 	@printf "  %-24s %s\n" "make venv" "create/update the shared repository-root environment"

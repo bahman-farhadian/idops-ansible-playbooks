@@ -28,7 +28,7 @@ It follows repository standards:
 5. Keep commands discoverable through `make help`.
 6. Add `make settings`/`make settings-clean*` targets and the
    settings.local.yml fail-guard to `playbook.yml`'s first play (copy the
-   pattern from `kvm-vm-provisioning` or `debian-os-hardening`).
+   pattern from `kvm-vm-provisioning` or `debian-based-os-hardening`).
    Keep `LOCAL_SETTINGS_FILE` as the way to select a named `*.local.yml`
    file. Do not add `LIMIT=` / `--limit`.
 

@@ -1,4 +1,4 @@
-# debian-os-hardening
+# debian-based-os-hardening
 
 Debian/Ubuntu hardening project migrated from:
 `old_playbooks/debian-based-hardening-ansible`
@@ -32,7 +32,7 @@ This project follows repository standards:
 ## Quick Start
 
 ```bash
-cd ag-os-baseline-and-hardening/debian-os-hardening
+cd ag-os-baseline-and-hardening/debian-based-os-hardening
 make venv
 make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
 # edit the real values that file just wrote

@@ -526,7 +526,7 @@ can, point at them instead of generating a copy of them.
 | Project | Status |
 |---------|--------|
 | `ac-vm-provisioning/kvm-vm-provisioning` | adopted (named `LOCAL_SETTINGS_FILE`, no default, no `LIMIT`) |
-| `ag-os-baseline-and-hardening/debian-os-hardening` | adopted (named `LOCAL_SETTINGS_FILE`, no default, no `LIMIT`) |
+| `ag-os-baseline-and-hardening/debian-based-os-hardening` | adopted (named `LOCAL_SETTINGS_FILE`, no default, no `LIMIT`) |
 | `playbook-template` | adopted, so new projects inherit the rule and must not add a default or `LIMIT` |
 
 ### Secrets
@@ -576,7 +576,7 @@ All three projects in this repository solve it the same way:
 A project's Makefile should never run a raw `ansible` ad-hoc command against
 a project's target group, because ad-hoc commands are not plays and never
 run the play that populates that group with `add_host` — they would only see
-whatever the static, empty placeholder declares. `debian-os-hardening`'s
+whatever the static, empty placeholder declares. `debian-based-os-hardening`'s
 `ssh-check` and `runtime-check` targets used to do exactly this, reading
 connection details out of the tracked `host.yml` to work around it; they
 were rewritten as two more `debian_hardening_action` values

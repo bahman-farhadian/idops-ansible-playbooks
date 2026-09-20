@@ -40,4 +40,4 @@ group_vars/local_secrets.yml
 wheelhouse/
 
 # Local runtime artifacts (Lynis scan reports, etc.)
-ag-os-baseline-and-hardening/debian-os-hardening/artifacts/
+ag-os-baseline-and-hardening/debian-based-os-hardening/artifacts/
