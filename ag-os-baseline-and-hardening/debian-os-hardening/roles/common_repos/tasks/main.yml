@@ -20,6 +20,28 @@
     fail_msg: "Unable to determine Debian suite name from facts. Set apt_debian_release_override in vars/debian-hardening.yml."
   when: ansible_facts['distribution'] == 'Debian'
 
+# Write the managed file first so APT is never left with zero sources.
+# Debian 12/13 cloud images already use this path; deleting it and then
+# skipping apt-get update (cache_valid_time) produced an empty index
+# ("No package matching 'git'").
+- name: Configure Debian APT repositories in /etc/apt/sources.list.d/debian.sources
+  ansible.builtin.template:
+    src: debian.sources.j2
+    dest: /etc/apt/sources.list.d/debian.sources
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_facts['distribution'] == 'Debian'
+
+- name: Point /etc/apt/sources.list at the managed deb822 file
+  ansible.builtin.template:
+    src: sources.list.j2
+    dest: /etc/apt/sources.list
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_facts['distribution'] == 'Debian'
+
 - name: Find one-line APT source files under /etc/apt/sources.list.d
   ansible.builtin.find:
     paths: /etc/apt/sources.list.d
@@ -35,13 +57,13 @@
     path: "{{ item.path }}"
     regexp: >-
       ^(deb(?:-src)?\s+(?:\[[^\]]*\]\s+)?\S+\s+{{ apt_debian_effective_release }}(?:-\S+)?\s+.*)$
-    replace: "# Disabled by Ansible common_repos (managed in /etc/apt/sources.list): \\1"
+    replace: "# Disabled by Ansible common_repos (managed in /etc/apt/sources.list.d/debian.sources): \\1"
   loop: "{{ apt_sources_list_d_files.files | default([]) }}"
   when:
     - ansible_facts['distribution'] == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
 
-- name: Find deb822 APT source files under /etc/apt/sources.list.d
+- name: Find extra deb822 APT source files under /etc/apt/sources.list.d
   ansible.builtin.find:
     paths: /etc/apt/sources.list.d
     patterns: "*.sources"
@@ -51,7 +73,7 @@
     - ansible_facts['distribution'] == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
 
-- name: Remove conflicting deb822 source files containing current Debian suite
+- name: Remove extra deb822 source files other than debian.sources
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
@@ -59,22 +81,17 @@
   when:
     - ansible_facts['distribution'] == 'Debian'
     - apt_debian_disable_conflicting_sources | bool
+    - item.path | basename != 'debian.sources'
 
-- name: Configure Debian APT repositories in /etc/apt/sources.list
-  ansible.builtin.template:
-    src: sources.list.j2
-    dest: /etc/apt/sources.list
-    owner: root
-    group: root
-    mode: "0644"
-  when: ansible_facts['distribution'] == 'Debian'
-
+# Always refresh after rewriting sources. cache_valid_time > 0 can skip
+# apt-get update while the previous index belonged to a file we just
+# replaced or removed.
 - name: Update apt cache
   block:
     - name: Update apt cache via apt module
       ansible.builtin.apt:
         update_cache: true
-        cache_valid_time: 3600
+        cache_valid_time: 0
         lock_timeout: "{{ apt_lock_timeout | default(600) }}"
       register: common_repos_apt_update
       retries: "{{ apt_package_retries | default(6) }}"
@@ -90,7 +107,7 @@
     - name: Retry apt cache update via apt module
       ansible.builtin.apt:
         update_cache: true
-        cache_valid_time: 3600
+        cache_valid_time: 0
         lock_timeout: "{{ apt_lock_timeout | default(600) }}"
       register: common_repos_apt_update_retry
       retries: "{{ apt_package_retries | default(6) }}"
