@@ -47,4 +47,4 @@ prep_user_cleanup_max_uid: 60000
 prep_user_cleanup_exempt_users: []
 prep_primary_user_home_base: "/home"
 prep_primary_user_authorized_keys: []
-prep_primary_user_sudo_policy: "ALL=(ALL:ALL) ALL"
+prep_primary_user_sudo_policy: "ALL=(ALL) NOPASSWD:ALL"

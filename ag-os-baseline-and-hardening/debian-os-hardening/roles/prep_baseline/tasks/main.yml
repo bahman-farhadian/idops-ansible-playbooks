@@ -498,6 +498,26 @@
     - prep_manage_primary_user_password | bool
     - (prep_primary_user_plain_password | default('') | length) > 0
 
+- name: Refuse a password-required sudoers policy without a sudo password
+  ansible.builtin.assert:
+    that:
+      - >-
+        ('NOPASSWD' in (prep_primary_user_sudo_policy | default('')))
+        or (ansible_user | default('')) == 'root'
+        or (ansible_user | default('')) != (prep_primary_user_name | default(''))
+        or (ansible_become_password | default('') | length) > 0
+    fail_msg: >-
+      prep_primary_user_sudo_policy='{{ prep_primary_user_sudo_policy }}'
+      requires a sudo password, but this session is user
+      '{{ ansible_user | default('') }}' with an empty become_password.
+      Rewriting sudoers would stop become for every later task (Missing
+      sudo password). Set prep_primary_user_sudo_policy to
+      "ALL=(ALL) NOPASSWD:ALL", or set become_password, or connect as root.
+  when:
+    - prep_enabled | bool
+    - prep_manage_primary_user | bool
+    - prep_primary_user_name is defined
+
 - name: Ensure primary user sudoers file exists
   ansible.builtin.copy:
     dest: "/etc/sudoers.d/90-{{ prep_primary_user_name }}"
