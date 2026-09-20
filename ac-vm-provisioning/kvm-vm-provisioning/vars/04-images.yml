@@ -20,9 +20,10 @@
 # image_codename + image_major + image_variant + image_version, e.g.:
 #   https://cloud.debian.org/images/cloud/trixie/20260706-2531/debian-13-generic-amd64-20260706-2531.qcow2
 # image_version pins a Debian build token and needs bumping over time as new
-# builds ship - it is not personal data, but it is not "static" either: check
-# https://cloud.debian.org/images/cloud/ for the current token for a codename
-# before relying on the value shipped here.
+# builds ship - it is not personal data, but it is not "static" either. Pick
+# the token from the suite directory listing:
+#   Debian 12 (bookworm): https://cloud.debian.org/images/cloud/bookworm/
+#   Debian 13 (trixie):   https://cloud.debian.org/images/cloud/trixie/
 # The trusted checksum is resolved once per version, stored locally as an
 # immutable (chattr +i) file, and reused on every later run without web access.
 # This project is Debian-only: keep entries as Debian generic qcow2 images.
@@ -36,7 +37,8 @@ kvm_cloud_image_catalog:
     image_codename: "bookworm"          # Debian codename for this major.
     image_major: "12"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
-    image_version: "20260806-2562"      # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    # Pick this profile's image_version from https://cloud.debian.org/images/cloud/bookworm/
+    image_version: "20260806-2562"      # REQUIRED: pin a Debian build token. Example: 20260706-2531.
     image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
     # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
     virt_install_os_variant: "debian12" # OS variant for virt-install.
@@ -48,7 +50,8 @@ kvm_cloud_image_catalog:
     image_codename: "trixie"            # Debian codename for this major.
     image_major: "13"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
-    image_version: "20260810-2566"      # REQUIRED: pin a Debian build token, e.g. 20260706-2531.
+    # Pick this profile's image_version from https://cloud.debian.org/images/cloud/trixie/
+    image_version: "20260810-2566"      # REQUIRED: pin a Debian build token. Example: 20260706-2531.
     image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
     # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
     virt_install_os_variant: "debian13" # OS variant for virt-install.
