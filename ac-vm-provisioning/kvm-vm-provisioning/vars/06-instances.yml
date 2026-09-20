@@ -108,3 +108,21 @@ kvm_instance_definitions: [] # Values: [] | list of instance maps (instance_name
 #        mount_point: "/data"                 # Mount point inside guest.
 #        filesystem: "ext4"                   # Filesystem for this disk.
 #        mount_options: "defaults,nofail"     # Mount options written to fstab.
+#
+#  - instance_name: "ubuntu-24-a"             # Target libvirt domain name.
+#    image_profile_id: "ubuntu-24"            # Cloud image profile reference.
+#    hypervisor: "kvm-host-1"                 # Same host as the Debian guests, or another.
+#    instance_ipv4_address: "192.168.122.141" # Instance static IPv4 address.
+#    vcpu_count: 2                            # vCPU allocation.
+#    memory_mb: 2048                          # Memory allocation in MB.
+#    root_disk_size_gb: 20                    # Root disk target size in GiB.
+#    cloud_init_user: "ubuntu"                # Cloud image default user.
+#
+#  - instance_name: "ubuntu-26-a"             # Target libvirt domain name.
+#    image_profile_id: "ubuntu-26"            # Cloud image profile reference.
+#    hypervisor: "kvm-host-1"                 # Mixed fleet: Debian and Ubuntu on one host.
+#    instance_ipv4_address: "192.168.122.142" # Instance static IPv4 address.
+#    vcpu_count: 2                            # vCPU allocation.
+#    memory_mb: 2048                          # Memory allocation in MB.
+#    root_disk_size_gb: 20                    # Root disk target size in GiB.
+#    cloud_init_user: "ubuntu"                # Cloud image default user.

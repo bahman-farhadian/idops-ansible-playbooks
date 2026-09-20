@@ -113,26 +113,34 @@ file wrote (never the tracked files):
    directory.
 4. Set a valid libvirt network (`kvm_default_libvirt_network_name` or per-instance `libvirt_network_name`).
 5. Pin each profile in `kvm_cloud_image_catalog` to an explicit `image_version`
-   (Debian build token, e.g. `20260706-2531`). URLs, filenames, and the checksum
-   manifest are derived automatically from `image_codename` + `image_major` +
-   `image_variant` + `image_version`. Optionally set `image_checksum` per profile
-   to enable fully offline acquisition (one-time double-check only).
+   and `image_distro` (`debian` or `ubuntu`). URLs, filenames, and the checksum
+   manifest are derived from those fields. Pick the pin from the suite listing:
+   Debian 12: https://cloud.debian.org/images/cloud/bookworm/
+   Debian 13: https://cloud.debian.org/images/cloud/trixie/
+   Ubuntu 24.04: https://cloud-images.ubuntu.com/releases/noble/
+   Ubuntu 26.04: https://cloud-images.ubuntu.com/releases/resolute/
+   Ubuntu pins are dated `release-<serial>/` directories (for example
+   `release-20260911`), not the moving `release/` pointer. Optionally set
+   `image_checksum` per profile to enable fully offline acquisition.
 6. Set cloud-init access defaults (plain user password, sudo policy, optional root password)
    and instance definitions.
 7. Optional: set `kvm_guest_network_interface_fallbacks` to expand NIC-name fallbacks
    (defaults to `['ens3', 'enp1s0', 'eth0']`).
-8. Use `*-generic-amd64.qcow2` images for this workflow (catalog
-   `image_variant: generic`). `nocloud` is blocked by default; override only
-   if intentional with `kvm_allow_nocloud_images=true`.
+8. Debian profiles use `*-generic-amd64.qcow2`. Ubuntu profiles cache
+   `ubuntu-*-server-cloudimg-amd64.img` (qcow2 contents, upstream `.img`
+   name). `nocloud` is blocked by default; override only if intentional with
+   `kvm_allow_nocloud_images=true`.
 9. Root-disk repartitioning on Debian cloud images is intentionally not
    supported in this playbook. Use installer-based provisioning or a custom
    image pipeline if you require custom root partition layout.
 10. Keep `firmware_boot_mode: uefi` for every image profile. BIOS is not
     supported by this project. Debian 13 `generic` images require UEFI on
     this stack.
-11. Add or remove Debian variants in `kvm_cloud_image_catalog`.
+11. Add or remove catalog profiles in `kvm_cloud_image_catalog`.
    `make image-cache` processes all catalog profiles, while instance creation
-   still follows `kvm_instance_definitions`.
+   still follows `kvm_instance_definitions`. One local settings file can
+   mix Debian and Ubuntu instances on the same hypervisor (or split them
+   with `hypervisor:` across `kvm_hypervisors`).
 12. Set `kvm_default_cloud_init_plain_password` to a real password; there is
     no default.
 13. Set `kvm_force_single_socket_vcpu_topology` to `true` for a
@@ -193,7 +201,7 @@ other target above requires `LOCAL_SETTINGS_FILE`.
 `make provision-check` runs `preflight` in Ansible check mode.
 
 `make image-cache` pins each profile to an explicit `image_version` (a Debian
-build token, e.g. `20260706-2531`) and resolves a **trusted checksum** for it.
+build token or an Ubuntu release serial) and resolves a **trusted checksum** for it.
 
 The trusted checksum is resolved **once per version** and stored locally as an
 **immutable file** (`chattr +i`) under `kvm_image_checksum_cache_path`. Later runs

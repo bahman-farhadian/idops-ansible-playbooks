@@ -1,8 +1,8 @@
 ---
 # CLOUD IMAGE CATALOG AND CACHE
 #
-# The Debian images VMs are built from, pinned by version, and how they are
-# downloaded, verified and trusted offline.
+# The Debian and Ubuntu images VMs are built from, pinned by version, and how
+# they are downloaded, verified and trusted offline.
 #
 # This is one of several settings files, read in this order:
 #   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
@@ -17,19 +17,26 @@
 # Referenced by the image_profile_id of each VM in 06-instances.yml.
 # Images are pinned by an explicit version token (image_version), NOT "latest".
 # The image_url / image_filename / image_checksum_manifest_url are derived from
-# image_codename + image_major + image_variant + image_version, e.g.:
+# image_distro + image_codename + image_major + image_variant + image_version.
+# Debian example:
 #   https://cloud.debian.org/images/cloud/trixie/20260706-2531/debian-13-generic-amd64-20260706-2531.qcow2
-# image_version pins a Debian build token and needs bumping over time as new
-# builds ship - it is not personal data, but it is not "static" either. Pick
-# the token from the suite directory listing:
+# Ubuntu example:
+#   https://cloud-images.ubuntu.com/releases/noble/release-20260911/ubuntu-24.04-server-cloudimg-amd64.img
+# image_version pins a build token (Debian) or release serial (Ubuntu) and
+# needs bumping over time as new builds ship. Pick the token from the suite
+# directory listing:
 #   Debian 12 (bookworm): https://cloud.debian.org/images/cloud/bookworm/
 #   Debian 13 (trixie):   https://cloud.debian.org/images/cloud/trixie/
+#   Ubuntu 24.04 (noble): https://cloud-images.ubuntu.com/releases/noble/
+#   Ubuntu 26.04 (resolute): https://cloud-images.ubuntu.com/releases/resolute/
+# Ubuntu pins use the dated release-<serial>/ directory, not the moving
+# release/ pointer. Canonical ships the KVM disk as .img (qcow2 internally);
+# it is cached under that name. Guest disks in the instance pool stay qcow2.
 # The trusted checksum is resolved once per version, stored locally as an
 # immutable (chattr +i) file, and reused on every later run without web access.
-# This project is Debian-only: keep entries as Debian generic qcow2 images.
 # make image-cache processes all catalog profiles.
-# To add/remove Debian variants (for example debian-14), edit this catalog and
-# update profile references in kvm_instance_definitions.
+# To add/remove variants, edit this catalog and update profile references in
+# kvm_instance_definitions.
 # NOTE: Debian nocloud images were not reliable for this workflow.
 # -----------------------------------------------------------------------------
 kvm_cloud_image_catalog:
