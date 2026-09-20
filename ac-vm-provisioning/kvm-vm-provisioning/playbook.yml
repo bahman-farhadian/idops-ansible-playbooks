@@ -40,10 +40,12 @@
           make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
       when: kvm_selected_local_settings_file | length == 0
 
+    # search, not match: match is start-anchored and rejects
+    # vars/settings.kvm.local.yml (and every other relative path).
     - name: Validate selected local settings file name
       ansible.builtin.assert:
         that:
-          - kvm_selected_local_settings_file is match('\\.local\\.yml$')
+          - kvm_selected_local_settings_file is search('\\.local\\.yml$')
         fail_msg: >-
           kvm_local_settings_file must be a gitignored *.local.yml file
           (got '{{ kvm_selected_local_settings_file }}'). Use

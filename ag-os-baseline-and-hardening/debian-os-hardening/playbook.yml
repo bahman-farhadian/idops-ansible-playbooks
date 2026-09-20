@@ -36,10 +36,12 @@
       when: debian_selected_local_settings_file | length == 0
       tags: always
 
+    # search, not match: match is start-anchored and rejects
+    # vars/settings.harden.local.yml (and every other relative path).
     - name: Validate selected local settings file name
       ansible.builtin.assert:
         that:
-          - debian_selected_local_settings_file is match('\\.local\\.yml$')
+          - debian_selected_local_settings_file is search('\\.local\\.yml$')
         fail_msg: >-
           debian_local_settings_file must be a gitignored *.local.yml file
           (got '{{ debian_selected_local_settings_file }}'). Use
