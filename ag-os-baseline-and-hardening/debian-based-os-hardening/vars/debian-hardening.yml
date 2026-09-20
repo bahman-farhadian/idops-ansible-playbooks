@@ -99,6 +99,10 @@ prep_manage_primary_user_password: false # Set/rotate password for detected or r
 prep_primary_user_plain_password: ""     # Primary user plaintext password. CHANGE THIS. Example: "a strong passphrase".
 prep_manage_root_password: false         # Set/rotate root account password. Values: true | false.
 prep_root_plain_password: ""             # Root user plaintext password. CHANGE THIS. Example: "a strong passphrase".
+# Cloud-init already applied first-boot config. Leave it enabled and it
+# rewrites /etc/sudoers.d/90-cloud-init-users and can fight user/hostname
+# policy on the next boot.
+prep_disable_cloud_init: true            # Disable cloud-init after first boot. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Terminal dotfiles (tmux, vim, bash prompt/history/completion)
@@ -178,6 +182,9 @@ service_hardening_units:        # Services to harden.
   - cron.service
   - unattended-upgrades.service
 service_hardening_disable_units: [] # Optional service units to stop/disable. Values: [] | list of systemd unit names.
+# Ubuntu Postfix ships inet_interfaces=all. With firewall_allow_private_networks
+# that exposes SMTP on the guest LAN. Debian Exim is already loopback-only.
+service_hardening_bind_mta_loopback: true # Bind Postfix/Exim SMTP to loopback only. Values: true | false.
 
 # -----------------------------------------------------------------------------
 # Authentication hardening

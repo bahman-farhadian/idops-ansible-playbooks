@@ -48,3 +48,17 @@ prep_user_cleanup_exempt_users: []
 prep_primary_user_home_base: "/home"
 prep_primary_user_authorized_keys: []
 prep_primary_user_sudo_policy: "ALL=(ALL) NOPASSWD:ALL"
+
+# Cloud-init rewrites users and /etc/sudoers.d/90-cloud-init-users on boot.
+# Disable it after the image has already applied first-boot config.
+prep_disable_cloud_init: true
+prep_cloud_init_units:
+  - cloud-init.service
+  - cloud-init-local.service
+  - cloud-config.service
+  - cloud-final.service
+  - cloud-init-hotplugd.service
+  - cloud-init-hotplugd.socket
+  - cloud-init-main.service
+prep_cloud_init_sudoers_files:
+  - /etc/sudoers.d/90-cloud-init-users

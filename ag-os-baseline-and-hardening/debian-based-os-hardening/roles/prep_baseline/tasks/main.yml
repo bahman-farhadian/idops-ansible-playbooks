@@ -1,4 +1,42 @@
 ---
+# Cloud-init already ran on first boot. Leave it enabled and it recreates
+# /etc/sudoers.d/90-cloud-init-users (and can fight hostname/user policy).
+- name: Ensure cloud-init config directory exists
+  ansible.builtin.file:
+    path: /etc/cloud
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when:
+    - prep_enabled | bool
+    - prep_disable_cloud_init | default(true) | bool
+
+- name: Disable cloud-init with the upstream sentinel file
+  ansible.builtin.file:
+    path: /etc/cloud/cloud-init.disabled
+    state: touch
+    owner: root
+    group: root
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+  when:
+    - prep_enabled | bool
+    - prep_disable_cloud_init | default(true) | bool
+
+- name: Stop, disable, and mask leftover cloud-init units
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+    masked: true
+  loop: "{{ prep_cloud_init_units | default([]) }}"
+  failed_when: false
+  when:
+    - prep_enabled | bool
+    - prep_disable_cloud_init | default(true) | bool
+
 - name: Install required preparation baseline packages
   ansible.builtin.apt:
     name: "{{ prep_required_packages }}"
@@ -541,6 +579,14 @@
     - prep_primary_user_detected_name is defined
     - prep_primary_user_name is defined
     - prep_primary_user_detected_name != prep_primary_user_name
+
+# After 90-<primary> exists so pass-1 become still has a sudoers file.
+- name: Remove cloud-init sudoers drop-ins
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ prep_cloud_init_sudoers_files | default([]) }}"
+  when: prep_enabled | bool
 
 - name: Validate single-user enforcement inputs
   ansible.builtin.assert:
