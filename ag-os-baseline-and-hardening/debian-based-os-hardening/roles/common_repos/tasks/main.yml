@@ -83,6 +83,82 @@
     - apt_debian_disable_conflicting_sources | bool
     - item.path | basename != 'debian.sources'
 
+- name: Derive effective Ubuntu repository suite from gathered facts
+  ansible.builtin.set_fact:
+    apt_ubuntu_effective_release: >-
+      {{
+        (apt_ubuntu_release_override | default('') | trim)
+        if (apt_ubuntu_release_override | default('') | trim | length > 0)
+        else ansible_facts['distribution_release']
+      }}
+  when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: Ensure effective Ubuntu repository suite is set
+  ansible.builtin.assert:
+    that:
+      - apt_ubuntu_effective_release | length > 0
+    fail_msg: "Unable to determine Ubuntu suite name from facts. Set apt_ubuntu_release_override in vars/debian-hardening.yml."
+  when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: Configure Ubuntu APT repositories in /etc/apt/sources.list.d/ubuntu.sources
+  ansible.builtin.template:
+    src: ubuntu.sources.j2
+    dest: /etc/apt/sources.list.d/ubuntu.sources
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: Point /etc/apt/sources.list at the managed Ubuntu deb822 file
+  ansible.builtin.template:
+    src: ubuntu-sources.list.j2
+    dest: /etc/apt/sources.list
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: Find one-line APT source files under /etc/apt/sources.list.d (Ubuntu)
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "*.list"
+    file_type: file
+  register: apt_ubuntu_sources_list_d_files
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - apt_ubuntu_disable_conflicting_sources | bool
+
+- name: Comment conflicting Ubuntu entries in /etc/apt/sources.list.d/*.list
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: >-
+      ^(deb(?:-src)?\s+(?:\[[^\]]*\]\s+)?\S+\s+{{ apt_ubuntu_effective_release }}(?:-\S+)?\s+.*)$
+    replace: "# Disabled by Ansible common_repos (managed in /etc/apt/sources.list.d/ubuntu.sources): \\1"
+  loop: "{{ apt_ubuntu_sources_list_d_files.files | default([]) }}"
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - apt_ubuntu_disable_conflicting_sources | bool
+
+- name: Find extra deb822 APT source files under /etc/apt/sources.list.d (Ubuntu)
+  ansible.builtin.find:
+    paths: /etc/apt/sources.list.d
+    patterns: "*.sources"
+    file_type: file
+  register: apt_ubuntu_sources_deb822_files
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - apt_ubuntu_disable_conflicting_sources | bool
+
+- name: Remove extra deb822 source files other than ubuntu.sources
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ apt_ubuntu_sources_deb822_files.files | default([]) }}"
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - apt_ubuntu_disable_conflicting_sources | bool
+    - item.path | basename != 'ubuntu.sources'
+
 # Always refresh after rewriting sources. cache_valid_time > 0 can skip
 # apt-get update while the previous index belonged to a file we just
 # replaced or removed.
@@ -113,4 +189,4 @@
       retries: "{{ apt_package_retries | default(6) }}"
       delay: "{{ apt_package_retry_delay | default(10) }}"
       until: common_repos_apt_update_retry is succeeded
-  when: ansible_facts['distribution'] == 'Debian'
+  when: ansible_facts['os_family'] == 'Debian'

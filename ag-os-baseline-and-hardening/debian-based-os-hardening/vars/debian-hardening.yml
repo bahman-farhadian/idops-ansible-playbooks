@@ -51,6 +51,15 @@ apt_debian_components:                                               # Repositor
   - contrib
   - non-free
   - non-free-firmware
+apt_ubuntu_repository_url: "http://archive.ubuntu.com/ubuntu"        # Ubuntu base mirror URI. Example: "http://archive.ubuntu.com/ubuntu".
+apt_ubuntu_security_repository_url: "http://security.ubuntu.com/ubuntu" # Ubuntu security mirror URI. Example: "http://security.ubuntu.com/ubuntu".
+apt_ubuntu_release_override: ""                                      # Optional suite override. Values: "" (use ansible_facts distribution_release) | a suite name, e.g. "noble".
+apt_ubuntu_disable_conflicting_sources: true                         # Disable conflicting Ubuntu source entries in sources.list.d. Values: true | false.
+apt_ubuntu_components:                                               # Repository components for Ubuntu hosts.
+  - main
+  - universe
+  - restricted
+  - multiverse
 
 # -----------------------------------------------------------------------------
 # Lynis settings

@@ -14,3 +14,12 @@ apt_debian_components:
   - contrib
   - non-free
   - non-free-firmware
+apt_ubuntu_repository_url: "http://archive.ubuntu.com/ubuntu"
+apt_ubuntu_security_repository_url: "http://security.ubuntu.com/ubuntu"
+apt_ubuntu_release_override: ""
+apt_ubuntu_disable_conflicting_sources: true
+apt_ubuntu_components:
+  - main
+  - universe
+  - restricted
+  - multiverse
