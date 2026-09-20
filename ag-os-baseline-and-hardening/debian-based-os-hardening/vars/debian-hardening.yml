@@ -261,10 +261,12 @@ remote_syslog_protocol: "tcp" # Remote syslog protocol. Values: "tcp" | "udp".
 
 # -----------------------------------------------------------------------------
 # Firewall policy (iptables-persistent)
+# UFW is purged: Ubuntu cloud images ship it, and it fights this role.
 # The three *_interface / *_lan_cidr fields under IPv4 forwarding stay blank:
 # forwarding itself defaults off, and a real interface name only makes sense
 # once an operator turns it on for a specific host.
 # -----------------------------------------------------------------------------
+firewall_purge_ufw: true                    # Remove UFW. This project uses iptables-persistent only. Values: true | false.
 firewall_default_input_policy: "DROP"       # Default INPUT policy. Values: "DROP" | "ACCEPT".
 firewall_default_forward_policy: "DROP"     # Default FORWARD policy. Values: "DROP" | "ACCEPT".
 firewall_default_output_policy: "ACCEPT"    # Default OUTPUT policy. Values: "ACCEPT" | "DROP".

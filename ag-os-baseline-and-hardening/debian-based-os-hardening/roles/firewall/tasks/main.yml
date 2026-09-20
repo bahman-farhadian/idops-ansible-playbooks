@@ -1,4 +1,27 @@
 ---
+# Ubuntu cloud images ship UFW. This project owns the filter table with
+# iptables-persistent only; leave UFW running and it rewrites the same
+# chains on boot.
+- name: Stop UFW before iptables policy is applied
+  ansible.builtin.service:
+    name: ufw
+    state: stopped
+    enabled: false
+  failed_when: false
+
+- name: Purge UFW so only iptables-persistent owns the filter table
+  ansible.builtin.apt:
+    name:
+      - ufw
+    state: absent
+    purge: true
+    lock_timeout: "{{ apt_lock_timeout | default(600) }}"
+  register: firewall_ufw_purge
+  retries: "{{ apt_package_retries | default(6) }}"
+  delay: "{{ apt_package_retry_delay | default(10) }}"
+  until: firewall_ufw_purge is succeeded
+  when: firewall_purge_ufw | default(true) | bool
+
 - name: Install iptables-persistent
   ansible.builtin.apt:
     name:

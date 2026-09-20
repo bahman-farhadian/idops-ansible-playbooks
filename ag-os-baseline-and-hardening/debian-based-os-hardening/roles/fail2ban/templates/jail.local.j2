@@ -2,6 +2,8 @@
 bantime = {{ fail2ban_bantime }}
 findtime = {{ fail2ban_findtime }}
 maxretry = {{ fail2ban_maxretry }}
+banaction = iptables-multiport
+banaction_allports = iptables-allports
 
 [sshd]
 enabled = true
