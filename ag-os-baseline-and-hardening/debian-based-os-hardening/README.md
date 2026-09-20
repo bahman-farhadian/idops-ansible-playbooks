@@ -16,6 +16,7 @@ This project follows repository standards:
 - Debian 13
 - Ubuntu 22.04
 - Ubuntu 24.04
+- Ubuntu 26.04
 
 ## Project Layout
 
@@ -75,7 +76,7 @@ passwordless on that host.
 
 ## Primary User Rename (Cloud Images)
 
-Cloud images often start with a default user (for example `debian`) that is actively used by the SSH session.
+Cloud images often start with a default user (`debian` or `ubuntu`) that is actively used by the SSH session.
 Renaming that same active account in one pass can fail with:
 `usermod: user <name> is currently used by process ...`.
 
@@ -94,7 +95,7 @@ Recommended two-pass flow:
 Notes:
 
 - If you plan to use root SSH for pass two, ensure root SSH is allowed and root has an authorized key (`prep_root_authorized_keys`).
-- If root login shows `Please login as the user "debian" rather than the user "root".`, your image/provider still enforces default-user-only SSH. Complete pass one first, then enable root SSH access through this playbook settings and rerun.
+- If root login shows `Please login as the user "debian"` or `"ubuntu"` rather than root, complete pass one first, then enable root SSH through this playbook and rerun.
 
 ## Terminal Dotfiles
 
