@@ -22,6 +22,18 @@
   until: firewall_ufw_purge is succeeded
   when: firewall_purge_ufw | default(true) | bool
 
+# apt purge leaves these when UFW was never a package (Debian) or when
+# conffiles were locally modified (Ubuntu). The filter table is ours.
+- name: Remove leftover UFW configuration paths
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/ufw
+    - /etc/default/ufw
+    - /var/lib/ufw
+  when: firewall_purge_ufw | default(true) | bool
+
 - name: Install iptables-persistent
   ansible.builtin.apt:
     name:
