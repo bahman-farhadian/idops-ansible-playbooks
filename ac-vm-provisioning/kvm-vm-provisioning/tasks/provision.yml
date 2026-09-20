@@ -31,9 +31,9 @@
   ansible.builtin.assert:
     that:
       - kvm_cloud_image_catalog[item.key].image_distro is defined
-      - (kvm_cloud_image_catalog[item.key].image_distro | default('')) == 'debian'
+      - (kvm_cloud_image_catalog[item.key].image_distro | default('')) in ['debian', 'ubuntu']
     fail_msg: >-
-      Profile {{ item.key }} must set image_distro to 'debian'.
+      Profile {{ item.key }} must set image_distro to 'debian' or 'ubuntu'.
   loop: "{{ kvm_cloud_image_catalog | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
@@ -55,8 +55,8 @@
     msg: >-
       Profile {{ item.key }} image_distro
       '{{ item.value.image_distro | default('') }}' has no catalog URL
-      template. Supported: debian.
-  when: (item.value.image_distro | default('')) not in ['debian']
+      template. Supported: debian, ubuntu.
+  when: (item.value.image_distro | default('')) not in ['debian', 'ubuntu']
   loop: "{{ kvm_cloud_image_catalog | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
@@ -86,6 +86,38 @@
           })
       }}
   when: (item.value.image_distro | default('')) == 'debian'
+  loop: "{{ kvm_cloud_image_catalog | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Expand Ubuntu cloud image catalog URLs from version pin
+  ansible.builtin.set_fact:
+    expanded_cloud_image_catalog: >-
+      {{
+        (expanded_cloud_image_catalog | default({}))
+        | combine({
+            item.key: (item.value | combine({
+              'image_filename': (
+                'ubuntu-' ~ item.value.image_major
+                ~ '-server-cloudimg-amd64.img'
+              ),
+              'image_url': (
+                'https://cloud-images.ubuntu.com/releases/'
+                ~ item.value.image_codename
+                ~ '/release-' ~ item.value.image_version
+                ~ '/ubuntu-' ~ item.value.image_major
+                ~ '-server-cloudimg-amd64.img'
+              ),
+              'image_checksum_manifest_url': (
+                'https://cloud-images.ubuntu.com/releases/'
+                ~ item.value.image_codename
+                ~ '/release-' ~ item.value.image_version
+                ~ '/SHA256SUMS'
+              )
+            }, recursive=True))
+          })
+      }}
+  when: (item.value.image_distro | default('')) == 'ubuntu'
   loop: "{{ kvm_cloud_image_catalog | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
