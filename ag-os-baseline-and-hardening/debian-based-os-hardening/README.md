@@ -81,19 +81,21 @@ ask for a password.
 
 ## Primary User Rename (Cloud Images)
 
-Cloud images often start with a default user (`debian` or `ubuntu`) that is actively used by the SSH session.
-Renaming that same active account in one pass can fail with:
+Guests should first-boot as `idops` (set `kvm_default_cloud_init_user`
+in kvm-vm-provisioning). Do not use the vendor cloud users `debian` or
+`ubuntu`.
+
+Renaming the same account that is logged in can fail with:
 `usermod: user <name> is currently used by process ...`.
 
 Recommended two-pass flow:
 
-1. First pass (bootstrap with default user):
-   - Set `prep_primary_user_desired_name` empty (or equal to the current
-     cloud user) in the selected local file. The tracked default is `idops`.
+1. First pass (bootstrap as `idops`):
+   - Set `prep_primary_user_desired_name` to `idops` (the tracked default).
    - Run `make harden` with the target's `user` in `debian_hardening_targets`
-     set to the default cloud user (`debian` or `ubuntu`) on port 22.
-2. Second pass (rename from root session):
-   - Set `prep_primary_user_desired_name` to the final username (for example `idops`).
+     set to `idops` on port 22.
+2. Second pass (finish from a root session):
+   - Keep `prep_primary_user_desired_name` as `idops`.
    - Set that target's `user` to `root` and `port` to the hardened SSH port
      (default `2222`) in `debian_hardening_targets`.
    - Run `make harden` again.
@@ -101,7 +103,7 @@ Recommended two-pass flow:
 Notes:
 
 - If you plan to use root SSH for pass two, ensure root SSH is allowed and root has an authorized key (`prep_root_authorized_keys`).
-- If root login shows `Please login as the user "debian"` or `"ubuntu"` rather than root, complete pass one first, then enable root SSH through this playbook and rerun.
+- If root login shows `Please login as the user "idops"` rather than root, complete pass one first, then enable root SSH through this playbook and rerun.
 - Ubuntu 24.04+ often uses `ssh.socket`. Pass one stops that unit so
   `sshd_config` `Port` (shipped default `2222`) is the listener.
 - After pass one, ping on port 22 fails. Pass two uses the hardened port.
