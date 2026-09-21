@@ -27,6 +27,7 @@
     - "{{ nexus_data_dir }}"
     - "{{ nexus_data_dir }}/tmp"
     - "{{ nexus_data_dir }}/log"
+    - "{{ nexus_data_dir }}/etc"
 
 - name: Download the Nexus archive
   ansible.builtin.get_url:
@@ -96,6 +97,27 @@
     path: "{{ nexus_home }}/etc/nexus-default.properties"
     regexp: '^application-host='
     line: "application-host={{ nexus_listen_address }}"
+  notify: Restart nexus
+
+- name: Write the secret encryption key file
+  ansible.builtin.template:
+    src: nexus-secrets.json.j2
+    dest: "{{ nexus_secrets_file }}"
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    mode: "0600"
+  no_log: true
+  notify: Restart nexus
+
+- name: Point Nexus at the secret encryption key file
+  ansible.builtin.lineinfile:
+    path: "{{ nexus_data_dir }}/etc/nexus.properties"
+    regexp: '^nexus\.secrets\.file='
+    line: "nexus.secrets.file={{ nexus_secrets_file }}"
+    create: true
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    mode: "0640"
   notify: Restart nexus
 
 - name: Install the systemd unit

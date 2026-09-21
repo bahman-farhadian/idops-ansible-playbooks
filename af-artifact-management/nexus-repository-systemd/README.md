@@ -15,6 +15,11 @@ Web UI sign-in: user `admin`. The password is `nexus_admin_password` in
 your local settings file. Click the user icon at the top right, then
 Sign In.
 
+Status "Default Secret Encryption Key" needs a custom key. Set
+`nexus_secrets_key` in the local file (`openssl rand -base64 32`). The
+playbook writes it to `/data/nexus/etc/nexus-secrets.json` and does not
+put the key in git.
+
 It runs on the lab LAN only: HTTP port **8081** for the web UI and APT,
 and port **8082** for a Docker Hub reverse proxy. Private networks
 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) can use it. Do not

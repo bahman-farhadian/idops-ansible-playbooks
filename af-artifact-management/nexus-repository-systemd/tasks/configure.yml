@@ -141,6 +141,35 @@
     path: /tmp/check_nexus_admin_login.py
     state: absent
 
+- name: Re-encrypt stored secrets with the custom key
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/secrets/encryption/re-encrypt"
+    method: PUT
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      secretKeyId: "{{ nexus_secrets_key_id }}"
+    status_code: [200, 204, 400]
+  no_log: true
+  register: nexus_reencrypt
+
+- name: Wait until the default encryption-key check is healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/status/check"
+    method: GET
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: [200]
+  register: nexus_status_check
+  until: >-
+    (nexus_status_check.json['Default Secret Encryption Key'].healthy | default(false)) | bool
+  retries: 30
+  delay: 5
+  no_log: true
+
 - name: Show how to sign in to the web UI
   ansible.builtin.debug:
     msg: >-

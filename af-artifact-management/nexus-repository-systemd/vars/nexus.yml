@@ -81,6 +81,16 @@ nexus_security_realms:
   - DockerToken
 
 # -----------------------------------------------------------------------------
+# Secret encryption key (fixes Status: Default Secret Encryption Key)
+# The key itself is blank in git. Set nexus_secrets_key in the local file.
+# Generate one with: openssl rand -base64 32
+# Docs: https://help.sonatype.com/en/re-encryption-in-nexus-repository.html
+# -----------------------------------------------------------------------------
+nexus_secrets_key_id: "idops" # Key name inside the secrets JSON. Example: "idops".
+nexus_secrets_key: ""         # Base64 32-byte key. CHANGE THIS. Set it in the local settings file.
+nexus_secrets_file: "{{ nexus_data_dir }}/etc/nexus-secrets.json" # Path on the Nexus host.
+
+# -----------------------------------------------------------------------------
 # APT reverse proxies (Debian and Ubuntu)
 # Each upstream URL + suite is one Nexus apt proxy repository.
 # Clients use: http://<nexus-ip>:8081/repository/<name>

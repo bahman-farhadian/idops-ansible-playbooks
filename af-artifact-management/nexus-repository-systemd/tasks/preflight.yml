@@ -32,6 +32,18 @@
       {{ nexus_selected_local_settings_file | default('your local settings file') }}.
       Do not put the password in vars/nexus.yml.
 
+- name: Fail when the encryption key is empty
+  ansible.builtin.assert:
+    that:
+      - nexus_secrets_key | default('') | length > 0
+      - nexus_secrets_key_id | default('') | length > 0
+    fail_msg: >-
+      nexus_secrets_key is empty. Generate one with:
+      openssl rand -base64 32
+      Put the value in
+      {{ nexus_selected_local_settings_file | default('your local settings file') }}
+      as nexus_secrets_key. Do not put it in vars/nexus.yml.
+
 - name: Fail when the HTTP port is not valid
   ansible.builtin.assert:
     that:
