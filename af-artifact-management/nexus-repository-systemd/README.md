@@ -58,12 +58,38 @@ Suggested guest: `debian-13-nexus` at `192.168.24.2`, 4 GiB RAM,
 extra disk 20 GiB on `/data`. The playbook also accepts Ubuntu 24.04
 or 26.04 as the Nexus host if you point `nexus_targets` at that guest.
 
-## Commands
+## Full run (one file per step)
 
-The local file `vars/settings.nexus.local.yml` already has the host
-and a generated admin password (gitignored).
+Guest: `debian-13-nexus` at `192.168.24.2`. Check the guest with
+`virsh`, not SSH.
+
+From the repository root:
 
 ```bash
+# 1. Create the Nexus guest (Debian 13, extra disk on /data)
+cd ac-vm-provisioning/kvm-vm-provisioning
+make provision LOCAL_SETTINGS_FILE=vars/settings.kvm.nexus.local.yml
+
+# Check from the hypervisor (no SSH):
+virsh -c qemu:///system list --all
+virsh -c qemu:///system qemu-agent-command debian-13-nexus '{"execute":"guest-network-get-interfaces"}' --pretty
+```
+
+```bash
+# 2. Harden pass 1 (cloud user debian, SSH port 22)
+cd ag-os-baseline-and-hardening/debian-based-os-hardening
+make harden LOCAL_SETTINGS_FILE=vars/settings.harden.nexus.local.yml
+```
+
+```bash
+# 3. Harden pass 2 (root, SSH port 2222, user idops)
+cd ag-os-baseline-and-hardening/debian-based-os-hardening
+make harden LOCAL_SETTINGS_FILE=vars/settings.harden.nexus.pass2.local.yml
+make scan LOCAL_SETTINGS_FILE=vars/settings.harden.nexus.pass2.local.yml
+```
+
+```bash
+# 4. Install Nexus (admin password is already in the gitignored local file)
 cd af-artifact-management/nexus-repository-systemd
 make ping LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
 make deploy LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
@@ -73,6 +99,22 @@ make deploy LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
 installs the systemd unit, waits until port 8081 answers, sets the
 admin password, turns on anonymous pull, and creates the APT and
 Docker proxy repositories.
+
+Check from the hypervisor after deploy:
+
+```bash
+virsh -c qemu:///system qemu-agent-command debian-13-nexus '{"execute":"guest-exec","arguments":{"path":"/bin/bash","arg":["-lc","ss -lnt | grep -E \":8081|:8082\"; systemctl is-active nexus; df -h /data"],"capture-output":true}}'
+```
+
+```bash
+# 5. Later: four guests that use the Nexus APT cache
+cd ac-vm-provisioning/kvm-vm-provisioning
+make provision LOCAL_SETTINGS_FILE=vars/settings.kvm.fleet-via-nexus.local.yml
+
+cd ag-os-baseline-and-hardening/debian-based-os-hardening
+make harden LOCAL_SETTINGS_FILE=vars/settings.harden.fleet-via-nexus.local.yml
+make harden LOCAL_SETTINGS_FILE=vars/settings.harden.fleet-via-nexus.pass2.local.yml
+```
 
 ## After Nexus is up: point guests at it
 
