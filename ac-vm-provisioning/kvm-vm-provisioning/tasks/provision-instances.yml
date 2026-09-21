@@ -824,9 +824,24 @@
       write_files:
       {{ effective_write_files | to_nice_yaml(indent=2) | indent(2, true) }}
       {% endif %}
-      {% if (item.cloud_init_bootcmd | default([])) | length > 0 %}
+      {% set emit_bootcmd = (
+           (item.cloud_init_disable_multicast_dns | default(false) | bool)
+           or ((item.cloud_init_extra_hosts | default([])) | length > 0)
+           or ((item.cloud_init_bootcmd | default([])) | length > 0)
+         ) %}
+      {% if emit_bootcmd %}
       bootcmd:
-      {% for boot_command in item.cloud_init_bootcmd %}
+      {% if item.cloud_init_disable_multicast_dns | default(false) | bool %}
+        - {{ "mkdir -p /etc/systemd/resolved.conf.d" | to_json }}
+        - {{ "printf '[Resolve]\\nMulticastDNS=no\\nLLMNR=no\\n' > /etc/systemd/resolved.conf.d/10-idops-mdns.conf" | to_json }}
+        - {{ "systemctl try-reload-or-restart systemd-resolved.service || true" | to_json }}
+      {% endif %}
+      {% for host_entry in item.cloud_init_extra_hosts | default([]) %}
+        {% set hosts_line = host_entry.ip ~ " " ~ (host_entry.names | join(" ")) %}
+        {% set hosts_cmd = "grep -Fq '" ~ host_entry.names[0] ~ "' /etc/hosts || echo '" ~ hosts_line ~ "' >> /etc/hosts" %}
+        - {{ hosts_cmd | to_json }}
+      {% endfor %}
+      {% for boot_command in item.cloud_init_bootcmd | default([]) %}
         - {{ boot_command | to_json }}
       {% endfor %}
       {% endif %}
