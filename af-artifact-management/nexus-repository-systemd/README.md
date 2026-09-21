@@ -58,7 +58,8 @@ policies.
 The host firewall must allow TCP 8081 and 8082 from the networks that
 should use the cache.
 
-APT clients use:
+The proxies still fetch from Debian, Ubuntu, and Docker Hub. APT
+clients (including this host, once the proxies exist) use:
 
 `http://<nexus-host>:8081/repository/<repo-name>`
 
