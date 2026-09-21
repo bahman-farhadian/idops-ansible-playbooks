@@ -151,7 +151,7 @@
     body_format: json
     body:
       secretKeyId: "{{ nexus_secrets_key_id }}"
-    status_code: [200, 204, 400]
+    status_code: [200, 202, 204, 400]
   no_log: true
   register: nexus_reencrypt
 
