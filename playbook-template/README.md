@@ -1,13 +1,12 @@
 # playbook-template
 
-Reusable starter template for new Ansible playbook projects in this repository.
+Copy this directory when you start a new Ansible project in this repository.
 
 ## Purpose
 
-Use this directory as a baseline when creating a new domain implementation.
 It follows repository standards:
 
-1. One top-level playbook entrypoint (`playbook.yml`)
+1. One playbook (`playbook.yml`)
 2. Workflow logic in `tasks/`
 3. User-editable settings in `vars/`
 4. Standard `Makefile` with `make help` and `make ping`
@@ -17,13 +16,11 @@ It follows repository standards:
 
 1. Copy this directory to your target location.
 2. Rename copied directory using kebab-case.
-3. Rename `vars/template-config.yml` to a domain-specific config filename.
-   Give each setting a real, generic default where one sensibly exists (see
-   "Machine-Local Settings" in `CONTRIBUTOR-GUIDE.md`); leave a setting
-   blank only when it is genuinely credential-like or host-specific with no
-   safe universal default - a password, an SSH key, a real target's
-   address. Real, per-deployment values still belong only in
-   `vars/settings.local.yml`, never in the tracked file.
+3. Rename `vars/template-config.yml` to a name that fits the new project.
+   Keep safe defaults in that file (see "Machine-Local Settings" in
+   `CONTRIBUTOR-GUIDE.md`). Leave blank only passwords, SSH keys, and real
+   host addresses. Put those real values in a named `*.local.yml` file,
+   never in the tracked file.
 4. Replace placeholder tasks in `tasks/provision.yml` and `tasks/cleanup.yml`.
 5. Keep every user command in `make help`.
 6. This copy already has `make settings` and the local-file check in

@@ -1,6 +1,6 @@
 # at-security-and-compliance
 
-Domain status: scaffold
+Domain status: empty (not started)
 
 ## Purpose
 This directory will contain Ansible playbooks, roles, inventories, and docs for the at-security-and-compliance domain.

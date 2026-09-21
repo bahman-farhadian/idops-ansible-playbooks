@@ -19,7 +19,7 @@ help:
 	@printf "  %-18s %s\n" "make reset" "remove venv/ and recreate it from scratch (make clean && make venv)"
 	@printf "  %-18s %s\n" "make deps-bundle" "download dependency wheels into wheelhouse/ for offline use"
 	@printf "  %-18s %s\n" "make clean" "remove the project venv/"
-	@printf "  %-18s %s\n" "make check-local" "verify no machine-local settings file is tracked by git"
+	@printf "  %-18s %s\n" "make check-local" "fail if a local settings file is tracked or staged in git"
 
 venv: $(REQUIREMENTS)
 	@echo "Creating virtual environment at $(VENV)/ (prompt: $(VENV_PROMPT))"
@@ -52,19 +52,19 @@ deps-bundle: venv
 check-local:
 	@tracked="$$(git ls-files | grep -E '\.local\.yml(\.bak)?$$|local[_-]secrets\.yml$$' || true)"; \
 	if [ -n "$$tracked" ]; then \
-		echo "FAIL: machine-local settings are tracked by git:"; \
+		echo "FAIL: a local settings file is tracked by git:"; \
 		echo "$$tracked" | sed 's/^/  /'; \
 		echo "Remove them with: git rm --cached <file>"; \
 		exit 1; \
 	fi; \
 	staged="$$(git diff --cached --name-only | grep -E '\.local\.yml(\.bak)?$$|local[_-]secrets\.yml$$' || true)"; \
 	if [ -n "$$staged" ]; then \
-		echo "FAIL: machine-local settings are staged for commit:"; \
+		echo "FAIL: a local settings file is staged for commit:"; \
 		echo "$$staged" | sed 's/^/  /'; \
 		echo "Unstage them with: git restore --staged <file>"; \
 		exit 1; \
 	fi; \
-	echo "OK: no machine-local settings file is tracked or staged."
+	echo "OK: no local settings file is tracked or staged."
 
 clean:
 	@if [ -d "$(VENV)" ]; then \

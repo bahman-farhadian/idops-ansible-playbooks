@@ -4,9 +4,9 @@
   gather_facts: false
   vars_files:
     - vars/template-config.yml
-    # The file above carries this scaffold's generic, safe-to-ship defaults.
-    # Real per-deployment values live in a gitignored *.local.yml file
-    # selected with template_local_settings_file. There is no operator default.
+    # The file above has generic defaults that are safe to keep in git.
+    # Real hosts and keys live in a gitignored *.local.yml file
+    # selected with template_local_settings_file. There is no default.
     # The dummy path exists only so ansible-lint --syntax-check can parse
     # this entry; it is not a settings file. Loaded last so a real file wins.
     - "{{ template_local_settings_file | default('vars/.syntax-check.local.yml') }}"

@@ -39,7 +39,7 @@ stay qcow2.
 
 ## Directory Layout
 
-- `playbook.yml` (single playbook entrypoint)
+- `playbook.yml` (the one playbook)
 - `tasks/provision.yml` (stage orchestrator)
 - `tasks/provision-preflight.yml`
 - `tasks/provision-cpu-share.yml`

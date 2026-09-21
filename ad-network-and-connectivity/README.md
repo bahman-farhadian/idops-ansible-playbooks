@@ -1,6 +1,6 @@
 # ad-network-and-connectivity
 
-Domain status: scaffold
+Domain status: empty (not started)
 
 ## Purpose
 This directory will contain Ansible playbooks, roles, inventories, and docs for the ad-network-and-connectivity domain.

@@ -1,6 +1,6 @@
 # am-message-brokers
 
-Domain status: scaffold
+Domain status: empty (not started)
 
 ## Purpose
 This directory will contain Ansible playbooks, roles, inventories, and docs for the am-message-brokers domain.

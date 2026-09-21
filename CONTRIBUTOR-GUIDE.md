@@ -5,7 +5,7 @@ This is the single contributor standard for the entire repository.
 ## Purpose
 
 Use one consistent Ansible project pattern across all domain directories (`aa-*`, `ab-*`, ...).
-Use `playbook-template/` as the default scaffold for new implementation projects.
+Use `playbook-template/` as the starting copy for new projects.
 
 ## Scope
 
@@ -16,12 +16,12 @@ repository: the domain directories (`aa-*`, `ab-*`, ...) and
 `old_playbooks/` held superseded work kept temporarily for reference while its
 projects were migrated. It has been removed now that every project it held has
 an adopted replacement in a domain directory; see each domain's README for the
-migration note. New work belongs in a domain directory, scaffolded from
-`playbook-template/`, never in a legacy holding directory.
+migration note. New work belongs in a domain directory, copied from
+`playbook-template/`, never in a leftover old directory.
 
 ## Required Standards
 
-1. Exactly one top-level playbook entrypoint: `playbook.yml`.
+1. Exactly one playbook: `playbook.yml`.
 2. Do not create multiple top-level workflow playbooks.
 3. Put workflow logic in `tasks/*.yml` and include from `playbook.yml`.
 4. Keep user-editable runtime settings in `vars/` with documented defaults.
@@ -213,7 +213,7 @@ virtual environments contain path-sensitive scripts and interpreter references.
 
 ## Naming Rules
 
-1. Use `playbook.yml` for the single top-level playbook entrypoint.
+1. Use `playbook.yml` as the only playbook.
 2. Use descriptive action names for task files, for example:
    - `tasks/provision.yml`
    - `tasks/cleanup.yml`

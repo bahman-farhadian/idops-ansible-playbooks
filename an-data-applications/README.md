@@ -1,6 +1,6 @@
 # an-data-applications
 
-Domain status: scaffold
+Domain status: empty (not started)
 
 ## Purpose
 This directory will contain Ansible playbooks, roles, inventories, and docs for the an-data-applications domain.

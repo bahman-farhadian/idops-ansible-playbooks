@@ -1,6 +1,6 @@
 # ab-hypervisor-host-platform
 
-Domain status: empty placeholder
+Domain status: empty (not started)
 
 ## Purpose
 

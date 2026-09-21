@@ -1,6 +1,6 @@
 # ac-vm-provisioning
 
-Domain status: active implementation
+Domain status: in use
 
 ## Purpose
 Provider-specific VM provisioning implementations.
@@ -26,7 +26,7 @@ Provider-specific VM provisioning implementations.
 
 ## Consistency Contract
 
-- Each provider directory must expose one playbook entrypoint: `playbook.yml`.
+- Each provider directory has one playbook: `playbook.yml`.
 - Workflow logic should be organized in `tasks/` and included by `playbook.yml`.
 - Operator docs go in local `README.md`.
 - Contributor rules are centralized in root `CONTRIBUTOR-GUIDE.md`.

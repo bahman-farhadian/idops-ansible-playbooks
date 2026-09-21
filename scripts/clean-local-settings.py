@@ -48,25 +48,25 @@ def resolve_output_path(vars_dir, output):
 
 def list_files(vars_dir, disposable, active):
     if not disposable and not active:
-        print(f"{vars_dir}: no machine-local settings files found. Nothing to clean.")
+        print(f"{vars_dir}: no local settings files found. Nothing to clean.")
         return
 
-    print(f"{vars_dir}: found the following machine-local settings files.")
+    print(f"{vars_dir}: found these local settings files.")
     if disposable:
-        print("  Disposable (regenerable, safe to remove):")
+        print("  Backup files (safe to delete):")
         for f in disposable:
             print(f"    {f}")
     if active:
-        print("  ACTIVE (your real configuration, NOT backed up by git):")
+        print("  Active files (your real settings; git does not save them):")
         for f in active:
             print(f"    {f}")
     print()
     if disposable:
-        print("Remove only the disposable ones with: make settings-clean-force")
+        print("Delete backup files with: make settings-clean-force")
     if active:
-        print("Remove one active file with:")
+        print("Delete one active file with:")
         print("  make settings-clean-force-all LOCAL_SETTINGS_FILE=<path>")
-        print("That is not reversible: back up anything you cannot recreate first.")
+        print("That cannot be undone. Copy anything you cannot recreate first.")
 
 
 def remove_files(files):

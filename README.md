@@ -9,8 +9,8 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - Directory names are generalized and kebab-case (no provider/vendor lock in names).
 - Directory order expresses platform dependency and design layering, not a mandatory single-pass execution order.
 - Every top-level domain directory must contain its own `README.md` with scope, dependencies, variables, and runbook.
-- Implementation projects use one playbook entrypoint (`playbook.yml`) and organize workflows via `tasks/`.
-- Reusable starter template is available in `playbook-template/` for new playbooks/projects.
+- Each project has one playbook (`playbook.yml`) and puts work in `tasks/`.
+- Copy `playbook-template/` when you start a new project.
 
 ## Root Stack Layout (Bottom -> Top)
 
@@ -86,7 +86,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - Each top-level directory will become a dedicated playbook domain.
 - Guest provisioning was migrated from the legacy `kvm-clone-ansible` playbook into `ac-vm-provisioning/kvm-vm-provisioning/`; the legacy `old_playbooks/` directory has since been removed now that every project it held has an adopted replacement.
 - `ab-hypervisor-host-platform/` is intentionally empty until host-platform automation is implemented.
-- `playbook-template/` is the baseline scaffold for new implementation projects.
+- Copy `playbook-template/` when you start a new project.
 - Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
 - Repository-wide work queue: `TODO.md`.
 - Makefile standard: every project must provide `make ping`, all user commands must appear in `make help`, Makefiles must not pass `--limit`, and every action that talks to hosts must take `LOCAL_SETTINGS_FILE` with no default (see `CONTRIBUTOR-GUIDE.md`).
