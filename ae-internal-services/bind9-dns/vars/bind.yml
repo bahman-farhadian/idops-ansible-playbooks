@@ -1,0 +1,78 @@
+---
+# BIND 9 recursive cache and authoritative local zone.
+# Safe defaults for git. Real hosts and records belong only in a
+# named *.local.yml file.
+
+# -----------------------------------------------------------------------------
+# Target inventory
+# One list entry per DNS host. Added to the bind_targets group at runtime.
+# -----------------------------------------------------------------------------
+bind_targets: [] # Values: [] | list of host maps (name, address, user, port).
+# Example (was the live default; see local settings for real values):
+# bind_targets:
+#  - name: "dns-01"
+#    address: "192.0.2.10"
+#    user: "root"
+#    port: 2222
+#    become_password: ""
+
+bind_become_enabled: true  # Run remote tasks as root. Values: true | false.
+bind_become_method: "sudo" # Privilege escalation method. Values: "sudo" | "su".
+bind_become_user: "root"   # Privilege escalation target user.
+
+# -----------------------------------------------------------------------------
+# Listen and cache
+# Recursion answers names this server is not master for, using the
+# forwarders. The local zone below is answered from this server.
+# LAN only: queries and recursion are limited to loopback and RFC1918.
+# -----------------------------------------------------------------------------
+bind_listen_ipv4: "any" # Addresses BIND listens on. Values: "any" | an IPv4 address.
+bind_recursion: true    # Answer recursive queries for allowed clients. Values: true | false.
+bind_forward_policy: "only" # How to use forwarders. Values: "only" | "first".
+bind_forwarders: # Upstream resolvers used for the cache. Values: list of IPv4 addresses.
+  - "1.1.1.1"
+  - "8.8.8.8"
+bind_allow_query: # Who may query this server. Values: list of CIDRs.
+  - "127.0.0.0/8"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+bind_ttl: 300 # Default TTL in seconds for local records. Example: 300.
+
+# -----------------------------------------------------------------------------
+# Authoritative zone
+# Guests use names in this zone instead of raw IPs (for example
+# deb.idops-repository.local). Tracked records stay empty.
+# -----------------------------------------------------------------------------
+bind_zone: "idops-repository.local" # Zone this server is master for. Example: "idops-repository.local".
+bind_ns_name: "ns"                  # Name-server host label inside the zone. Example: "ns".
+bind_zone_serial: 1                 # SOA serial. Bump when records change if you have secondaries. Example: 1.
+bind_records: []                    # A/CNAME records in the zone. Values: [] | list of {name, type, value}.
+# Example (was the live default; see local settings for real values):
+# bind_records:
+#  - name: "ns"
+#    type: "A"
+#    value: "192.0.2.10"
+#  - name: "dns"
+#    type: "A"
+#    value: "192.0.2.10"
+#  - name: "@"
+#    type: "A"
+#    value: "192.0.2.20"
+#  - name: "deb"
+#    type: "A"
+#    value: "192.0.2.20"
+#  - name: "docker"
+#    type: "A"
+#    value: "192.0.2.20"
+
+bind_reverse_zone: "" # in-addr.arpa zone. Values: "" (skip reverse) | a reverse zone name.
+# Example (was the live default; see local settings for real values):
+# bind_reverse_zone: "24.168.192.in-addr.arpa"
+bind_ptr_records: [] # PTR records. Values: [] | list of {octet, name}.
+# Example (was the live default; see local settings for real values):
+# bind_ptr_records:
+#  - octet: "10"
+#    name: "ns.idops-repository.local."
+#  - octet: "20"
+#    name: "deb.idops-repository.local."

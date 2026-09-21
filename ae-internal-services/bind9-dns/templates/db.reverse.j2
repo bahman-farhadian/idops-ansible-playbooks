@@ -1,0 +1,12 @@
+$TTL {{ bind_ttl }}
+@ IN SOA {{ bind_ns_name }}.{{ bind_zone }}. hostmaster.{{ bind_zone }}. (
+    {{ bind_zone_serial }}
+    3600
+    600
+    86400
+    {{ bind_ttl }}
+)
+@ IN NS {{ bind_ns_name }}.{{ bind_zone }}.
+{% for rec in bind_ptr_records %}
+{{ rec.octet }} IN PTR {{ rec.name }}
+{% endfor %}

@@ -1,0 +1,136 @@
+---
+- name: Prepare BIND target inventory
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/bind.yml
+    # Tracked files have generic defaults. Real hosts and records
+    # live in a gitignored *.local.yml selected with
+    # bind_local_settings_file. There is no default. The dummy path
+    # exists only so ansible-lint --syntax-check can parse this entry.
+    - "{{ bind_local_settings_file | default('vars/.syntax-check.local.yml') }}"
+  vars:
+    bind_action_effective: "{{ bind_action | default('deploy') }}"
+    bind_selected_local_settings_file: "{{ bind_local_settings_file | default('') }}"
+    bind_local_settings_path: >-
+      {{
+        bind_selected_local_settings_file
+        if bind_selected_local_settings_file is match('^/')
+        else (playbook_dir ~ '/' ~ bind_selected_local_settings_file)
+      }}
+
+  tasks:
+    - name: Fail when no local settings file was selected
+      ansible.builtin.fail:
+        msg: >-
+          No local settings file was selected. There is no default.
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml
+      when: bind_selected_local_settings_file | length == 0
+
+    - name: Validate selected local settings file name
+      ansible.builtin.assert:
+        that:
+          - bind_selected_local_settings_file is search('\\.local\\.yml$')
+        fail_msg: >-
+          bind_local_settings_file must end with .local.yml
+          (got '{{ bind_selected_local_settings_file }}').
+          Example: LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml
+
+    - name: Check for a local settings file
+      ansible.builtin.stat:
+        path: "{{ bind_local_settings_path }}"
+      register: bind_local_override_file
+      changed_when: false
+
+    - name: Fail when the selected local settings file is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ bind_selected_local_settings_file }} was not found.
+          Put the real host and DNS records in this file.
+          Create it with:
+          make settings LOCAL_SETTINGS_FILE={{ bind_selected_local_settings_file }}
+      when: not bind_local_override_file.stat.exists
+
+    - name: Load the local settings file for reporting
+      ansible.builtin.include_vars:
+        file: "{{ bind_local_settings_path }}"
+        name: bind_local_overrides
+      when: bind_local_override_file.stat.exists
+
+    - name: Show which keys come from the local settings file
+      ansible.builtin.debug:
+        msg: >-
+          Using {{ bind_selected_local_settings_file }}.
+          It sets {{ bind_local_overrides | length }} key(s):
+          {{ bind_local_overrides.keys() | list | join(', ') }}.
+          Edit those keys in that file. The same keys in vars/bind.yml
+          are ignored.
+      when: bind_local_override_file.stat.exists
+
+    - name: Validate requested action
+      ansible.builtin.assert:
+        that:
+          - bind_action_effective in ['ping', 'deploy']
+        fail_msg: "bind_action must be ping or deploy."
+
+    - name: Fail when no DNS host is declared
+      ansible.builtin.assert:
+        that:
+          - bind_targets is defined
+          - (bind_targets | length) > 0
+        fail_msg: >-
+          Add at least one host in bind_targets in
+          {{ bind_selected_local_settings_file }}.
+          The list in vars/bind.yml is empty on purpose.
+
+    - name: Fail when a target name is missing
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - (item.name | string | length) > 0
+        fail_msg: "Each bind_targets entry needs a name."
+      loop: "{{ bind_targets }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Add BIND hosts to inventory
+      ansible.builtin.add_host:
+        name: "{{ item.name }}"
+        groups: bind_targets
+        ansible_host: "{{ item.address | default(item.name) }}"
+        ansible_user: "{{ (item.user | default('', true)) or omit }}"
+        ansible_port: "{{ item.port | default(22) }}"
+        ansible_become_password: "{{ (item.become_password | default('', true)) or omit }}"
+        ansible_python_interpreter: "{{ item.python_interpreter | default('/usr/bin/python3') }}"
+      loop: "{{ bind_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Run BIND action
+  hosts: bind_targets
+  become: "{{ bind_become_enabled | default(true) | bool }}"
+  become_method: "{{ bind_become_method | default('sudo') }}"
+  become_user: "{{ bind_become_user | default('root') }}"
+  gather_facts: "{{ bind_action_effective == 'deploy' }}"
+  vars_files:
+    - vars/bind.yml
+    - "{{ bind_local_settings_file | default('vars/.syntax-check.local.yml') }}"
+  vars:
+    bind_action_effective: "{{ bind_action | default('deploy') }}"
+    bind_selected_local_settings_file: "{{ bind_local_settings_file | default('') }}"
+
+  handlers:
+    - name: Restart named
+      ansible.builtin.systemd:
+        name: "{{ bind_systemd_unit | default('named') }}"
+        state: restarted
+        daemon_reload: true
+
+  tasks:
+    - name: Run connectivity check
+      ansible.builtin.include_tasks: tasks/ping.yml
+      when: bind_action_effective == 'ping'
+
+    - name: Install and configure BIND
+      ansible.builtin.include_tasks: tasks/deploy.yml
+      when: bind_action_effective == 'deploy'

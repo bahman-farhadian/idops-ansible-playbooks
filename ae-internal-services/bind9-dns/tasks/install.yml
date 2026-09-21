@@ -1,0 +1,10 @@
+---
+- name: Install BIND 9
+  ansible.builtin.apt:
+    name:
+      - bind9
+      - bind9-utils
+      - bind9-dnsutils
+    state: present
+    update_cache: true
+  notify: Restart named

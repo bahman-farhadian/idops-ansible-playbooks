@@ -1,0 +1,9 @@
+---
+- name: Run install preflight
+  ansible.builtin.include_tasks: tasks/preflight.yml
+
+- name: Install BIND packages
+  ansible.builtin.include_tasks: tasks/install.yml
+
+- name: Write BIND config and start named
+  ansible.builtin.include_tasks: tasks/configure.yml

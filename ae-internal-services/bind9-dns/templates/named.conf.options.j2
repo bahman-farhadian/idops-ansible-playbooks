@@ -1,0 +1,33 @@
+options {
+    directory "/var/cache/bind";
+{% if bind_listen_ipv4 == "any" %}
+    listen-on { any; };
+{% else %}
+    listen-on { 127.0.0.1; {{ bind_listen_ipv4 }}; };
+{% endif %}
+    listen-on-v6 { none; };
+    allow-query {
+{% for cidr in bind_allow_query %}
+        {{ cidr }};
+{% endfor %}
+    };
+{% if bind_recursion | bool %}
+    recursion yes;
+    allow-recursion {
+{% for cidr in bind_allow_query %}
+        {{ cidr }};
+{% endfor %}
+    };
+    forward {{ bind_forward_policy }};
+    forwarders {
+{% for fwd in bind_forwarders %}
+        {{ fwd }};
+{% endfor %}
+    };
+{% else %}
+    recursion no;
+{% endif %}
+    allow-transfer { none; };
+    dnssec-validation auto;
+    auth-nxdomain no;
+};

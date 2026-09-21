@@ -1,30 +1,12 @@
 # ae-internal-services
 
-Domain status: empty (not started)
+Domain for in-house platform services such as DNS.
 
-## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ae-internal-services domain.
+## Implemented projects
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
-
-## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
-
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
-
-## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+- `bind9-dns/`
+  - BIND 9 as a systemd service
+  - Recursive cache for internet names
+  - Authoritative zone for local names (for example `idops-repository.local`)
+  - Host OS: Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04
+  - UDP/TCP 53, RFC1918 clients only

@@ -1,0 +1,13 @@
+---
+# Empty on purpose. Real hosts go in bind_targets in a named *.local.yml
+# file. playbook.yml adds them to the bind_targets group at runtime.
+# Do not put a real address, user, or password in this file.
+all:
+  children:
+    local:
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_python_interpreter: /usr/bin/python3
+    bind_targets:
+      hosts: {}

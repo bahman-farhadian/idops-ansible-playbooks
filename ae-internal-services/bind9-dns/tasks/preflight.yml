@@ -1,0 +1,59 @@
+---
+- name: Fail when the OS is not a supported Debian or Ubuntu release
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - >-
+        (ansible_facts['distribution'] == 'Debian'
+         and ansible_facts['distribution_major_version'] in ['12', '13'])
+        or
+        (ansible_facts['distribution'] == 'Ubuntu'
+         and ansible_facts['distribution_version'] in ['24.04', '26.04'])
+    fail_msg: >-
+      This playbook installs BIND 9 on Debian 12, Debian 13, Ubuntu 24.04,
+      or Ubuntu 26.04. Host {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] | default('') }}.
+
+- name: Fail when the zone name is empty
+  ansible.builtin.assert:
+    that:
+      - bind_zone | default('') | length > 0
+      - bind_ns_name | default('') | length > 0
+    fail_msg: >-
+      bind_zone and bind_ns_name must be set in
+      {{ bind_selected_local_settings_file | default('your local settings file') }}.
+
+- name: Fail when no local records are declared
+  ansible.builtin.assert:
+    that:
+      - bind_records is defined
+      - (bind_records | length) > 0
+    fail_msg: >-
+      bind_records is empty. Add A records in
+      {{ bind_selected_local_settings_file | default('your local settings file') }}.
+      The list in vars/bind.yml is empty on purpose.
+
+- name: Fail when a record is missing name, type, or value
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - (item.name | string | length) > 0
+      - item.type is defined
+      - (item.type | string | length) > 0
+      - item.value is defined
+      - (item.value | string | length) > 0
+    fail_msg: "Each bind_records entry needs name, type, and value."
+  loop: "{{ bind_records }}"
+  loop_control:
+    label: "{{ item.name | default('unnamed') }}"
+
+- name: Fail when reverse zone is set without PTR records
+  ansible.builtin.assert:
+    that:
+      - bind_ptr_records is defined
+      - (bind_ptr_records | length) > 0
+    fail_msg: >-
+      bind_reverse_zone is set but bind_ptr_records is empty.
+      Add PTR records or leave bind_reverse_zone empty.
+  when: bind_reverse_zone | default('') | length > 0
