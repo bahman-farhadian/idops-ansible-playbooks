@@ -39,5 +39,6 @@ group_vars/local_secrets.yml
 # Offline dependency cache (populated by `make deps-bundle`)
 wheelhouse/
 
-# Local runtime artifacts (Lynis scan reports, etc.)
+# Local runtime artifacts (Lynis scan reports, downloaded archives, etc.)
 ag-os-baseline-and-hardening/debian-based-os-hardening/artifacts/
+af-artifact-management/nexus-repository-systemd/artifacts/

@@ -147,6 +147,10 @@ migration note. New work belongs in a domain directory, copied from
     internal API. Do not follow a product "newer version" banner onto a
     build that is not a stable or LTS release. The pin and its checksum
     live in tracked vars. See "Stable and LTS releases".
+22. Fetch tarballs and git clones once on the Ansible control host, then
+    copy the file to the target. Do not download the same large file on
+    every guest. APT packages and Docker images go through the artifact
+    cache (Nexus). This rule already applies to Lynis. See "Large files".
 
 ## Language
 
@@ -194,6 +198,23 @@ If a stable Community Edition (or other free build) has no public API
 for a feature, use another published stable API on that same release,
 or wait for a stable release that documents the feature. Do not move
 the pin to an RC so an unpublished endpoint appears.
+
+## Large files
+
+A guest with 1 GiB of RAM often has `/tmp` on tmpfs of a few hundred
+megabytes. A 500 MiB tarball will fail there with "No space left on
+device" even when the root disk is empty.
+
+Clone git repositories and download tarballs on the machine that runs
+`make` (the Ansible control host). Keep them in a cache directory.
+Copy the resulting file to the target. Unpack it there.
+
+Do not `get_url` or `git` a large file on the guest when the control
+host can do it once. APT `.deb` packages and Docker images are
+different: those go through Nexus.
+
+Set `ansible_remote_tmp` off tmpfs (for example `/var/tmp/.ansible`)
+when you copy a large file, so Ansible does not stage it in `/tmp`.
 
 ## Best-Practice Project Structure
 
