@@ -29,16 +29,33 @@
     - "{{ nexus_data_dir }}/log"
     - "{{ nexus_data_dir }}/etc"
 
-- name: Download the Nexus archive
+- name: Ensure the Nexus archive cache exists on the Ansible host
+  ansible.builtin.file:
+    path: "{{ nexus_control_cache_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Download the Nexus archive on the Ansible host
   ansible.builtin.get_url:
     url: "{{ nexus_download_url }}"
-    dest: "{{ nexus_download_dir }}/nexus-{{ nexus_version }}-linux-x86_64.tar.gz"
+    dest: "{{ nexus_control_cache_dir }}/nexus-{{ nexus_version }}-linux-x86_64.tar.gz"
     checksum: "{{ nexus_download_checksum }}"
+    mode: "0644"
+    timeout: 600
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Copy the Nexus archive to the Nexus host
+  ansible.builtin.copy:
+    src: "{{ nexus_control_cache_dir }}/nexus-{{ nexus_version }}-linux-x86_64.tar.gz"
+    dest: "{{ nexus_download_dir }}/nexus-{{ nexus_version }}-linux-x86_64.tar.gz"
     owner: "{{ nexus_user }}"
     group: "{{ nexus_group }}"
     mode: "0644"
-    timeout: 600
-  register: nexus_archive_download
 
 - name: Unpack the Nexus archive
   ansible.builtin.unarchive:

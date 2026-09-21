@@ -118,6 +118,7 @@
   vars:
     nexus_action_effective: "{{ nexus_action | default('deploy') }}"
     nexus_selected_local_settings_file: "{{ nexus_local_settings_file | default('') }}"
+    ansible_remote_tmp: /var/tmp/.ansible
 
   handlers:
     - name: Restart nexus

@@ -47,7 +47,8 @@ nexus_data_dir: "/data/nexus"              # Data and blob store. Put this on th
 nexus_data_mount: "/data"                  # Extra disk mount that must exist before install.
 nexus_user: "nexus"                        # System user that runs the service.
 nexus_group: "nexus"                       # System group that runs the service.
-nexus_download_dir: "/var/cache/nexus"     # Where the tarball is stored on the host.
+nexus_download_dir: "/var/cache/nexus"     # Where the tarball is stored on the Nexus host.
+nexus_control_cache_dir: "{{ playbook_dir }}/artifacts/cache/nexus" # Ansible-host cache. Download once here, then copy. Values: a directory path.
 
 # -----------------------------------------------------------------------------
 # Listen

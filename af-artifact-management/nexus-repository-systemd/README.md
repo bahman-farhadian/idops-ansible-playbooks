@@ -55,6 +55,9 @@ the Community EULA, writes the encryption key, creates the APT and
 Docker Hub proxy repositories, and attaches the 30-day cleanup
 policies.
 
+The Nexus tarball is downloaded once on the machine that runs `make`,
+then copied to the guest. It is not fetched again on every deploy.
+
 The host firewall must allow TCP 8081 and 8082 from the networks that
 should use the cache.
 
