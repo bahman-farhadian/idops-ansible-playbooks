@@ -53,7 +53,7 @@ kvm_default_cloud_init_packages: # Package list to install on first boot; SSH an
   - "openssh-server"
   - "qemu-guest-agent"
 kvm_default_cloud_init_bootcmd: []                                                # cloud-init bootcmd list. Values: [] | list of shell command strings.
-kvm_default_cloud_init_extra_hosts: []                                            # Extra /etc/hosts lines written in bootcmd before apt. Values: [] | list of {ip, names}.
+kvm_default_cloud_init_extra_hosts: []                                            # Extra names appended to cloud-init hosts templates. Values: [] | list of {ip, names}.
 # Example (was the live default; see local settings for real values):
 # kvm_default_cloud_init_extra_hosts:
 #   - ip: "192.0.2.20"

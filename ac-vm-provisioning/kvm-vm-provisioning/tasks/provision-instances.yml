@@ -819,39 +819,49 @@
         }
       ] %}
       {% endif %}
+      {% if item.cloud_init_disable_multicast_dns | default(false) | bool %}
+      {% set generated_write_files = generated_write_files + [
+        {
+          'path': '/etc/systemd/resolved.conf.d/10-idops-mdns.conf',
+          'owner': 'root:root',
+          'permissions': '0644',
+          'content': "[Resolve]\nMulticastDNS=no\nLLMNR=no\n"
+        }
+      ] %}
+      {% endif %}
+      {% set extra_hosts_ns = namespace(lines=[]) %}
+      {% for host_entry in item.cloud_init_extra_hosts | default([]) %}
+      {% set extra_hosts_ns.lines = extra_hosts_ns.lines + [
+        host_entry.ip ~ ' ' ~ (host_entry.names | join(' '))
+      ] %}
+      {% endfor %}
+      {% if extra_hosts_ns.lines | length > 0 %}
+      {% set extra_hosts_text = extra_hosts_ns.lines | join('\n') ~ '\n' %}
+      {% set generated_write_files = generated_write_files + [
+        {
+          'path': '/etc/cloud/templates/hosts.debian.tmpl',
+          'append': true,
+          'owner': 'root:root',
+          'permissions': '0644',
+          'content': extra_hosts_text
+        },
+        {
+          'path': '/etc/cloud/templates/hosts.ubuntu.tmpl',
+          'append': true,
+          'owner': 'root:root',
+          'permissions': '0644',
+          'content': extra_hosts_text
+        }
+      ] %}
+      {% endif %}
       {% set effective_write_files = (item.cloud_init_write_files | default([])) + generated_write_files %}
       {% if (effective_write_files | default([])) | length > 0 %}
       write_files:
       {{ effective_write_files | to_nice_yaml(indent=2) | indent(2, true) }}
       {% endif %}
-      {% set emit_bootcmd = (
-           (item.cloud_init_disable_multicast_dns | default(false) | bool)
-           or ((item.cloud_init_extra_hosts | default([])) | length > 0)
-           or ((item.cloud_init_bootcmd | default([])) | length > 0)
-         ) %}
-      {% if emit_bootcmd %}
+      {% if (item.cloud_init_bootcmd | default([])) | length > 0 %}
       bootcmd:
-      {% if item.cloud_init_disable_multicast_dns | default(false) | bool %}
-        - {{ ["mkdir", "-p", "/etc/systemd/resolved.conf.d"] | to_json }}
-        - {{ ["sh", "-c", "printf '%s\\n' '[Resolve]' 'MulticastDNS=no' 'LLMNR=no' > /etc/systemd/resolved.conf.d/10-idops-mdns.conf"] | to_json }}
-        - {{ ["sh", "-c", "systemctl try-reload-or-restart systemd-resolved.service || true"] | to_json }}
-      {% endif %}
-      {% for host_entry in item.cloud_init_extra_hosts | default([]) %}
-        - {{
-            [
-              "sh",
-              "-c",
-              (
-                "grep -Fq "
-                ~ (host_entry.names[0] | to_json)
-                ~ " /etc/hosts || echo "
-                ~ ((host_entry.ip ~ " " ~ (host_entry.names | join(" "))) | to_json)
-                ~ " >> /etc/hosts"
-              )
-            ] | to_json
-          }}
-      {% endfor %}
-      {% for boot_command in item.cloud_init_bootcmd | default([]) %}
+      {% for boot_command in item.cloud_init_bootcmd %}
         - {{ boot_command | to_json }}
       {% endfor %}
       {% endif %}
