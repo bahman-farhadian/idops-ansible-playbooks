@@ -3,7 +3,7 @@
 Install BIND 9 as a systemd service. One process does two jobs:
 
 1. Recursive cache for internet names (forwards to the listed resolvers)
-2. Authoritative DNS for a local zone (for example `idops-repository.local`)
+2. Authoritative DNS for a local zone (for example `idops-repository.idops`)
 
 The host can be Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04.
 
@@ -18,11 +18,11 @@ The host firewall must allow UDP 53 and TCP 53 from the networks that
 should use this server.
 
 Clients set this host as their resolver. They then use names such as
-`deb.idops-repository.local` instead of a raw IP.
+`deb.idops-repository.idops` instead of a raw IP.
 
-`.local` is also used by multicast DNS on some desktops. Guests in this
-stack use this BIND server as their unicast resolver. On Ubuntu, turn
-multicast DNS off in the hardening settings so `.local` is sent here.
+Do not use a `.local` zone. systemd-resolved sends `.local` to multicast
+DNS (RFC 6762) and never asks this server for those names. Use a unicast
+TLD such as `.idops`.
 
 ## Local settings
 

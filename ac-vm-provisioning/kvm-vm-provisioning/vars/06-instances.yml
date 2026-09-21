@@ -35,7 +35,7 @@
 # - guest_dns_servers            Example: ["1.1.1.1", "8.8.8.8"]
 # - instance_mac_address         Example: "52:54:00:11:22:33"
 # - cloud_init_user              Example: "idops" (tracked default is "idops")
-# - cloud_init_extra_hosts       Example: [{ip: "192.0.2.20", names: ["deb.example.local"]}]
+# - cloud_init_extra_hosts       Example: [{ip: "192.0.2.20", names: ["deb.example.idops"]}]
 # - cloud_init_disable_multicast_dns Example: true
 # - cpu_share_enabled            Example: true   (see 02-vm-defaults.yml)
 # - instance_extra_disks_enabled Example: true   (see 02-vm-defaults.yml)

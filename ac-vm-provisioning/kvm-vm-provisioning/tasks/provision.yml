@@ -415,6 +415,37 @@
   loop_control:
     label: "{{ item.instance_name }}"
 
+- name: Fail when first-boot APT uses a multicast DNS .local hostname
+  ansible.builtin.assert:
+    that:
+      - kvm_mdns_apt_uris | length == 0
+    fail_msg: >-
+      Instance {{ item.instance_name }} first-boot APT uses a .local hostname
+      ({{ kvm_mdns_apt_uris | join(', ') }}). systemd-resolved sends .local
+      to multicast DNS (RFC 6762) and never asks unicast DNS. Use a unicast
+      zone such as .idops, or the cache IPv4 URL.
+  vars:
+    kvm_instance_apt_uris: >-
+      {{
+        (item.cloud_init_apt_config | default({}))
+        | dict2items
+        | map(attribute='value')
+        | flatten
+        | select('mapping')
+        | selectattr('uri', 'defined')
+        | map(attribute='uri')
+        | list
+      }}
+    kvm_mdns_apt_uris: >-
+      {{
+        kvm_instance_apt_uris
+        | select('search', '(?i)https?://[^/]*\\.local([:/]|$)')
+        | list
+      }}
+  loop: "{{ normalized_instances }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+
 - name: Validate instance names are unique
   ansible.builtin.assert:
     that:

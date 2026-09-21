@@ -142,14 +142,15 @@ Edit the real values in that file, not in the tracked files:
    `ubuntu-*-server-cloudimg-amd64.img` (qcow2 contents, upstream `.img`
    name). The first-boot SSH user is `idops` (`kvm_default_cloud_init_user`).
    Do not use the vendor cloud users `debian` or `ubuntu`. First-boot APT
-   that must reach a local cache should use the cache IPv4 URL, not a
-   `.local` name. Debian 13 and Ubuntu send `.local` to multicast DNS
-   (RFC 6762) until hardening turns that off, so the guest never asks
-   unicast DNS for that name. Nexus selects each APT proxy by URL path
-   (`/repository/<name>`) on the HTTP port; the DNS A record only needs
-   to point at that host. Extra names go in
+   that must reach a local cache may use the cache hostname when that
+   name is in a unicast zone (for example `.idops`). Do not use a
+   `.local` hostname: Debian 13 and Ubuntu send `.local` to multicast
+   DNS (RFC 6762), so APT never asks unicast DNS. Nexus selects each
+   APT proxy by URL path (`/repository/<name>`) on the HTTP port; the
+   DNS A record only needs to point at that host. Extra names go in
    `kvm_default_cloud_init_extra_hosts` (cloud-init `write_files` on the
-   hosts templates) and `kvm_default_cloud_init_disable_multicast_dns`.
+   hosts templates). Optional
+   `kvm_default_cloud_init_disable_multicast_dns` turns mDNS/LLMNR off.
    If the virtio guest agent stays down, provision installs
    `qemu-guest-agent` over SSH on port 22 and starts the service.
    Ubuntu 26.04 uses `virt_install_os_variant:

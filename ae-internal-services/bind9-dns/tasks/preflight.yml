@@ -24,6 +24,16 @@
       bind_zone and bind_ns_name must be set in
       {{ bind_selected_local_settings_file | default('your local settings file') }}.
 
+- name: Fail when the zone uses the multicast DNS TLD .local
+  ansible.builtin.assert:
+    that:
+      - (bind_zone | lower | split('.') | last) != 'local'
+    fail_msg: >-
+      bind_zone '{{ bind_zone }}' ends with .local. systemd-resolved
+      treats .local as multicast DNS (RFC 6762) and will not send those
+      names to this server. Use a unicast zone such as
+      idops-repository.idops.
+
 - name: Fail when no local records are declared
   ansible.builtin.assert:
     that:

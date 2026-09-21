@@ -145,6 +145,43 @@
         fail_msg: "Target names must be unique in debian_hardening_targets."
       tags: always
 
+    - name: Fail when APT maps use a multicast DNS .local hostname
+      ansible.builtin.assert:
+        that:
+          - debian_mdns_apt_uris | length == 0
+        fail_msg: >-
+          APT map URL(s) use a .local hostname
+          ({{ debian_mdns_apt_uris | join(', ') }}).
+          systemd-resolved sends .local to multicast DNS (RFC 6762)
+          and never asks unicast DNS. Use a unicast zone such as .idops,
+          or an IPv4 URL.
+      vars:
+        debian_mdns_apt_uris: >-
+          {{
+            (
+              (
+                (apt_debian_repository_by_suite | default({}))
+                | dict2items
+                | map(attribute='value')
+                | list
+              )
+              + (
+                (apt_ubuntu_repository_by_suite | default({}))
+                | dict2items
+                | map(attribute='value')
+                | list
+              )
+            )
+            | map('dict2items')
+            | flatten
+            | map(attribute='value')
+            | select('string')
+            | select('search', '(?i)^https?://')
+            | select('search', '(?i)https?://[^/]*\\.local([:/]|$)')
+            | list
+          }}
+      tags: always
+
     # Empty user collapses to omit so the SSH client keeps falling back to
     # the operator's own ssh config instead of receiving a blank value.
     - name: Add hardening targets to in-memory inventory

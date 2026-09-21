@@ -10,7 +10,7 @@ No open items. Ubuntu 24.04 and 26.04 catalog profiles live in
 
 ## ae-internal-services/bind9-dns
 
-No open items. Recursive cache plus authoritative `idops-repository.local`.
+No open items. Recursive cache plus authoritative `idops-repository.idops`.
 
 ## af-artifact-management/nexus-repository-systemd
 

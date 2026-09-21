@@ -42,9 +42,10 @@ bind_ttl: 300 # Default TTL in seconds for local records. Example: 300.
 # -----------------------------------------------------------------------------
 # Authoritative zone
 # Guests use names in this zone instead of raw IPs (for example
-# deb.idops-repository.local). Tracked records stay empty.
+# deb.idops-repository.idops). Do not use a .local TLD: systemd-resolved
+# sends .local to multicast DNS (RFC 6762). Tracked records stay empty.
 # -----------------------------------------------------------------------------
-bind_zone: "idops-repository.local" # Zone this server is master for. Example: "idops-repository.local".
+bind_zone: "idops-repository.idops" # Zone this server is master for. Example: "idops-repository.idops".
 bind_ns_name: "ns"                  # Name-server host label inside the zone. Example: "ns".
 bind_zone_serial: 1                 # SOA serial. Bump when records change if you have secondaries. Example: 1.
 bind_records: []                    # A/CNAME records in the zone. Values: [] | list of {name, type, value}.
@@ -73,6 +74,6 @@ bind_ptr_records: [] # PTR records. Values: [] | list of {octet, name}.
 # Example (was the live default; see local settings for real values):
 # bind_ptr_records:
 #  - octet: "10"
-#    name: "ns.idops-repository.local."
+#    name: "ns.idops-repository.idops."
 #  - octet: "20"
-#    name: "deb.idops-repository.local."
+#    name: "deb.idops-repository.idops."

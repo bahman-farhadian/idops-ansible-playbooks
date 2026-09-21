@@ -57,8 +57,8 @@ kvm_default_cloud_init_extra_hosts: []                                          
 # Example (was the live default; see local settings for real values):
 # kvm_default_cloud_init_extra_hosts:
 #   - ip: "192.0.2.20"
-#     names: ["deb.example.local"]
-kvm_default_cloud_init_disable_multicast_dns: false                               # Write a systemd-resolved drop-in that turns off mDNS/LLMNR so .local uses unicast DNS. Values: true | false.
+#     names: ["deb.example.idops"]
+kvm_default_cloud_init_disable_multicast_dns: false                               # systemd-resolved drop-in that turns off mDNS/LLMNR. Values: true | false.
 kvm_default_cloud_init_runcmd: []                                                 # cloud-init runcmd list. Values: [] | list of shell command strings.
 kvm_default_cloud_init_write_files: []                                            # cloud-init write_files list. Values: [] | list of cloud-init write_files entries.
 kvm_default_cloud_init_tune_networkd_wait_online: true                            # Apply systemd-networkd-wait-online timeout tuning on Debian 12 guests. Values: true | false.
