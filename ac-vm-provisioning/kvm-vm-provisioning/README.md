@@ -141,7 +141,12 @@ Edit the real values in that file, not in the tracked files:
 8. Debian profiles use `*-generic-amd64.qcow2`. Ubuntu profiles cache
    `ubuntu-*-server-cloudimg-amd64.img` (qcow2 contents, upstream `.img`
    name). The first-boot SSH user is `idops` (`kvm_default_cloud_init_user`).
-   Do not use the vendor cloud users `debian` or `ubuntu`. Ubuntu 26.04 uses `virt_install_os_variant:
+   Do not use the vendor cloud users `debian` or `ubuntu`. When first-boot
+   APT uses a `.local` name, set `kvm_default_cloud_init_extra_hosts` and
+   `kvm_default_cloud_init_disable_multicast_dns: true`. Debian 13 and
+   Ubuntu send `.local` to multicast DNS, so packages (including
+   qemu-guest-agent) never install until those bootcmd lines exist.
+   Ubuntu 26.04 uses `virt_install_os_variant:
    ubuntu25.10` until libosinfo ships `ubuntu26.04`. `nocloud` is blocked
    by default; override only if intentional with
    `kvm_allow_nocloud_images=true`.
