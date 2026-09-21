@@ -141,6 +141,12 @@ migration note. New work belongs in a domain directory, copied from
 20. Write Makefile help, fail/debug messages, and READMEs in plain English.
     Short sentences. Common words. Say what failed and what to do next.
     Keep real names (paths, Make targets, variable names). See "Language".
+21. Pin only a stable or LTS release of every operating system, package,
+    tool, and published API this repository installs or calls. Do not use
+    a release candidate, beta, preview, nightly, or an unpublished
+    internal API. Do not follow a product "newer version" banner onto a
+    build that is not a stable or LTS release. The pin and its checksum
+    live in tracked vars. See "Stable and LTS releases".
 
 ## Language
 
@@ -172,6 +178,22 @@ Good: "You must pass a *.local.yml file. There is no default."
 
 Bad: "Leave it empty to inherit the default."
 Good: "Empty is not allowed. Set a full path starting with / in your local settings file."
+
+## Stable and LTS releases
+
+This applies to every project in this repository.
+
+Use a released stable version or a long-term support (LTS) version.
+Do not use a release candidate (RC), beta, preview, or nightly.
+
+Call only a published stable API for that released version.
+Do not call `/internal/`, `/beta/`, or another unpublished path to
+work around a missing public API.
+
+If a stable Community Edition (or other free build) has no public API
+for a feature, use another published stable API on that same release,
+or wait for a stable release that documents the feature. Do not move
+the pin to an RC so an unpublished endpoint appears.
 
 ## Best-Practice Project Structure
 
