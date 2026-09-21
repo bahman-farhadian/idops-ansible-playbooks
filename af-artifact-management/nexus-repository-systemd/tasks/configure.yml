@@ -113,33 +113,27 @@
     status_code: [200, 204]
   no_log: true
 
-- name: Copy the web UI login check
-  ansible.builtin.copy:
-    src: files/check_admin_login.py
-    dest: /tmp/check_nexus_admin_login.py
-    owner: root
-    group: root
-    mode: "0700"
-
+# Run on the Ansible host. The 1 GiB guest has ~50 MiB free and
+# tmpfs /tmp; python on the guest can fail even when REST already works.
 - name: Check that the web UI can sign in as admin
   ansible.builtin.command:
     argv:
       - /usr/bin/python3
-      - /tmp/check_nexus_admin_login.py
+      - "{{ playbook_dir }}/files/check_admin_login.py"
       - "--url"
-      - "http://127.0.0.1:{{ nexus_http_port }}"
+      - "http://{{ ansible_host }}:{{ nexus_http_port }}"
       - "--user"
       - "{{ nexus_admin_user }}"
       - "--password"
       - "{{ nexus_admin_password }}"
+  delegate_to: localhost
+  become: false
   register: nexus_ui_login
+  until: nexus_ui_login.rc == 0
+  retries: 12
+  delay: 5
   changed_when: false
   no_log: true
-
-- name: Remove the web UI login check script
-  ansible.builtin.file:
-    path: /tmp/check_nexus_admin_login.py
-    state: absent
 
 - name: Re-encrypt stored secrets with the custom key
   ansible.builtin.uri:

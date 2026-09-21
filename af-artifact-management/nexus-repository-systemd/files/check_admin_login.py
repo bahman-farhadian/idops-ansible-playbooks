@@ -31,7 +31,7 @@ def main() -> int:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with urllib.request.urlopen(request, timeout=60) as response:
             if response.status in (200, 204):
                 print("web UI sign-in as admin works")
                 return 0
