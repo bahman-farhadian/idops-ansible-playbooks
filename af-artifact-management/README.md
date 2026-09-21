@@ -1,30 +1,17 @@
 # af-artifact-management
 
-Domain status: empty (not started)
+Domain for local package and image caches.
 
-## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the af-artifact-management domain.
+## Implemented projects
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+- `nexus-repository-systemd/`
+  - Nexus Repository Manager 3 as a systemd service (not Docker)
+  - APT reverse proxy for Debian and Ubuntu
+  - Docker Hub reverse proxy
+  - HTTP on the lab LAN only (port 8081, plus 8082 for Docker)
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
 
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
-
-## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+- Upstream: `ac-vm-provisioning`, `ag-os-baseline-and-hardening`
+- Downstream: later guests can use this cache for APT (set URLs in a
+  local settings file; internet mirrors stay the tracked default)

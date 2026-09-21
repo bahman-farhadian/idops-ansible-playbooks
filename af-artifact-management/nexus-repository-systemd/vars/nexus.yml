@@ -1,0 +1,119 @@
+---
+# Nexus Repository Manager (systemd, not Docker)
+# Safe defaults for git. Real hosts and the admin password belong only
+# in a named *.local.yml file.
+
+# -----------------------------------------------------------------------------
+# Target inventory
+# One list entry per Nexus host. Added to the nexus_targets group at runtime.
+# -----------------------------------------------------------------------------
+nexus_targets: [] # Values: [] | list of host maps (name, address, user, port).
+# Example (was the live default; see local settings for real values):
+# nexus_targets:
+#  - name: "debian-13-nexus"
+#    address: "192.168.24.10"
+#    user: "root"
+#    port: 2222
+#    become_password: ""
+
+nexus_become_enabled: true  # Run remote tasks as root. Values: true | false.
+nexus_become_method: "sudo" # Privilege escalation method. Values: "sudo" | "su".
+nexus_become_user: "root"   # Privilege escalation target user.
+
+# -----------------------------------------------------------------------------
+# Download and install
+# Pin a version. Check https://help.sonatype.com/en/download.html for a newer one.
+# The linux-x86_64 archive includes a JDK. SHA256 is from Sonatype.
+# -----------------------------------------------------------------------------
+nexus_version: "3.95.4-01" # Nexus version token. Example: 3.95.4-01.
+nexus_download_url: "https://download.sonatype.com/nexus/3/nexus-{{ nexus_version }}-linux-x86_64.tar.gz" # Download URL.
+nexus_download_checksum: "sha256:4a4f81c567ec99b5dfe0acdf19bcbe6b381f6c811358a789f43cea3ab3a476d1" # Checksum for the pinned archive.
+nexus_install_root: "/opt"                 # Parent directory for the extracted tree.
+nexus_home: "/opt/nexus"                   # Symlink to the extracted version directory.
+nexus_data_dir: "/data/nexus"              # Data and blob store. Put this on the extra disk.
+nexus_data_mount: "/data"                  # Extra disk mount that must exist before install.
+nexus_user: "nexus"                        # System user that runs the service.
+nexus_group: "nexus"                       # System group that runs the service.
+nexus_download_dir: "/var/cache/nexus"     # Where the tarball is stored on the host.
+
+# -----------------------------------------------------------------------------
+# Listen
+# HTTP only. The guest has a LAN NIC. iptables on a hardened host should
+# allow RFC1918 (10/8, 172.16/12, 192.168/16). Docker clients use 8082.
+# -----------------------------------------------------------------------------
+nexus_http_port: 8081           # Web UI and APT proxy port.
+nexus_listen_address: "0.0.0.0" # Listen address. Values: "0.0.0.0" | a LAN IP.
+nexus_docker_http_port: 8082    # Docker registry port for the Hub reverse proxy.
+
+# Heap. Leave empty to let Nexus pick. Example: "2703m" on a 4 GiB guest.
+nexus_heap: "" # JVM heap (-Xms and -Xmx). Values: "" (Nexus default) | a size such as "2703m".
+
+# -----------------------------------------------------------------------------
+# Admin password
+# Blank in git on purpose. Set it in the local settings file.
+# The playbook reads the first-boot password from disk, then sets this one.
+# -----------------------------------------------------------------------------
+nexus_admin_password: "" # Nexus admin password. CHANGE THIS. Example: "a strong passphrase".
+
+# Allow anonymous pull from APT and Docker on the LAN. Values: true | false.
+nexus_anonymous_access: true
+
+# -----------------------------------------------------------------------------
+# APT reverse proxies (Debian and Ubuntu)
+# Each upstream URL + suite is one Nexus apt proxy repository.
+# Clients use: http://<nexus-ip>:8081/repository/<name>
+# -----------------------------------------------------------------------------
+nexus_apt_proxy_repositories:
+  - name: debian-bookworm
+    remote_url: "http://deb.debian.org/debian"
+    distribution: "bookworm"
+  - name: debian-bookworm-updates
+    remote_url: "http://deb.debian.org/debian"
+    distribution: "bookworm-updates"
+  - name: debian-bookworm-security
+    remote_url: "http://deb.debian.org/debian-security"
+    distribution: "bookworm-security"
+  - name: debian-trixie
+    remote_url: "http://deb.debian.org/debian"
+    distribution: "trixie"
+  - name: debian-trixie-updates
+    remote_url: "http://deb.debian.org/debian"
+    distribution: "trixie-updates"
+  - name: debian-trixie-security
+    remote_url: "http://deb.debian.org/debian-security"
+    distribution: "trixie-security"
+  - name: ubuntu-noble
+    remote_url: "http://archive.ubuntu.com/ubuntu"
+    distribution: "noble"
+  - name: ubuntu-noble-updates
+    remote_url: "http://archive.ubuntu.com/ubuntu"
+    distribution: "noble-updates"
+  - name: ubuntu-noble-backports
+    remote_url: "http://archive.ubuntu.com/ubuntu"
+    distribution: "noble-backports"
+  - name: ubuntu-noble-security
+    remote_url: "http://security.ubuntu.com/ubuntu"
+    distribution: "noble-security"
+  - name: ubuntu-resolute
+    remote_url: "http://archive.ubuntu.com/ubuntu"
+    distribution: "resolute"
+  - name: ubuntu-resolute-updates
+    remote_url: "http://archive.ubuntu.com/ubuntu"
+    distribution: "resolute-updates"
+  - name: ubuntu-resolute-backports
+    remote_url: "http://archive.ubuntu.com/ubuntu"
+    distribution: "resolute-backports"
+  - name: ubuntu-resolute-security
+    remote_url: "http://security.ubuntu.com/ubuntu"
+    distribution: "resolute-security"
+
+# -----------------------------------------------------------------------------
+# Docker reverse proxy
+# Hub only for now. A hosted Docker repo can be added to this list later
+# with a different type. Do not hard-code Hub-only logic in the tasks.
+# -----------------------------------------------------------------------------
+nexus_docker_proxy_repositories:
+  - name: docker-hub
+    remote_url: "https://registry-1.docker.io"
+    http_port: 8082
+    index_type: "HUB" # Values: "HUB" | "REGISTRY" | "CUSTOM".

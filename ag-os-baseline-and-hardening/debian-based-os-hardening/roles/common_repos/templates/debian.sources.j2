@@ -1,7 +1,13 @@
 # Managed by Ansible common_repos — do not edit manually.
 Types: deb
 URIs: {{ apt_repository_url }}
-Suites: {{ apt_debian_effective_release }} {{ apt_debian_effective_release }}-updates
+Suites: {{ apt_debian_effective_release }}
+Components: {{ apt_debian_components | join(' ') }}
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb
+URIs: {{ apt_debian_updates_url | default(apt_repository_url, true) }}
+Suites: {{ apt_debian_effective_release }}-updates
 Components: {{ apt_debian_components | join(' ') }}
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 

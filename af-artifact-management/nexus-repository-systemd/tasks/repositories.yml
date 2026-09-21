@@ -1,0 +1,103 @@
+---
+- name: List existing repositories
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/repositories"
+    method: GET
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: [200]
+  no_log: true
+  register: nexus_existing_repositories
+
+- name: Build the list of repository names already present
+  ansible.builtin.set_fact:
+    nexus_existing_repository_names: >-
+      {{
+        nexus_existing_repositories.json
+        | map(attribute='name')
+        | list
+      }}
+
+- name: Create APT proxy repositories
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/repositories/apt/proxy"
+    method: POST
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      online: true
+      storage:
+        blobStoreName: default
+        strictContentTypeValidation: false
+      proxy:
+        remoteUrl: "{{ item.remote_url }}"
+        contentMaxAge: 1440
+        metadataMaxAge: 1440
+      negativeCache:
+        enabled: true
+        timeToLive: 1440
+      httpClient:
+        blocked: false
+        autoBlock: true
+      apt:
+        distribution: "{{ item.distribution }}"
+        flat: false
+    status_code: [201, 204]
+  no_log: true
+  loop: "{{ nexus_apt_proxy_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in nexus_existing_repository_names
+
+- name: Create Docker proxy repositories
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/repositories/docker/proxy"
+    method: POST
+    url_username: admin
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      online: true
+      storage:
+        blobStoreName: default
+        strictContentTypeValidation: true
+        writePolicy: ALLOW
+      proxy:
+        remoteUrl: "{{ item.remote_url }}"
+        contentMaxAge: 1440
+        metadataMaxAge: 1440
+      negativeCache:
+        enabled: true
+        timeToLive: 1440
+      httpClient:
+        blocked: false
+        autoBlock: true
+      docker:
+        v1Enabled: false
+        forceBasicAuth: false
+        httpPort: "{{ item.http_port | int }}"
+      dockerProxy:
+        indexType: "{{ item.index_type }}"
+        cacheForeignLayers: true
+        foreignLayerUrlWhitelist:
+          - ".*"
+    status_code: [201, 204]
+  no_log: true
+  loop: "{{ nexus_docker_proxy_repositories }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in nexus_existing_repository_names
+
+- name: Show Nexus listen URLs
+  ansible.builtin.debug:
+    msg: >-
+      Nexus is up on {{ inventory_hostname }}.
+      Web UI and APT: http://{{ ansible_host | default(inventory_hostname) }}:{{ nexus_http_port }}/
+      Docker Hub proxy: {{ ansible_host | default(inventory_hostname) }}:{{ nexus_docker_http_port }}
+      APT example: http://{{ ansible_host | default(inventory_hostname) }}:{{ nexus_http_port }}/repository/debian-trixie

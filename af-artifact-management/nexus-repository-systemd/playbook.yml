@@ -1,0 +1,136 @@
+---
+- name: Prepare Nexus target inventory
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/nexus.yml
+    # Tracked files have generic defaults. Real hosts and the admin
+    # password live in a gitignored *.local.yml selected with
+    # nexus_local_settings_file. There is no default. The dummy path
+    # exists only so ansible-lint --syntax-check can parse this entry.
+    - "{{ nexus_local_settings_file | default('vars/.syntax-check.local.yml') }}"
+  vars:
+    nexus_action_effective: "{{ nexus_action | default('deploy') }}"
+    nexus_selected_local_settings_file: "{{ nexus_local_settings_file | default('') }}"
+    nexus_local_settings_path: >-
+      {{
+        nexus_selected_local_settings_file
+        if nexus_selected_local_settings_file is match('^/')
+        else (playbook_dir ~ '/' ~ nexus_selected_local_settings_file)
+      }}
+
+  tasks:
+    - name: Fail when no local settings file was selected
+      ansible.builtin.fail:
+        msg: >-
+          No local settings file was selected. There is no default.
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
+      when: nexus_selected_local_settings_file | length == 0
+
+    - name: Validate selected local settings file name
+      ansible.builtin.assert:
+        that:
+          - nexus_selected_local_settings_file is search('\\.local\\.yml$')
+        fail_msg: >-
+          nexus_local_settings_file must end with .local.yml
+          (got '{{ nexus_selected_local_settings_file }}').
+          Example: LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
+
+    - name: Check for a local settings file
+      ansible.builtin.stat:
+        path: "{{ nexus_local_settings_path }}"
+      register: nexus_local_override_file
+      changed_when: false
+
+    - name: Fail when the selected local settings file is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ nexus_selected_local_settings_file }} was not found.
+          Put the real host and the admin password in this file.
+          Create it with:
+          make settings LOCAL_SETTINGS_FILE={{ nexus_selected_local_settings_file }}
+      when: not nexus_local_override_file.stat.exists
+
+    - name: Load the local settings file for reporting
+      ansible.builtin.include_vars:
+        file: "{{ nexus_local_settings_path }}"
+        name: nexus_local_overrides
+      when: nexus_local_override_file.stat.exists
+
+    - name: Show which keys come from the local settings file
+      ansible.builtin.debug:
+        msg: >-
+          Using {{ nexus_selected_local_settings_file }}.
+          It sets {{ nexus_local_overrides | length }} key(s):
+          {{ nexus_local_overrides.keys() | list | join(', ') }}.
+          Edit those keys in that file. The same keys in vars/nexus.yml
+          are ignored.
+      when: nexus_local_override_file.stat.exists
+
+    - name: Validate requested action
+      ansible.builtin.assert:
+        that:
+          - nexus_action_effective in ['ping', 'deploy']
+        fail_msg: "nexus_action must be ping or deploy."
+
+    - name: Fail when no Nexus host is declared
+      ansible.builtin.assert:
+        that:
+          - nexus_targets is defined
+          - (nexus_targets | length) > 0
+        fail_msg: >-
+          Add at least one host in nexus_targets in
+          {{ nexus_selected_local_settings_file }}.
+          The list in vars/nexus.yml is empty on purpose.
+
+    - name: Fail when a target name is missing
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - (item.name | string | length) > 0
+        fail_msg: "Each nexus_targets entry needs a name."
+      loop: "{{ nexus_targets }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Add Nexus hosts to inventory
+      ansible.builtin.add_host:
+        name: "{{ item.name }}"
+        groups: nexus_targets
+        ansible_host: "{{ item.address | default(item.name) }}"
+        ansible_user: "{{ (item.user | default('', true)) or omit }}"
+        ansible_port: "{{ item.port | default(22) }}"
+        ansible_become_password: "{{ (item.become_password | default('', true)) or omit }}"
+        ansible_python_interpreter: "{{ item.python_interpreter | default('/usr/bin/python3') }}"
+      loop: "{{ nexus_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Run Nexus action
+  hosts: nexus_targets
+  become: "{{ nexus_become_enabled | default(true) | bool }}"
+  become_method: "{{ nexus_become_method | default('sudo') }}"
+  become_user: "{{ nexus_become_user | default('root') }}"
+  gather_facts: "{{ nexus_action_effective == 'deploy' }}"
+  vars_files:
+    - vars/nexus.yml
+    - "{{ nexus_local_settings_file | default('vars/.syntax-check.local.yml') }}"
+  vars:
+    nexus_action_effective: "{{ nexus_action | default('deploy') }}"
+    nexus_selected_local_settings_file: "{{ nexus_local_settings_file | default('') }}"
+
+  handlers:
+    - name: Restart nexus
+      ansible.builtin.systemd:
+        name: nexus
+        state: restarted
+        daemon_reload: true
+
+  tasks:
+    - name: Run connectivity check
+      ansible.builtin.include_tasks: tasks/ping.yml
+      when: nexus_action_effective == 'ping'
+
+    - name: Install and configure Nexus
+      ansible.builtin.include_tasks: tasks/deploy.yml
+      when: nexus_action_effective == 'deploy'

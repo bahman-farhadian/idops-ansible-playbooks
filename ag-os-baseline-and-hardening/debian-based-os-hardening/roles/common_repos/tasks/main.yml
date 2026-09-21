@@ -20,6 +20,29 @@
     fail_msg: "Unable to determine Debian suite name from facts. Set apt_debian_release_override in vars/debian-hardening.yml."
   when: ansible_facts['distribution'] == 'Debian'
 
+- name: Use per-suite Debian URLs when the local file sets them
+  ansible.builtin.set_fact:
+    apt_repository_url: >-
+      {{
+        apt_debian_repository_by_suite[apt_debian_effective_release].url
+        | default(apt_repository_url)
+      }}
+    apt_debian_updates_url: >-
+      {{
+        apt_debian_repository_by_suite[apt_debian_effective_release].updates_url
+        | default(apt_debian_updates_url)
+        | default(apt_repository_url, true)
+      }}
+    apt_security_repository_url: >-
+      {{
+        apt_debian_repository_by_suite[apt_debian_effective_release].security_url
+        | default(apt_security_repository_url)
+      }}
+  when:
+    - ansible_facts['distribution'] == 'Debian'
+    - apt_debian_repository_by_suite | default({}) | length > 0
+    - apt_debian_effective_release in apt_debian_repository_by_suite
+
 # Write the managed file first so APT is never left with zero sources.
 # Debian 12/13 cloud images already use this path; deleting it and then
 # skipping apt-get update (cache_valid_time) produced an empty index
@@ -99,6 +122,35 @@
       - apt_ubuntu_effective_release | length > 0
     fail_msg: "Unable to determine Ubuntu suite name from facts. Set apt_ubuntu_release_override in vars/debian-hardening.yml."
   when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: Use per-suite Ubuntu URLs when the local file sets them
+  ansible.builtin.set_fact:
+    apt_ubuntu_repository_url: >-
+      {{
+        apt_ubuntu_repository_by_suite[apt_ubuntu_effective_release].url
+        | default(apt_ubuntu_repository_url)
+      }}
+    apt_ubuntu_updates_url: >-
+      {{
+        apt_ubuntu_repository_by_suite[apt_ubuntu_effective_release].updates_url
+        | default(apt_ubuntu_updates_url)
+        | default(apt_ubuntu_repository_url, true)
+      }}
+    apt_ubuntu_backports_url: >-
+      {{
+        apt_ubuntu_repository_by_suite[apt_ubuntu_effective_release].backports_url
+        | default(apt_ubuntu_backports_url)
+        | default(apt_ubuntu_repository_url, true)
+      }}
+    apt_ubuntu_security_repository_url: >-
+      {{
+        apt_ubuntu_repository_by_suite[apt_ubuntu_effective_release].security_url
+        | default(apt_ubuntu_security_repository_url)
+      }}
+  when:
+    - ansible_facts['distribution'] == 'Ubuntu'
+    - apt_ubuntu_repository_by_suite | default({}) | length > 0
+    - apt_ubuntu_effective_release in apt_ubuntu_repository_by_suite
 
 - name: Configure Ubuntu APT repositories in /etc/apt/sources.list.d/ubuntu.sources
   ansible.builtin.template:

@@ -1,0 +1,12 @@
+---
+- name: Run install preflight
+  ansible.builtin.include_tasks: tasks/preflight.yml
+
+- name: Install Nexus files and systemd unit
+  ansible.builtin.include_tasks: tasks/install.yml
+
+- name: Wait for Nexus and set the admin password
+  ansible.builtin.include_tasks: tasks/configure.yml
+
+- name: Create APT and Docker proxy repositories
+  ansible.builtin.include_tasks: tasks/repositories.yml

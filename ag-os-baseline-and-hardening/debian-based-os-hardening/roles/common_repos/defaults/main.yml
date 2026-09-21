@@ -1,7 +1,9 @@
 ---
 common_repos_enabled: true
 apt_repository_url: "http://deb.debian.org/debian"
+apt_debian_updates_url: ""
 apt_security_repository_url: "http://security.debian.org/debian-security"
+apt_debian_repository_by_suite: {}
 # Optionally force a Debian suite name, e.g. "bookworm" or "trixie".
 apt_debian_release_override: ""
 apt_debian_disable_conflicting_sources: true
@@ -15,7 +17,10 @@ apt_debian_components:
   - non-free
   - non-free-firmware
 apt_ubuntu_repository_url: "http://archive.ubuntu.com/ubuntu"
+apt_ubuntu_updates_url: ""
+apt_ubuntu_backports_url: ""
 apt_ubuntu_security_repository_url: "http://security.ubuntu.com/ubuntu"
+apt_ubuntu_repository_by_suite: {}
 apt_ubuntu_release_override: ""
 apt_ubuntu_disable_conflicting_sources: true
 apt_ubuntu_components:

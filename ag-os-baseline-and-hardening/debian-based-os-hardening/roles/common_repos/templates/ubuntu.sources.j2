@@ -1,7 +1,19 @@
 # Managed by Ansible common_repos — do not edit manually.
 Types: deb
 URIs: {{ apt_ubuntu_repository_url }}
-Suites: {{ apt_ubuntu_effective_release }} {{ apt_ubuntu_effective_release }}-updates {{ apt_ubuntu_effective_release }}-backports
+Suites: {{ apt_ubuntu_effective_release }}
+Components: {{ apt_ubuntu_components | join(' ') }}
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: {{ apt_ubuntu_updates_url | default(apt_ubuntu_repository_url, true) }}
+Suites: {{ apt_ubuntu_effective_release }}-updates
+Components: {{ apt_ubuntu_components | join(' ') }}
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: {{ apt_ubuntu_backports_url | default(apt_ubuntu_repository_url, true) }}
+Suites: {{ apt_ubuntu_effective_release }}-backports
 Components: {{ apt_ubuntu_components | join(' ') }}
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 

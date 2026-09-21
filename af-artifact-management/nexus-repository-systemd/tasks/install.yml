@@ -1,0 +1,115 @@
+---
+- name: Create the Nexus system group
+  ansible.builtin.group:
+    name: "{{ nexus_group }}"
+    system: true
+    state: present
+
+- name: Create the Nexus system user
+  ansible.builtin.user:
+    name: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    system: true
+    home: "{{ nexus_data_dir }}"
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create install and cache directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    mode: "0755"
+  loop:
+    - "{{ nexus_install_root }}"
+    - "{{ nexus_download_dir }}"
+    - "{{ nexus_data_dir }}"
+    - "{{ nexus_data_dir }}/tmp"
+    - "{{ nexus_data_dir }}/log"
+
+- name: Download the Nexus archive
+  ansible.builtin.get_url:
+    url: "{{ nexus_download_url }}"
+    dest: "{{ nexus_download_dir }}/nexus-{{ nexus_version }}-linux-x86_64.tar.gz"
+    checksum: "{{ nexus_download_checksum }}"
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    mode: "0644"
+    timeout: 600
+  register: nexus_archive_download
+
+- name: Unpack the Nexus archive
+  ansible.builtin.unarchive:
+    src: "{{ nexus_download_dir }}/nexus-{{ nexus_version }}-linux-x86_64.tar.gz"
+    dest: "{{ nexus_install_root }}"
+    remote_src: true
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    creates: "{{ nexus_install_root }}/nexus-{{ nexus_version }}/bin/nexus"
+
+- name: Point /opt/nexus at this version
+  ansible.builtin.file:
+    src: "{{ nexus_install_root }}/nexus-{{ nexus_version }}"
+    dest: "{{ nexus_home }}"
+    state: link
+    force: true
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+
+- name: Set the data directory in nexus.vmoptions
+  ansible.builtin.lineinfile:
+    path: "{{ nexus_home }}/bin/nexus.vmoptions"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - regexp: '^-Dkaraf.data='
+      line: "-Dkaraf.data={{ nexus_data_dir }}"
+    - regexp: '^-Djava.io.tmpdir='
+      line: "-Djava.io.tmpdir={{ nexus_data_dir }}/tmp"
+    - regexp: '^-XX:LogFile='
+      line: "-XX:LogFile={{ nexus_data_dir }}/log/jvm.log"
+  notify: Restart nexus
+
+- name: Set heap size when nexus_heap is set
+  ansible.builtin.lineinfile:
+    path: "{{ nexus_home }}/bin/nexus.vmoptions"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - regexp: '^-Xms'
+      line: "-Xms{{ nexus_heap }}"
+    - regexp: '^-Xmx'
+      line: "-Xmx{{ nexus_heap }}"
+  when: nexus_heap | default('') | length > 0
+  notify: Restart nexus
+
+- name: Set HTTP port
+  ansible.builtin.lineinfile:
+    path: "{{ nexus_home }}/etc/nexus-default.properties"
+    regexp: '^application-port='
+    line: "application-port={{ nexus_http_port }}"
+  notify: Restart nexus
+
+- name: Set listen address
+  ansible.builtin.lineinfile:
+    path: "{{ nexus_home }}/etc/nexus-default.properties"
+    regexp: '^application-host='
+    line: "application-host={{ nexus_listen_address }}"
+  notify: Restart nexus
+
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: nexus.service.j2
+    dest: /etc/systemd/system/nexus.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nexus
+
+- name: Enable and start Nexus
+  ansible.builtin.systemd:
+    name: nexus
+    enabled: true
+    state: started
+    daemon_reload: true

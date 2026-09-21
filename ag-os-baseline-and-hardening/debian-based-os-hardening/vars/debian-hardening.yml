@@ -43,7 +43,19 @@ debian_hardening_targets: [] # Values: [] | list of target host maps (name, addr
 # -----------------------------------------------------------------------------
 common_repos_enabled: true                                           # Set to false to skip the common_repos role entirely. Values: true | false.
 apt_repository_url: "http://deb.debian.org/debian"                   # Debian base mirror URI (URL only — no deb/suite/components).
+apt_debian_updates_url: ""                                           # Debian updates URI. Values: "" (same as apt_repository_url) | a URL.
 apt_security_repository_url: "http://deb.debian.org/debian-security" # Debian security mirror URI.
+apt_debian_repository_by_suite: {}                                   # Optional per-suite URLs (Nexus). Values: {} | map of suite to {url, updates_url, security_url}.
+# Example (was the live default; see local settings for real values):
+# apt_debian_repository_by_suite:
+#   bookworm:
+#     url: "http://192.168.24.10:8081/repository/debian-bookworm"
+#     updates_url: "http://192.168.24.10:8081/repository/debian-bookworm-updates"
+#     security_url: "http://192.168.24.10:8081/repository/debian-bookworm-security"
+#   trixie:
+#     url: "http://192.168.24.10:8081/repository/debian-trixie"
+#     updates_url: "http://192.168.24.10:8081/repository/debian-trixie-updates"
+#     security_url: "http://192.168.24.10:8081/repository/debian-trixie-security"
 apt_debian_release_override: ""                                      # Optional suite override. Values: "" (fact-based map) | a suite name, e.g. "bookworm".
 apt_debian_disable_conflicting_sources: true                         # Disable conflicting Debian source entries in sources.list.d. Values: true | false.
 apt_debian_components:                                               # Repository components for Debian hosts.
@@ -52,7 +64,22 @@ apt_debian_components:                                               # Repositor
   - non-free
   - non-free-firmware
 apt_ubuntu_repository_url: "http://archive.ubuntu.com/ubuntu"        # Ubuntu base mirror URI. Example: "http://archive.ubuntu.com/ubuntu".
+apt_ubuntu_updates_url: ""                                           # Ubuntu updates URI. Values: "" (same as apt_ubuntu_repository_url) | a URL.
+apt_ubuntu_backports_url: ""                                         # Ubuntu backports URI. Values: "" (same as apt_ubuntu_repository_url) | a URL.
 apt_ubuntu_security_repository_url: "http://security.ubuntu.com/ubuntu" # Ubuntu security mirror URI. Example: "http://security.ubuntu.com/ubuntu".
+apt_ubuntu_repository_by_suite: {}                                   # Optional per-suite URLs (Nexus). Values: {} | map of suite to {url, updates_url, backports_url, security_url}.
+# Example (was the live default; see local settings for real values):
+# apt_ubuntu_repository_by_suite:
+#   noble:
+#     url: "http://192.168.24.10:8081/repository/ubuntu-noble"
+#     updates_url: "http://192.168.24.10:8081/repository/ubuntu-noble-updates"
+#     backports_url: "http://192.168.24.10:8081/repository/ubuntu-noble-backports"
+#     security_url: "http://192.168.24.10:8081/repository/ubuntu-noble-security"
+#   resolute:
+#     url: "http://192.168.24.10:8081/repository/ubuntu-resolute"
+#     updates_url: "http://192.168.24.10:8081/repository/ubuntu-resolute-updates"
+#     backports_url: "http://192.168.24.10:8081/repository/ubuntu-resolute-backports"
+#     security_url: "http://192.168.24.10:8081/repository/ubuntu-resolute-security"
 apt_ubuntu_release_override: ""                                      # Optional suite override. Values: "" (use ansible_facts distribution_release) | a suite name, e.g. "noble".
 apt_ubuntu_disable_conflicting_sources: true                         # Disable conflicting Ubuntu source entries in sources.list.d. Values: true | false.
 apt_ubuntu_components:                                               # Repository components for Ubuntu hosts.
