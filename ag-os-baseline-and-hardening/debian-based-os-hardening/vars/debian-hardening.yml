@@ -165,6 +165,7 @@ network_identity_primary_ipv4: ""                           # Optional primary I
 network_identity_nameservers:                               # Resolver list for resolv.conf.
   - "8.8.8.8"
 network_identity_search_domains: [] # Search domain list. Values: [] | list of domain names, e.g. ["example.com"].
+network_identity_resolved_multicast_dns: "" # systemd-resolved MulticastDNS. Values: "" (leave OS default) | "no" | "yes". Set "no" when using unicast DNS for a .local zone.
 network_identity_set_hostname: true # Enforce hostname on target. Values: true | false.
 network_identity_hostname: >-       # Computed short hostname (left-most label of FQDN).
   {{

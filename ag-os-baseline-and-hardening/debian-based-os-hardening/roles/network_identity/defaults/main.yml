@@ -8,6 +8,7 @@ network_identity_primary_ipv4: ""
 network_identity_nameservers:
   - "8.8.8.8"
 network_identity_search_domains: []
+network_identity_resolved_multicast_dns: "" # Values: "" | "no" | "yes".
 network_identity_set_hostname: false
 network_identity_hostname: ""
 network_identity_fqdn: "{{ inventory_hostname if '.' in inventory_hostname else inventory_hostname ~ '.localdomain' }}"

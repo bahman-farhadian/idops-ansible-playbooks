@@ -4,3 +4,7 @@ DNS={{ network_identity_nameservers | join(' ') }}
 {% if (network_identity_template_search_domains | default(network_identity_search_domains)) | length > 0 %}
 Domains={{ (network_identity_template_search_domains | default(network_identity_search_domains)) | join(' ') }}
 {% endif %}
+{% if network_identity_resolved_multicast_dns | default('') | length > 0 %}
+MulticastDNS={{ network_identity_resolved_multicast_dns }}
+LLMNR=no
+{% endif %}
