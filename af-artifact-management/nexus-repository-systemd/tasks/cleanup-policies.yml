@@ -1,62 +1,163 @@
 ---
-- name: List existing cleanup policies
+# This Community Edition has no public Cleanup Policies REST resource
+# (/service/rest/v1/cleanup-policies returns 404). Do not call the
+# unpublished /internal/ path. Use the published Script API only long
+# enough to create the policies, then turn scripting off again.
+# Leaving nexus.scripts.allowCreation=true fails Support → Status
+# (Scripting). Docs: https://help.sonatype.com/en/script-api.html
+- name: Turn scripting on only for cleanup-policy create
+  ansible.builtin.lineinfile:
+    path: "{{ nexus_data_dir }}/etc/nexus.properties"
+    regexp: '^nexus\.scripts\.allowCreation='
+    line: "nexus.scripts.allowCreation=true"
+    create: true
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    mode: "0640"
+  notify: Restart nexus
+
+- name: Restart Nexus so scripting is on
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait until Nexus answers after scripting on
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/cleanup-policies"
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/status"
+    method: GET
+    status_code: [200]
+  register: nexus_status_scripts_on
+  until: nexus_status_scripts_on.status == 200
+  retries: 60
+  delay: 10
+
+- name: See if the cleanup-policy script is already loaded
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/script/{{ nexus_cleanup_script_name }}"
     method: GET
     url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
-    status_code: [200]
+    status_code: [200, 404]
   no_log: true
-  register: nexus_existing_cleanup_policies
+  register: nexus_cleanup_script
+  until: nexus_cleanup_script.status in [200, 404]
+  retries: 12
+  delay: 5
 
-- name: Build the list of cleanup policy names already present
+- name: Build the cleanup-policy script payload
   ansible.builtin.set_fact:
-    nexus_existing_cleanup_policy_names: >-
-      {{
-        nexus_existing_cleanup_policies.json
-        | map(attribute='name')
-        | list
-      }}
+    nexus_cleanup_script_payload:
+      name: "{{ nexus_cleanup_script_name }}"
+      type: groovy
+      content: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/files/ensure_cleanup_policies.groovy') }}"
 
-- name: Create missing cleanup policies
+- name: Add the cleanup-policy script
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/cleanup-policies"
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/script"
     method: POST
     url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
     body_format: json
-    body:
-      name: "{{ item.name }}"
-      format: "{{ item.format }}"
-      notes: "{{ item.notes }}"
-      criteriaLastDownloaded: "{{ item.criteriaLastDownloaded | int }}"
-      criteriaLastBlobUpdated: "{{ item.criteriaLastBlobUpdated | int }}"
-    status_code: [201, 204]
+    body: "{{ nexus_cleanup_script_payload }}"
+    status_code: [204]
   no_log: true
-  loop: "{{ nexus_cleanup_policies }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: item.name not in nexus_existing_cleanup_policy_names
+  register: nexus_cleanup_script_add
+  until: nexus_cleanup_script_add.status == 204
+  retries: 12
+  delay: 5
+  when: nexus_cleanup_script.status == 404
 
-- name: Update cleanup policies that already exist
+- name: Replace the cleanup-policy script
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/cleanup-policies/{{ item.name }}"
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/script/{{ nexus_cleanup_script_name }}"
     method: PUT
     url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
     body_format: json
-    body:
-      name: "{{ item.name }}"
-      format: "{{ item.format }}"
-      notes: "{{ item.notes }}"
-      criteriaLastDownloaded: "{{ item.criteriaLastDownloaded | int }}"
-      criteriaLastBlobUpdated: "{{ item.criteriaLastBlobUpdated | int }}"
-    status_code: [200, 204]
+    body: "{{ nexus_cleanup_script_payload }}"
+    status_code: [204]
   no_log: true
-  loop: "{{ nexus_cleanup_policies }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: item.name in nexus_existing_cleanup_policy_names
+  when: nexus_cleanup_script.status == 200
+
+- name: Run the cleanup-policy script
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/script/{{ nexus_cleanup_script_name }}/run"
+    method: POST
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    headers:
+      Content-Type: text/plain
+    body: "{{ nexus_cleanup_policies | to_json }}"
+    body_format: raw
+    status_code: [200]
+  no_log: true
+  register: nexus_cleanup_script_run
+
+- name: Parse cleanup-policy script results
+  ansible.builtin.set_fact:
+    nexus_cleanup_script_results: "{{ nexus_cleanup_script_run.json.result | from_json }}"
+
+- name: Fail when the cleanup-policy script reported an error
+  ansible.builtin.assert:
+    that:
+      - nexus_cleanup_script_results | selectattr('status', 'equalto', 'error') | list | length == 0
+    fail_msg: >-
+      Cleanup policy script failed for:
+      {{
+        nexus_cleanup_script_results
+        | selectattr('status', 'equalto', 'error')
+        | map(attribute='name')
+        | list
+        | join(', ')
+      }}.
+
+- name: Remove the cleanup-policy script
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/script/{{ nexus_cleanup_script_name }}"
+    method: DELETE
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: [204, 404]
+  no_log: true
+
+- name: Turn scripting off
+  ansible.builtin.lineinfile:
+    path: "{{ nexus_data_dir }}/etc/nexus.properties"
+    regexp: '^nexus\.scripts\.allowCreation='
+    line: "nexus.scripts.allowCreation=false"
+    create: true
+    owner: "{{ nexus_user }}"
+    group: "{{ nexus_group }}"
+    mode: "0640"
+  notify: Restart nexus
+
+- name: Restart Nexus so scripting is off
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait until Nexus answers after scripting off
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/status"
+    method: GET
+    status_code: [200]
+  register: nexus_status_scripts_off
+  until: nexus_status_scripts_off.status == 200
+  retries: 60
+  delay: 10
+
+- name: Wait until the Scripting health check is healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/status/check"
+    method: GET
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: [200]
+  register: nexus_scripting_health
+  until: >-
+    (nexus_scripting_health.json['Scripting'].healthy | default(false)) | bool
+  retries: 30
+  delay: 5
+  no_log: true

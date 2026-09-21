@@ -94,8 +94,14 @@ nexus_secrets_file: "{{ nexus_data_dir }}/etc/nexus-secrets.json" # Path on the 
 # Cleanup policies for CACHE proxies only (APT + Docker Hub reverse proxy).
 # Keep cached blobs up to 30 days. A later hosted/private Docker registry
 # is out of scope and must not use these policies.
-# Docs: https://help.sonatype.com/en/cleanup-policies-api.html
+# This Community Edition has no public /service/rest/v1/cleanup-policies
+# (404). Do not call /service/rest/internal/. Create and update policies
+# through the published Script API (/service/rest/v1/script) only for
+# that step, then set nexus.scripts.allowCreation=false so Support →
+# Status (Scripting) stays healthy. Docs:
+# https://help.sonatype.com/en/script-api.html
 # -----------------------------------------------------------------------------
+nexus_cleanup_script_name: "idops-ensure-cleanup-policies" # Script name on the Nexus host. Values: a Script API name, e.g. "idops-ensure-cleanup-policies".
 nexus_cleanup_policies:
   - name: idops-apt-cache
     format: apt

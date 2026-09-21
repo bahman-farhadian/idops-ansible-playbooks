@@ -17,9 +17,16 @@ The host can be Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04.
   A hosted/private Docker registry is out of scope.
 
 The version is pinned in `vars/nexus.yml` (`nexus_version` and
-`nexus_download_checksum`). The web UI may show a newer build. To
-change version, edit those two values (links are in the comments of
-that file) and run `make deploy`.
+`nexus_download_checksum`). Pin a stable or LTS release only. The web
+UI may show a newer build. Do not follow that banner onto an RC or
+unreleased build. To change version, edit those two values (links are
+in the comments of that file) and run `make deploy`.
+
+This Community Edition has no public Cleanup Policies REST resource.
+`make deploy` creates the 30-day policies through the published Script
+API (`/service/rest/v1/script`), then turns scripting off again.
+Support → Status must stay green for Scripting. Do not leave
+`nexus.scripts.allowCreation=true`.
 
 ## Local settings
 
