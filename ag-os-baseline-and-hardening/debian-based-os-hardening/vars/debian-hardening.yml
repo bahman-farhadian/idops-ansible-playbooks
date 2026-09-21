@@ -45,7 +45,7 @@ common_repos_enabled: true                                           # Set to fa
 apt_repository_url: "http://deb.debian.org/debian"                   # Debian base mirror URI (URL only — no deb/suite/components).
 apt_debian_updates_url: ""                                           # Debian updates URI. Values: "" (same as apt_repository_url) | a URL.
 apt_security_repository_url: "http://deb.debian.org/debian-security" # Debian security mirror URI.
-apt_debian_repository_by_suite: {}                                   # Optional per-suite URLs (Nexus). Values: {} | map of suite to {url, updates_url, security_url}.
+apt_debian_repository_by_suite: {}                                   # Optional per-suite URLs. Values: {} | map of suite to {url, updates_url, security_url}.
 # Example (see local settings for real values):
 # apt_debian_repository_by_suite:
 #   bookworm:
@@ -67,7 +67,7 @@ apt_ubuntu_repository_url: "http://archive.ubuntu.com/ubuntu"        # Ubuntu ba
 apt_ubuntu_updates_url: ""                                           # Ubuntu updates URI. Values: "" (same as apt_ubuntu_repository_url) | a URL.
 apt_ubuntu_backports_url: ""                                         # Ubuntu backports URI. Values: "" (same as apt_ubuntu_repository_url) | a URL.
 apt_ubuntu_security_repository_url: "http://security.ubuntu.com/ubuntu" # Ubuntu security mirror URI. Example: "http://security.ubuntu.com/ubuntu".
-apt_ubuntu_repository_by_suite: {}                                   # Optional per-suite URLs (Nexus). Values: {} | map of suite to {url, updates_url, backports_url, security_url}.
+apt_ubuntu_repository_by_suite: {}                                   # Optional per-suite URLs. Values: {} | map of suite to {url, updates_url, backports_url, security_url}.
 # Example (see local settings for real values):
 # apt_ubuntu_repository_by_suite:
 #   noble:

@@ -51,17 +51,8 @@ policies.
 The host firewall must allow TCP 8081 and 8082 from the networks that
 should use the cache.
 
-## Point APT clients at this cache
+APT clients use:
 
-Internet mirrors stay the default in
-`debian-based-os-hardening`. To use this Nexus, set
-`apt_debian_repository_by_suite` / `apt_ubuntu_repository_by_suite`
-in that project's local settings file, for example:
+`http://<nexus-host>:8081/repository/<repo-name>`
 
-```yaml
-apt_debian_repository_by_suite:
-  trixie:
-    url: "http://<nexus-host>:8081/repository/debian-trixie"
-    updates_url: "http://<nexus-host>:8081/repository/debian-trixie-updates"
-    security_url: "http://<nexus-host>:8081/repository/debian-trixie-security"
-```
+Docker clients use `<nexus-host>:8082`.

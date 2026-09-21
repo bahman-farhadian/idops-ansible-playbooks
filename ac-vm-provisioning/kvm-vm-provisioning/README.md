@@ -770,7 +770,7 @@ kvm_instance_definitions:
         mount_options: "defaults,nofail"
 ```
 
-Nexus/local apt cache example:
+Optional APT mirror example:
 
 ```yaml
 kvm_default_cloud_init_apt_config:
