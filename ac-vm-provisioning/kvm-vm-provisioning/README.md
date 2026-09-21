@@ -140,8 +140,8 @@ Edit the real values in that file, not in the tracked files:
    (defaults to `['ens3', 'enp1s0', 'eth0']`).
 8. Debian profiles use `*-generic-amd64.qcow2`. Ubuntu profiles cache
    `ubuntu-*-server-cloudimg-amd64.img` (qcow2 contents, upstream `.img`
-   name). Ubuntu instances must set `cloud_init_user: ubuntu` (the tracked
-   default is `debian`). Ubuntu 26.04 uses `virt_install_os_variant:
+   name). The first-boot SSH user is `idops` (`kvm_default_cloud_init_user`).
+   Do not use the vendor cloud users `debian` or `ubuntu`. Ubuntu 26.04 uses `virt_install_os_variant:
    ubuntu25.10` until libosinfo ships `ubuntu26.04`. `nocloud` is blocked
    by default; override only if intentional with
    `kvm_allow_nocloud_images=true`.

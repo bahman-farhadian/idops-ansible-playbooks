@@ -17,7 +17,7 @@
 # real credentials, and belong only in the selected *.local.yml. Everything
 # else here is a generic, safe default.
 # -----------------------------------------------------------------------------
-kvm_default_cloud_init_user: "debian"                  # Initial guest username created by cloud-init. Values: "debian" | "ubuntu". Ubuntu instances must override with cloud_init_user: "ubuntu".
+kvm_default_cloud_init_user: "idops"                   # Initial guest username created by cloud-init. Values: a username, e.g. "idops".
 kvm_default_cloud_init_ssh_public_keys: []             # Initial SSH authorized keys for cloud-init user. Values: [] | list of "ssh-ed25519 AAAA..." strings.
 kvm_default_cloud_init_plain_password: ""              # CHANGE THIS PASSWORD BEFORE PRODUCTION. Example: "a strong passphrase".
 kvm_default_cloud_init_root_plain_password: ""         # Optional root password. Values: "" (root password stays locked) | a plaintext password.

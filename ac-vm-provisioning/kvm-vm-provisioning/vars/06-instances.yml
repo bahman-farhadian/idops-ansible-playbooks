@@ -34,7 +34,7 @@
 # - guest_network_gateway        Example: "192.168.122.1"
 # - guest_dns_servers            Example: ["1.1.1.1", "8.8.8.8"]
 # - instance_mac_address         Example: "52:54:00:11:22:33"
-# - cloud_init_user              Example: "ubuntu" (required for Ubuntu; tracked default is "debian")
+# - cloud_init_user              Example: "idops" (tracked default is "idops")
 # - cpu_share_enabled            Example: true   (see 02-vm-defaults.yml)
 # - instance_extra_disks_enabled Example: true   (see 02-vm-defaults.yml)
 # - instance_extra_disks         Example: see debian-12-a below
@@ -117,7 +117,7 @@ kvm_instance_definitions: [] # Values: [] | list of instance maps (instance_name
 #    vcpu_count: 2                            # vCPU allocation.
 #    memory_mb: 2048                          # Memory allocation in MB.
 #    root_disk_size_gb: 20                    # Root disk target size in GiB.
-#    cloud_init_user: "ubuntu"                # Cloud image default user.
+#    cloud_init_user: "idops"                 # First-boot SSH user (tracked default is idops).
 #
 #  - instance_name: "ubuntu-26-a"             # Target libvirt domain name.
 #    image_profile_id: "ubuntu-26"            # Cloud image profile reference.
@@ -126,4 +126,4 @@ kvm_instance_definitions: [] # Values: [] | list of instance maps (instance_name
 #    vcpu_count: 2                            # vCPU allocation.
 #    memory_mb: 2048                          # Memory allocation in MB.
 #    root_disk_size_gb: 20                    # Root disk target size in GiB.
-#    cloud_init_user: "ubuntu"                # Cloud image default user.
+#    cloud_init_user: "idops"                 # First-boot SSH user (tracked default is idops).
