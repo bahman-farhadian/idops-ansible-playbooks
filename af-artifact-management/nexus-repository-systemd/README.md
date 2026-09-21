@@ -56,13 +56,18 @@ mounted at `/data`.
 Do not edit the four-guest `settings.kvm.local.yml` file for this.
 Each step has its own `*.local.yml` file.
 
-| Step | File | Playbook |
-| --- | --- | --- |
-| 1. Create the Nexus VM | `ac-vm-provisioning/kvm-vm-provisioning/vars/settings.kvm.nexus.local.yml` | kvm-vm-provisioning |
-| 2. Harden pass 1 (cloud user, port 22) | `ag-os-baseline-and-hardening/debian-based-os-hardening/vars/settings.harden.nexus.local.yml` | debian-based-os-hardening |
-| 3. Harden pass 2 (root, port 2222) | `.../vars/settings.harden.nexus.pass2.local.yml` | debian-based-os-hardening |
-| 4. Install Nexus | `af-artifact-management/nexus-repository-systemd/vars/settings.nexus.local.yml` | this project |
-| Later: four guests via Nexus APT | `.../vars/settings.kvm.fleet-via-nexus.local.yml` | kvm-vm-provisioning |
+| Step | File |
+| --- | --- |
+| 0. Delete all test guests | `kvm-vm-provisioning/vars/settings.kvm.cleanup-all.local.yml` |
+| 1. Create the Nexus VM | `kvm-vm-provisioning/vars/settings.kvm.nexus.local.yml` |
+| 2. Harden Nexus pass 1 | `debian-based-os-hardening/vars/settings.harden.nexus.local.yml` |
+| 3. Harden Nexus pass 2 | `debian-based-os-hardening/vars/settings.harden.nexus.pass2.local.yml` |
+| 4. Install Nexus | `nexus-repository-systemd/vars/settings.nexus.local.yml` |
+| 5. Create four guests via Nexus APT | `kvm-vm-provisioning/vars/settings.kvm.fleet-via-nexus.local.yml` |
+| 6. Harden four guests pass 1 | `debian-based-os-hardening/vars/settings.harden.fleet-via-nexus.local.yml` |
+| 7. Harden four guests pass 2 | `debian-based-os-hardening/vars/settings.harden.fleet-via-nexus.pass2.local.yml` |
+| 8. Delete only the four guests | `kvm-vm-provisioning/vars/settings.kvm.cleanup-fleet.local.yml` |
+| 9. Create the four guests again (cache) | same file as step 5 |
 
 Tracked APT URLs stay on the internet. When Nexus is up, a local
 settings file can set `apt_debian_repository_by_suite` and
@@ -72,59 +77,60 @@ Suggested guest: `idops-nexus-repository` at `192.168.24.2`, 4 GiB RAM,
 extra disk 20 GiB on `/data`. The playbook also accepts Ubuntu 24.04
 or 26.04 as the Nexus host if you point `nexus_targets` at that guest.
 
-## Full run (one file per step)
+## Full test (one file per step)
 
-Guest: `idops-nexus-repository` at `192.168.24.2`. Check the guest with
-`virsh`, not SSH.
+This deletes guests (disks included). Nexus guest: `idops-nexus-repository`
+at `192.168.24.2`. Check guests with `virsh`, not SSH.
 
 From the repository root:
 
 ```bash
-# 1. Create the Nexus guest (Debian 13, extra disk on /data)
+# 0. Delete all test guests (Nexus + four clients) and their disks
+cd ac-vm-provisioning/kvm-vm-provisioning
+make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.kvm.cleanup-all.local.yml
+```
+
+```bash
+# 1. Create the Nexus guest
 cd ac-vm-provisioning/kvm-vm-provisioning
 make provision LOCAL_SETTINGS_FILE=vars/settings.kvm.nexus.local.yml
-
-# Check from the hypervisor (no SSH):
 virsh -c qemu:///system list --all
-virsh -c qemu:///system qemu-agent-command idops-nexus-repository '{"execute":"guest-network-get-interfaces"}' --pretty
 ```
 
 ```bash
-# 2. Harden pass 1 (cloud user debian, SSH port 22)
+# 2–3. Harden the Nexus guest (pass 1, then pass 2)
 cd ag-os-baseline-and-hardening/debian-based-os-hardening
 make harden LOCAL_SETTINGS_FILE=vars/settings.harden.nexus.local.yml
-```
-
-```bash
-# 3. Harden pass 2 (root, SSH port 2222, user idops)
-cd ag-os-baseline-and-hardening/debian-based-os-hardening
 make harden LOCAL_SETTINGS_FILE=vars/settings.harden.nexus.pass2.local.yml
 make scan LOCAL_SETTINGS_FILE=vars/settings.harden.nexus.pass2.local.yml
 ```
 
 ```bash
-# 4. Install Nexus (admin password is already in the gitignored local file)
+# 4. Install Nexus (admin password and encryption key are in the local file)
 cd af-artifact-management/nexus-repository-systemd
 make ping LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
 make deploy LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
 ```
 
-`make deploy` downloads Nexus (pinned version in `vars/nexus.yml`),
-installs the systemd unit, waits until port 8081 answers, sets the
-admin password, turns on anonymous pull, and creates the APT and
-Docker proxy repositories.
-
-Check from the hypervisor after deploy:
-
 ```bash
-virsh -c qemu:///system qemu-agent-command idops-nexus-repository '{"execute":"guest-exec","arguments":{"path":"/bin/bash","arg":["-lc","ss -lnt | grep -E \":8081|:8082\"; systemctl is-active nexus; df -h /data"],"capture-output":true}}'
+# 5–7. Four guests that fill the Nexus APT cache
+cd ac-vm-provisioning/kvm-vm-provisioning
+make provision LOCAL_SETTINGS_FILE=vars/settings.kvm.fleet-via-nexus.local.yml
+cd ag-os-baseline-and-hardening/debian-based-os-hardening
+make harden LOCAL_SETTINGS_FILE=vars/settings.harden.fleet-via-nexus.local.yml
+make harden LOCAL_SETTINGS_FILE=vars/settings.harden.fleet-via-nexus.pass2.local.yml
 ```
 
 ```bash
-# 5. Later: four guests that use the Nexus APT cache
+# 8. Delete only the four guests. Keep Nexus.
+cd ac-vm-provisioning/kvm-vm-provisioning
+make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.kvm.cleanup-fleet.local.yml
+```
+
+```bash
+# 9–11. Four guests again (packages should come from the Nexus cache)
 cd ac-vm-provisioning/kvm-vm-provisioning
 make provision LOCAL_SETTINGS_FILE=vars/settings.kvm.fleet-via-nexus.local.yml
-
 cd ag-os-baseline-and-hardening/debian-based-os-hardening
 make harden LOCAL_SETTINGS_FILE=vars/settings.harden.fleet-via-nexus.local.yml
 make harden LOCAL_SETTINGS_FILE=vars/settings.harden.fleet-via-nexus.pass2.local.yml

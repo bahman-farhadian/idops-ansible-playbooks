@@ -55,6 +55,8 @@
       apt:
         distribution: "{{ item.distribution }}"
         flat: false
+      cleanup:
+        policyNames: "{{ nexus_cleanup_policies | selectattr('format', 'equalto', 'apt') | map(attribute='name') | list }}"
     status_code: [201, 204]
   no_log: true
   loop: "{{ nexus_apt_proxy_repositories }}"
@@ -95,6 +97,8 @@
         cacheForeignLayers: true
         foreignLayerUrlWhitelist:
           - ".*"
+      cleanup:
+        policyNames: "{{ nexus_cleanup_policies | selectattr('format', 'equalto', 'docker') | map(attribute='name') | list }}"
     status_code: [201, 204]
   no_log: true
   loop: "{{ nexus_docker_proxy_repositories }}"

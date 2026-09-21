@@ -1,0 +1,60 @@
+---
+- name: List existing cleanup policies
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/cleanup-policies"
+    method: GET
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: [200]
+  no_log: true
+  register: nexus_existing_cleanup_policies
+
+- name: Build the list of cleanup policy names already present
+  ansible.builtin.set_fact:
+    nexus_existing_cleanup_policy_names: >-
+      {{
+        nexus_existing_cleanup_policies.json
+        | map(attribute='name')
+        | list
+      }}
+
+- name: Create missing cleanup policies
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/cleanup-policies"
+    method: POST
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      format: "{{ item.format }}"
+      notes: "{{ item.notes }}"
+      criteriaLastDownloaded: "{{ item.criteriaLastDownloaded | int }}"
+    status_code: [201, 204]
+  no_log: true
+  loop: "{{ nexus_cleanup_policies }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in nexus_existing_cleanup_policy_names
+
+- name: Update cleanup policies that already exist
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/cleanup-policies/{{ item.name }}"
+    method: PUT
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      format: "{{ item.format }}"
+      notes: "{{ item.notes }}"
+      criteriaLastDownloaded: "{{ item.criteriaLastDownloaded | int }}"
+    status_code: [200, 204]
+  no_log: true
+  loop: "{{ nexus_cleanup_policies }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name in nexus_existing_cleanup_policy_names
