@@ -6,6 +6,15 @@ This is not a Docker container.
 The Nexus **host** can be Debian 12, Debian 13, Ubuntu 24.04, or
 Ubuntu 26.04. APT proxies cover all four as clients.
 
+The installed version is **pinned** (`nexus_version` in `vars/nexus.yml`).
+The web UI may show a newer build. Ignore that banner unless you change
+`nexus_version` and `nexus_download_checksum`, then run `make deploy`.
+See the comments in `vars/nexus.yml` for the download and checksum links.
+
+Web UI sign-in: user `admin`. The password is `nexus_admin_password` in
+your local settings file. Click the user icon at the top right, then
+Sign In.
+
 It runs on the lab LAN only: HTTP port **8081** for the web UI and APT,
 and port **8082** for a Docker Hub reverse proxy. Private networks
 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) can use it. Do not
@@ -54,13 +63,13 @@ Tracked APT URLs stay on the internet. When Nexus is up, a local
 settings file can set `apt_debian_repository_by_suite` and
 `apt_ubuntu_repository_by_suite` so guests use this cache.
 
-Suggested guest: `debian-13-nexus` at `192.168.24.2`, 4 GiB RAM,
+Suggested guest: `idops-nexus-repository` at `192.168.24.2`, 4 GiB RAM,
 extra disk 20 GiB on `/data`. The playbook also accepts Ubuntu 24.04
 or 26.04 as the Nexus host if you point `nexus_targets` at that guest.
 
 ## Full run (one file per step)
 
-Guest: `debian-13-nexus` at `192.168.24.2`. Check the guest with
+Guest: `idops-nexus-repository` at `192.168.24.2`. Check the guest with
 `virsh`, not SSH.
 
 From the repository root:
@@ -72,7 +81,7 @@ make provision LOCAL_SETTINGS_FILE=vars/settings.kvm.nexus.local.yml
 
 # Check from the hypervisor (no SSH):
 virsh -c qemu:///system list --all
-virsh -c qemu:///system qemu-agent-command debian-13-nexus '{"execute":"guest-network-get-interfaces"}' --pretty
+virsh -c qemu:///system qemu-agent-command idops-nexus-repository '{"execute":"guest-network-get-interfaces"}' --pretty
 ```
 
 ```bash
@@ -103,7 +112,7 @@ Docker proxy repositories.
 Check from the hypervisor after deploy:
 
 ```bash
-virsh -c qemu:///system qemu-agent-command debian-13-nexus '{"execute":"guest-exec","arguments":{"path":"/bin/bash","arg":["-lc","ss -lnt | grep -E \":8081|:8082\"; systemctl is-active nexus; df -h /data"],"capture-output":true}}'
+virsh -c qemu:///system qemu-agent-command idops-nexus-repository '{"execute":"guest-exec","arguments":{"path":"/bin/bash","arg":["-lc","ss -lnt | grep -E \":8081|:8082\"; systemctl is-active nexus; df -h /data"],"capture-output":true}}'
 ```
 
 ```bash

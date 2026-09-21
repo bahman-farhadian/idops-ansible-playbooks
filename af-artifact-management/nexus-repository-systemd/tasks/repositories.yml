@@ -3,27 +3,36 @@
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/repositories"
     method: GET
-    url_username: admin
+    url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
     status_code: [200]
   no_log: true
   register: nexus_existing_repositories
 
-- name: Build the list of repository names already present
-  ansible.builtin.set_fact:
-    nexus_existing_repository_names: >-
-      {{
-        nexus_existing_repositories.json
-        | map(attribute='name')
-        | list
-      }}
+- name: Delete every repository (groups first, then the rest)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/repositories/{{ item.name }}"
+    method: DELETE
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: [204, 404]
+  no_log: true
+  loop: >-
+    {{
+      (nexus_existing_repositories.json | selectattr('type', 'equalto', 'group') | list)
+      +
+      (nexus_existing_repositories.json | rejectattr('type', 'equalto', 'group') | list)
+    }}
+  loop_control:
+    label: "{{ item.name }} ({{ item.type }})"
 
 - name: Create APT proxy repositories
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/repositories/apt/proxy"
     method: POST
-    url_username: admin
+    url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
     body_format: json
@@ -51,13 +60,12 @@
   loop: "{{ nexus_apt_proxy_repositories }}"
   loop_control:
     label: "{{ item.name }}"
-  when: item.name not in nexus_existing_repository_names
 
 - name: Create Docker proxy repositories
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/repositories/docker/proxy"
     method: POST
-    url_username: admin
+    url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
     body_format: json
@@ -92,12 +100,12 @@
   loop: "{{ nexus_docker_proxy_repositories }}"
   loop_control:
     label: "{{ item.name }}"
-  when: item.name not in nexus_existing_repository_names
 
 - name: Show Nexus listen URLs
   ansible.builtin.debug:
     msg: >-
       Nexus is up on {{ inventory_hostname }}.
       Web UI and APT: http://{{ ansible_host | default(inventory_hostname) }}:{{ nexus_http_port }}/
+      Sign in as {{ nexus_admin_user }}. Password is nexus_admin_password in the local settings file.
       Docker Hub proxy: {{ ansible_host | default(inventory_hostname) }}:{{ nexus_docker_http_port }}
       APT example: http://{{ ansible_host | default(inventory_hostname) }}:{{ nexus_http_port }}/repository/debian-trixie

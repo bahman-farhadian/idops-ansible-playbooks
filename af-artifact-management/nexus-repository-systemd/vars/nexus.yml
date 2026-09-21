@@ -10,7 +10,7 @@
 nexus_targets: [] # Values: [] | list of host maps (name, address, user, port).
 # Example (was the live default; see local settings for real values):
 # nexus_targets:
-#  - name: "debian-13-nexus"
+#  - name: "idops-nexus-repository"
 #    address: "192.168.24.2"
 #    user: "root"
 #    port: 2222
@@ -22,12 +22,25 @@ nexus_become_user: "root"   # Privilege escalation target user.
 
 # -----------------------------------------------------------------------------
 # Download and install
-# Pin a version. Check https://help.sonatype.com/en/download.html for a newer one.
-# The linux-x86_64 archive includes a JDK. SHA256 is from Sonatype.
+# We PIN this version on purpose. The web UI may show a newer build
+# (for example 3.96.x). Do not follow that banner unless you change
+# the three values below and run make deploy again.
+#
+# Pick a build:
+#   current: https://help.sonatype.com/en/download.html
+#   older:   https://help.sonatype.com/en/download-archives---repository-manager-3.html
+# Linux x86_64 archive (includes a JDK):
+#   https://download.sonatype.com/nexus/3/nexus-<version>-linux-x86_64.tar.gz
+# Checksum file:
+#   https://download.sonatype.com/nexus/3/nexus-<version>-linux-x86_64.tar.gz.sha256
+#
+# Example: to move to 3.96.1-01, set nexus_version to 3.96.1-01, set
+# nexus_download_checksum to sha256:<hash from the .sha256 file>, then
+# make deploy.
 # -----------------------------------------------------------------------------
-nexus_version: "3.95.4-01" # Nexus version token. Example: 3.95.4-01.
-nexus_download_url: "https://download.sonatype.com/nexus/3/nexus-{{ nexus_version }}-linux-x86_64.tar.gz" # Download URL.
-nexus_download_checksum: "sha256:4a4f81c567ec99b5dfe0acdf19bcbe6b381f6c811358a789f43cea3ab3a476d1" # Checksum for the pinned archive.
+nexus_version: "3.95.4-01" # Pinned Nexus version. Values: a Sonatype version token such as 3.95.4-01.
+nexus_download_url: "https://download.sonatype.com/nexus/3/nexus-{{ nexus_version }}-linux-x86_64.tar.gz" # Download URL. Built from nexus_version.
+nexus_download_checksum: "sha256:4a4f81c567ec99b5dfe0acdf19bcbe6b381f6c811358a789f43cea3ab3a476d1" # sha256 of the pinned archive. Change this when you change nexus_version.
 nexus_install_root: "/opt"                 # Parent directory for the extracted tree.
 nexus_home: "/opt/nexus"                   # Symlink to the extracted version directory.
 nexus_data_dir: "/data/nexus"              # Data and blob store. Put this on the extra disk.
@@ -53,10 +66,19 @@ nexus_heap: "" # JVM heap (-Xms and -Xmx). Values: "" (Nexus default) | a size s
 # Blank in git on purpose. Set it in the local settings file.
 # The playbook reads the first-boot password from disk, then sets this one.
 # -----------------------------------------------------------------------------
-nexus_admin_password: "" # Nexus admin password. CHANGE THIS. Example: "a strong passphrase".
+nexus_admin_user: "admin" # Web UI and API user. Values: "admin".
+nexus_admin_password: "" # Nexus admin password. CHANGE THIS. Set it in the local settings file.
 
-# Allow anonymous pull from APT and Docker on the LAN. Values: true | false.
+# Allow anonymous pull from APT and Docker on the LAN. The web UI Sign In
+# as admin must still work. Values: true | false.
 nexus_anonymous_access: true
+
+# Security realms. This Community Edition build has no
+# NexusAuthorizingRealm. Always keep NexusAuthenticatingRealm first.
+# Add DockerToken for the Docker Hub reverse proxy. Values: list of realm ids.
+nexus_security_realms:
+  - NexusAuthenticatingRealm
+  - DockerToken
 
 # -----------------------------------------------------------------------------
 # APT reverse proxies (Debian and Ubuntu)

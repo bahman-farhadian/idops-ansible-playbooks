@@ -25,9 +25,9 @@
 
 - name: Set the admin password from the first-boot file
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/security/users/admin/change-password"
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/security/users/{{ nexus_admin_user }}/change-password"
     method: PUT
-    url_username: admin
+    url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password_slurp.content | b64decode | trim }}"
     force_basic_auth: true
     headers:
@@ -37,53 +37,114 @@
   no_log: true
   when: nexus_admin_password_file.stat.exists | default(false)
 
-- name: Check that the admin password in local settings works
+- name: Check that the admin password in local settings works for the API
   ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/status/writable"
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/security/users"
     method: GET
-    url_username: admin
+    url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
     status_code: [200]
   no_log: true
-  register: nexus_admin_login
+  register: nexus_admin_users
 
-- name: Enable anonymous pull
+- name: Fail when the admin user is missing or not an administrator
+  ansible.builtin.assert:
+    that:
+      - nexus_admin_users.json | selectattr('userId', 'equalto', nexus_admin_user) | list | length > 0
+      - >-
+        'nx-admin' in (
+          (nexus_admin_users.json | selectattr('userId', 'equalto', nexus_admin_user) | list | first).roles | default([])
+        )
+    fail_msg: >-
+      User {{ nexus_admin_user }} must exist with the nx-admin role.
+      Set nexus_admin_password in your local settings file.
+
+- name: Set security realms (keep local login, add Docker token)
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/security/realms/active"
+    method: PUT
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body: "{{ nexus_security_realms }}"
+    status_code: [204, 200]
+  no_log: true
+
+- name: Read the Community Edition EULA
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/system/eula"
+    method: GET
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    status_code: [200]
+  no_log: true
+  register: nexus_eula
+
+- name: Accept the Community Edition EULA
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/system/eula"
+    method: POST
+    url_username: "{{ nexus_admin_user }}"
+    url_password: "{{ nexus_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      accepted: true
+      disclaimer: "{{ nexus_eula.json.disclaimer }}"
+    status_code: [200, 204]
+  no_log: true
+  when: not (nexus_eula.json.accepted | default(false) | bool)
+
+- name: Enable anonymous pull for APT and Docker
   ansible.builtin.uri:
     url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/security/anonymous"
     method: PUT
-    url_username: admin
+    url_username: "{{ nexus_admin_user }}"
     url_password: "{{ nexus_admin_password }}"
     force_basic_auth: true
     body_format: json
     body:
       enabled: "{{ nexus_anonymous_access | bool }}"
       userId: anonymous
-      realmName: NexusAuthorizingRealm
+      realmName: NexusAuthenticatingRealm
     status_code: [200, 204]
   no_log: true
-  when: nexus_anonymous_access | bool
 
-- name: Read active security realms
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/security/realms/active"
-    method: GET
-    url_username: admin
-    url_password: "{{ nexus_admin_password }}"
-    force_basic_auth: true
-    status_code: [200]
-  no_log: true
-  register: nexus_active_realms
+- name: Copy the web UI login check
+  ansible.builtin.copy:
+    src: files/check_admin_login.py
+    dest: /tmp/check_nexus_admin_login.py
+    owner: root
+    group: root
+    mode: "0700"
 
-- name: Enable the Docker token realm
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rest/v1/security/realms/active"
-    method: PUT
-    url_username: admin
-    url_password: "{{ nexus_admin_password }}"
-    force_basic_auth: true
-    body_format: json
-    body: "{{ (nexus_active_realms.json + ['DockerToken']) | unique }}"
-    status_code: [200, 204]
+- name: Check that the web UI can sign in as admin
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - /tmp/check_nexus_admin_login.py
+      - "--url"
+      - "http://127.0.0.1:{{ nexus_http_port }}"
+      - "--user"
+      - "{{ nexus_admin_user }}"
+      - "--password"
+      - "{{ nexus_admin_password }}"
+  register: nexus_ui_login
+  changed_when: false
   no_log: true
-  when: "'DockerToken' not in (nexus_active_realms.json | default([]))"
+
+- name: Remove the web UI login check script
+  ansible.builtin.file:
+    path: /tmp/check_nexus_admin_login.py
+    state: absent
+
+- name: Show how to sign in to the web UI
+  ansible.builtin.debug:
+    msg: >-
+      Web UI: http://{{ ansible_host | default(inventory_hostname) }}:{{ nexus_http_port }}/
+      Sign in as user {{ nexus_admin_user }}. The password is in your
+      local settings file (nexus_admin_password). Click the user icon
+      at the top right, then Sign In.
