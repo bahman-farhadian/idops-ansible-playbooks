@@ -30,9 +30,8 @@
     - name: Fail when no local settings file was selected
       ansible.builtin.fail:
         msg: >-
-          No local settings file was selected. This playbook has no default.
-          Run it through Make:
-          make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
+          No local settings file was selected. There is no default.
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
       when: debian_selected_local_settings_file | length == 0
       tags: always
 
@@ -43,10 +42,9 @@
         that:
           - debian_selected_local_settings_file is search('\\.local\\.yml$')
         fail_msg: >-
-          debian_local_settings_file must be a gitignored *.local.yml file
-          (got '{{ debian_selected_local_settings_file }}'). Use
-          LOCAL_SETTINGS_FILE=vars/settings.local.yml or
-          LOCAL_SETTINGS_FILE=vars/settings.<name>.local.yml.
+          debian_local_settings_file must end with .local.yml
+          (got '{{ debian_selected_local_settings_file }}').
+          Example: LOCAL_SETTINGS_FILE=vars/settings.local.yml
       tags: always
 
     - name: Check for the machine-specific settings file
@@ -63,11 +61,10 @@
     - name: Fail when the selected local settings file is missing
       ansible.builtin.fail:
         msg: >-
-          {{ debian_selected_local_settings_file }} is required and was not
-          found. It is the only place real, per-deployment values live -
-          real targets, credentials; the tracked file only carries generic
-          defaults. Generate a starting point with: make settings
-          (or make settings LOCAL_SETTINGS_FILE={{ debian_selected_local_settings_file }}).
+          {{ debian_selected_local_settings_file }} was not found.
+          Put real hosts and keys in this file. Tracked vars files only
+          have generic defaults. Create it with:
+          make settings LOCAL_SETTINGS_FILE={{ debian_selected_local_settings_file }}
       when: not debian_hardening_local_settings_file.stat.exists
       tags: always
 
@@ -81,10 +78,11 @@
     - name: Report which settings come from the override file
       ansible.builtin.debug:
         msg: >-
-          {{ debian_selected_local_settings_file }} is in effect and overrides
-          {{ debian_hardening_local_overrides | length }} setting(s):
+          Using {{ debian_selected_local_settings_file }}.
+          It sets {{ debian_hardening_local_overrides | length }} key(s):
           {{ debian_hardening_local_overrides.keys() | list | join(', ') }}.
-          Edit those there; the same keys in vars/debian-hardening.yml are ignored.
+          Edit those keys in that file. The same keys in
+          vars/debian-hardening.yml are ignored.
       when: debian_hardening_local_settings_file.stat.exists
       tags: always
 
@@ -105,8 +103,9 @@
           - debian_hardening_targets is defined
           - (debian_hardening_targets | length) > 0
         fail_msg: >-
-          Declare at least one target in debian_hardening_targets
-          (vars/debian-hardening.yml / settings.local.yml).
+          Add at least one host in debian_hardening_targets in
+          {{ debian_selected_local_settings_file }}.
+          The list in vars/debian-hardening.yml is empty on purpose.
       tags: always
 
     - name: Validate hardening target names
@@ -168,7 +167,7 @@
           targets={{ debian_hardening_targets | map(attribute='name') | list }}
       tags: always
 
-- name: Execute Debian hardening action
+- name: Execute Debian/Ubuntu hardening action
   hosts: hardening_targets
   become: "{{ debian_become_enabled | default(true) | bool }}"
   become_method: "{{ debian_become_method | default('sudo') }}"

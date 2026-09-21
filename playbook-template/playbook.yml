@@ -24,9 +24,8 @@
     - name: Fail when no local settings file was selected
       ansible.builtin.fail:
         msg: >-
-          No local settings file was selected. This playbook has no default.
-          Run it through Make:
-          make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
+          No local settings file was selected. There is no default.
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
       when: template_selected_local_settings_file | length == 0
 
     # search, not match: match is start-anchored and rejects
@@ -36,10 +35,9 @@
         that:
           - template_selected_local_settings_file is search('\\.local\\.yml$')
         fail_msg: >-
-          template_local_settings_file must be a gitignored *.local.yml file
-          (got '{{ template_selected_local_settings_file }}'). Use
-          LOCAL_SETTINGS_FILE=vars/settings.local.yml or
-          LOCAL_SETTINGS_FILE=vars/settings.<name>.local.yml.
+          template_local_settings_file must end with .local.yml
+          (got '{{ template_selected_local_settings_file }}').
+          Example: LOCAL_SETTINGS_FILE=vars/settings.local.yml
 
     - name: Check for the machine-specific settings file
       ansible.builtin.stat:
@@ -54,11 +52,10 @@
     - name: Fail when the selected local settings file is missing
       ansible.builtin.fail:
         msg: >-
-          {{ template_selected_local_settings_file }} is required and was
-          not found. It is the only place real, per-deployment values live -
-          a real target, credentials; the tracked file only carries generic
-          defaults. Generate a starting point with: make settings
-          (or make settings LOCAL_SETTINGS_FILE={{ template_selected_local_settings_file }}).
+          {{ template_selected_local_settings_file }} was not found.
+          Put the real target and keys in this file. Tracked vars files
+          only have generic defaults. Create it with:
+          make settings LOCAL_SETTINGS_FILE={{ template_selected_local_settings_file }}
       when: not template_local_override_file.stat.exists
 
     - name: Load the machine-specific override file for reporting
@@ -70,10 +67,11 @@
     - name: Report which settings come from the override file
       ansible.builtin.debug:
         msg: >-
-          {{ template_selected_local_settings_file }} is in effect and overrides
-          {{ template_local_overrides | length }} setting(s):
+          Using {{ template_selected_local_settings_file }}.
+          It sets {{ template_local_overrides | length }} key(s):
           {{ template_local_overrides.keys() | list | join(', ') }}.
-          Edit those there; the same keys in vars/template-config.yml are ignored.
+          Edit those keys in that file. The same keys in
+          vars/template-config.yml are ignored.
       when: template_local_override_file.stat.exists
 
     - name: Validate requested action

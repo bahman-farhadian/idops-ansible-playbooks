@@ -11,7 +11,7 @@
 #   04-images.yml        cloud images, and how they are cached and trusted
 #   05-runtime.yml       readiness waits, snapshots and cleanup guards
 #   06-instances.yml     the VMs to create, and on which host
-#   settings.local.yml   required, gitignored, overrides any of the above
+#   *.local.yml          required, gitignored, selected with LOCAL_SETTINGS_FILE
 # -----------------------------------------------------------------------------
 # 1. VM INSTANCES (managed scope for provision + cleanup)
 # One list entry per VM, in the same shape as the hosts in 01-hypervisors.yml.
@@ -34,6 +34,7 @@
 # - guest_network_gateway        Example: "192.168.122.1"
 # - guest_dns_servers            Example: ["1.1.1.1", "8.8.8.8"]
 # - instance_mac_address         Example: "52:54:00:11:22:33"
+# - cloud_init_user              Example: "ubuntu" (required for Ubuntu; tracked default is "debian")
 # - cpu_share_enabled            Example: true   (see 02-vm-defaults.yml)
 # - instance_extra_disks_enabled Example: true   (see 02-vm-defaults.yml)
 # - instance_extra_disks         Example: see debian-12-a below

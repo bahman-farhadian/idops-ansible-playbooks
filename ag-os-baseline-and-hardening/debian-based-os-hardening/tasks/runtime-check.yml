@@ -92,6 +92,6 @@
     that:
       - debian_hardening_runtime_check_result.rc == 0
     fail_msg: >-
-      Guest leftover checks failed on {{ inventory_hostname }}.
-      Look for FAIL lines in the runtime-check output (UFW paths,
-      90-cloud-init-users, cloud-init still enabled, or SMTP on 0.0.0.0:25).
+      Leftover checks failed on {{ inventory_hostname }}.
+      Look for FAIL lines in the output (UFW still present, cloud-init
+      still on, or SMTP listening on 0.0.0.0:25).

@@ -39,50 +39,50 @@ DIFF_ARG := $(if $(filter $(DIFF),$(BOOL_TRUE)),--diff,)
 PLAY_ARGS := $(SETTINGS_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
 
 help:
-	@printf "debian-based-os-hardening - Debian/Ubuntu baseline hardening\n\n"
+	@printf "debian-based-os-hardening - harden Debian and Ubuntu hosts\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-24s %s\n" "make help" "show this help"
-	@printf "  %-24s %s\n" "make venv" "create/update the shared repository-root environment"
-	@printf "  %-24s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
-	@printf "  %-24s %s\n" "make check" "syntax-check playbook entrypoint"
+	@printf "  %-24s %s\n" "make venv" "create or update the shared venv/ at the repo root"
+	@printf "  %-24s %s\n" "make deps-bundle" "download Python wheels into wheelhouse/"
+	@printf "  %-24s %s\n" "make check" "check playbook.yml syntax"
 	@printf "  %-24s %s\n" "make lint" "run ansible-lint"
-	@printf "  %-24s %s\n" "make settings" "create/update a machine-local settings file"
-	@printf "  %-24s %s\n" "make settings-clean" "list machine-local settings files for this project"
-	@printf "  %-24s %s\n" "make settings-clean-force" "delete disposable settings files (keeps *.local.yml)"
-	@printf "  %-24s %s\n" "make settings-clean-force-all" "delete LOCAL_SETTINGS_FILE (not reversible)"
-	@printf "  %-24s %s\n" "make ping" "test connectivity to hardening targets"
-	@printf "  %-24s %s\n" "make scan" "run Lynis scan; fail below lynis_min_hardening_index (86)"
-	@printf "  %-24s %s\n" "make harden" "run Debian/Ubuntu hardening workflow"
-	@printf "  %-24s %s\n" "make reboot" "reboot hardening targets"
-	@printf "  %-24s %s\n" "make score" "show Lynis hardening_index values"
-	@printf "  %-24s %s\n" "make suggestions" "show Lynis suggestions from collected reports"
-	@printf "  %-24s %s\n" "make ssh-check" "inspect effective sshd hardening settings"
-	@printf "  %-24s %s\n" "make gap-report" "show focused Lynis warning/suggestion gaps"
-	@printf "  %-24s %s\n" "make runtime-check" "collect runtime diagnostics; fail on leftover UFW/cloud-init/public SMTP"
+	@printf "  %-24s %s\n" "make settings" "create or update your local settings file"
+	@printf "  %-24s %s\n" "make settings-clean" "list local settings files"
+	@printf "  %-24s %s\n" "make settings-clean-force" "delete backup files only (keeps *.local.yml)"
+	@printf "  %-24s %s\n" "make settings-clean-force-all" "delete the named local settings file (cannot undo)"
+	@printf "  %-24s %s\n" "make ping" "test SSH to the hardening targets"
+	@printf "  %-24s %s\n" "make scan" "run Lynis; fail if the score is below 86 (lynis_min_hardening_index)"
+	@printf "  %-24s %s\n" "make harden" "harden Debian and Ubuntu hosts"
+	@printf "  %-24s %s\n" "make reboot" "reboot the hardening targets"
+	@printf "  %-24s %s\n" "make score" "print Lynis scores from artifacts/lynis/"
+	@printf "  %-24s %s\n" "make suggestions" "print Lynis suggestions from artifacts/lynis/"
+	@printf "  %-24s %s\n" "make ssh-check" "show the live sshd settings"
+	@printf "  %-24s %s\n" "make gap-report" "print selected Lynis warnings from artifacts/lynis/"
+	@printf "  %-24s %s\n" "make runtime-check" "check the guest; fail if UFW, cloud-init, or public SMTP is still there"
 	@printf "\nPer-role targets (run a single role from the harden workflow):\n"
-	@printf "  %-32s %s\n" "make roles" "list all available role targets"
-	@printf "  %-32s %s\n" "make role-network-identity" "apply network_identity role only"
-	@printf "  %-32s %s\n" "make role-boot-hardening" "apply boot_hardening role only"
-	@printf "  %-32s %s\n" "make role-grub-hardening" "apply grub_hardening role only"
-	@printf "  %-32s %s\n" "make role-prep-baseline" "apply prep_baseline role only"
-	@printf "  %-32s %s\n" "make role-terminal-dotfiles" "apply terminal_dotfiles role only"
-	@printf "  %-32s %s\n" "make role-common-repos" "apply common_repos role only"
-	@printf "  %-32s %s\n" "make role-package-hardening" "apply package_hardening role only"
-	@printf "  %-32s %s\n" "make role-service-hardening" "apply service_hardening role only"
-	@printf "  %-32s %s\n" "make role-firewall" "apply firewall role only"
-	@printf "  %-32s %s\n" "make role-kernel-hardening" "apply kernel_hardening role only"
-	@printf "  %-32s %s\n" "make role-auth-hardening" "apply auth_hardening role only"
-	@printf "  %-32s %s\n" "make role-banner-hardening" "apply banner_hardening role only"
-	@printf "  %-32s %s\n" "make role-ssh-hardening" "apply ssh_hardening role only"
-	@printf "  %-32s %s\n" "make role-fail2ban" "apply fail2ban role only"
-	@printf "  %-32s %s\n" "make role-auditd" "apply auditd role only"
-	@printf "  %-32s %s\n" "make role-accounting-hardening" "apply accounting_hardening role only"
-	@printf "  %-32s %s\n" "make role-integrity-hardening" "apply integrity_hardening role only"
-	@printf "  %-32s %s\n" "make role-compiler-hardening" "apply compiler_hardening role only"
-	@printf "  %-32s %s\n" "make role-file-permissions" "apply file_permissions_hardening role only"
-	@printf "  %-32s %s\n" "make role-session-logging" "apply session_logging role only"
+	@printf "  %-32s %s\n" "make roles" "list all role targets"
+	@printf "  %-32s %s\n" "make role-network-identity" "run only the network_identity role"
+	@printf "  %-32s %s\n" "make role-boot-hardening" "run only the boot_hardening role"
+	@printf "  %-32s %s\n" "make role-grub-hardening" "run only the grub_hardening role"
+	@printf "  %-32s %s\n" "make role-prep-baseline" "run only the prep_baseline role"
+	@printf "  %-32s %s\n" "make role-terminal-dotfiles" "run only the terminal_dotfiles role"
+	@printf "  %-32s %s\n" "make role-common-repos" "run only the common_repos role"
+	@printf "  %-32s %s\n" "make role-package-hardening" "run only the package_hardening role"
+	@printf "  %-32s %s\n" "make role-service-hardening" "run only the service_hardening role"
+	@printf "  %-32s %s\n" "make role-firewall" "run only the firewall role"
+	@printf "  %-32s %s\n" "make role-kernel-hardening" "run only the kernel_hardening role"
+	@printf "  %-32s %s\n" "make role-auth-hardening" "run only the auth_hardening role"
+	@printf "  %-32s %s\n" "make role-banner-hardening" "run only the banner_hardening role"
+	@printf "  %-32s %s\n" "make role-ssh-hardening" "run only the ssh_hardening role"
+	@printf "  %-32s %s\n" "make role-fail2ban" "run only the fail2ban role"
+	@printf "  %-32s %s\n" "make role-auditd" "run only the auditd role"
+	@printf "  %-32s %s\n" "make role-accounting-hardening" "run only the accounting_hardening role"
+	@printf "  %-32s %s\n" "make role-integrity-hardening" "run only the integrity_hardening role"
+	@printf "  %-32s %s\n" "make role-compiler-hardening" "run only the compiler_hardening role"
+	@printf "  %-32s %s\n" "make role-file-permissions" "run only the file_permissions_hardening role"
+	@printf "  %-32s %s\n" "make role-session-logging" "run only the session_logging role"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "required *.local.yml for every action (no default)"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
 	@printf "  %-28s %s\n" "FORKS=<n>" "set Ansible fork parallelism"
 	@printf "  %-28s %s\n" "TAGS=<tag1,tag2>" "run only selected tags"
 	@printf "  %-28s %s\n" "SKIP_TAGS=<tag1,tag2>" "skip selected tags"
@@ -110,15 +110,15 @@ venv:
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \
-		echo "Shared Python venv not found at $(VENV)."; \
-		echo "Create it once from the repository root with: make venv"; \
+		echo "Python environment not found at $(VENV)."; \
+		echo "From the repository root, run: make venv"; \
 		exit 1; \
 	}
 
 require-local-settings:
 	@if [ -z "$(strip $(LOCAL_SETTINGS_FILE))" ]; then \
 		printf '%s\n' \
-			"LOCAL_SETTINGS_FILE is required." \
+			"LOCAL_SETTINGS_FILE is required. There is no default." \
 			"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml" \
 			"     or: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml" \
 			"Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
@@ -128,7 +128,7 @@ require-local-settings:
 		*.local.yml) ;; \
 		*) \
 			printf '%s\n' \
-				"LOCAL_SETTINGS_FILE must be a gitignored *.local.yml file (got $(LOCAL_SETTINGS_FILE))." \
+				"LOCAL_SETTINGS_FILE must end with .local.yml (got $(LOCAL_SETTINGS_FILE))." \
 				"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
 			exit 1 ;; \
 	esac

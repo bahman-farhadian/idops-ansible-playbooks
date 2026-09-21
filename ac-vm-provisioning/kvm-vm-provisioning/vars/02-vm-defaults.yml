@@ -11,7 +11,7 @@
 #   04-images.yml        cloud images, and how they are cached and trusted
 #   05-runtime.yml       readiness waits, snapshots and cleanup guards
 #   06-instances.yml     the VMs to create, and on which host
-#   settings.local.yml   required, gitignored, overrides any of the above
+#   *.local.yml          required, gitignored, selected with LOCAL_SETTINGS_FILE
 # -----------------------------------------------------------------------------
 # 1. INSTANCE COMPUTE DEFAULTS
 # Applied to any VM in 06-instances.yml that omits the matching key.

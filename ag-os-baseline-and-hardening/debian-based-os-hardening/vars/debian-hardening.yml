@@ -15,7 +15,7 @@ debian_become_user: "root"   # Privilege escalation target user.
 # inventory group dynamically at runtime by playbook.yml - the same pattern
 # kvm-vm-provisioning uses for kvm_hypervisors. host.yml stays a static,
 # empty placeholder and is never hand-edited with real host data: a target's
-# real address, user and become_password belong here, in settings.local.yml,
+# real address, user and become_password belong in the selected *.local.yml,
 # never in a tracked file.
 #
 # Keys:

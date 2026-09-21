@@ -17,23 +17,23 @@ SETTINGS_ARG := -e template_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 help:
-	@printf "playbook-template - scaffold for new implementation projects\n\n"
+	@printf "playbook-template - copy this to start a new project\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-20s %s\n" "make help" "show this help"
-	@printf "  %-20s %s\n" "make settings" "create/update a machine-local settings file"
-	@printf "  %-20s %s\n" "make settings-clean" "list machine-local settings files for this project"
-	@printf "  %-20s %s\n" "make settings-clean-force" "delete disposable settings files (keeps *.local.yml)"
-	@printf "  %-20s %s\n" "make settings-clean-force-all" "delete LOCAL_SETTINGS_FILE (not reversible)"
-	@printf "  %-20s %s\n" "make venv" "create/update the shared repository-root environment"
-	@printf "  %-20s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
+	@printf "  %-20s %s\n" "make settings" "create or update your local settings file"
+	@printf "  %-20s %s\n" "make settings-clean" "list local settings files"
+	@printf "  %-20s %s\n" "make settings-clean-force" "delete backup files only (keeps *.local.yml)"
+	@printf "  %-20s %s\n" "make settings-clean-force-all" "delete the named local settings file (cannot undo)"
+	@printf "  %-20s %s\n" "make venv" "create or update the shared venv/ at the repo root"
+	@printf "  %-20s %s\n" "make deps-bundle" "download Python wheels into wheelhouse/"
 	@printf "  %-20s %s\n" "make lint" "run ansible-lint"
-	@printf "  %-20s %s\n" "make check" "syntax-check playbook entrypoint"
-	@printf "  %-20s %s\n" "make ping" "test connectivity to target"
-	@printf "  %-20s %s\n" "make provision" "run provision workflow"
-	@printf "  %-20s %s\n" "make cleanup" "run cleanup workflow"
+	@printf "  %-20s %s\n" "make check" "check playbook.yml syntax"
+	@printf "  %-20s %s\n" "make ping" "test SSH to the target"
+	@printf "  %-20s %s\n" "make provision" "run the provision tasks"
+	@printf "  %-20s %s\n" "make cleanup" "run the cleanup tasks"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "required *.local.yml for every action (no default)"
-	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
+	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "extra ansible-playbook arguments"
 
 settings: require-local-settings
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
@@ -54,15 +54,15 @@ venv:
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \
-		echo "Shared Python venv not found at $(VENV)."; \
-		echo "Create it once from the repository root with: make venv"; \
+		echo "Python environment not found at $(VENV)."; \
+		echo "From the repository root, run: make venv"; \
 		exit 1; \
 	}
 
 require-local-settings:
 	@if [ -z "$(strip $(LOCAL_SETTINGS_FILE))" ]; then \
 		printf '%s\n' \
-			"LOCAL_SETTINGS_FILE is required." \
+			"LOCAL_SETTINGS_FILE is required. There is no default." \
 			"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml" \
 			"     or: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml" \
 			"Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
@@ -72,7 +72,7 @@ require-local-settings:
 		*.local.yml) ;; \
 		*) \
 			printf '%s\n' \
-				"LOCAL_SETTINGS_FILE must be a gitignored *.local.yml file (got $(LOCAL_SETTINGS_FILE))." \
+				"LOCAL_SETTINGS_FILE must end with .local.yml (got $(LOCAL_SETTINGS_FILE))." \
 				"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
 			exit 1 ;; \
 	esac

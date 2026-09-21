@@ -17,28 +17,28 @@ SETTINGS_ARG := -e kvm_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 help:
-	@printf "kvm-vm-provisioning - KVM/libvirt guest provisioning\n\n"
+	@printf "kvm-vm-provisioning - create KVM/libvirt guests\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
-	@printf "  %-28s %s\n" "make settings" "create/update a machine-local settings file"
-	@printf "  %-28s %s\n" "make settings-clean" "list machine-local settings files for this project"
-	@printf "  %-28s %s\n" "make settings-clean-force" "delete disposable settings files (keeps *.local.yml)"
-	@printf "  %-28s %s\n" "make settings-clean-force-all" "delete LOCAL_SETTINGS_FILE (not reversible)"
-	@printf "  %-28s %s\n" "make venv" "create/update the shared repository-root environment"
-	@printf "  %-28s %s\n" "make deps-bundle" "download wheel artifacts into wheelhouse/"
-	@printf "  %-28s %s\n" "make check" "syntax-check playbook entrypoint"
+	@printf "  %-28s %s\n" "make settings" "create or update your local settings file"
+	@printf "  %-28s %s\n" "make settings-clean" "list local settings files"
+	@printf "  %-28s %s\n" "make settings-clean-force" "delete backup files only (keeps *.local.yml)"
+	@printf "  %-28s %s\n" "make settings-clean-force-all" "delete the named local settings file (cannot undo)"
+	@printf "  %-28s %s\n" "make venv" "create or update the shared venv/ at the repo root"
+	@printf "  %-28s %s\n" "make deps-bundle" "download Python wheels into wheelhouse/"
+	@printf "  %-28s %s\n" "make check" "check playbook.yml syntax"
 	@printf "  %-28s %s\n" "make lint" "run ansible-lint"
-	@printf "  %-28s %s\n" "make ping" "test connectivity to hypervisor"
-	@printf "  %-28s %s\n" "make image-cache" "download/verify cached cloud images for referenced profiles"
-	@printf "  %-28s %s\n" "make checksum-refresh" "refresh trusted checksum data for pinned images"
-	@printf "  %-28s %s\n" "make provision" "execute full provisioning workflow"
-	@printf "  %-28s %s\n" "make provision-check" "run preflight stage in --check mode (no mutation by default)"
-	@printf "  %-28s %s\n" "make cleanup" "preview cleanup scope (declared instance names only)"
-	@printf "  %-28s %s\n" "make cleanup-force" "execute cleanup for declared instance names only (keeps disks by default)"
-	@printf "  %-28s %s\n" "make cleanup-force-disks" "execute cleanup and remove declared instance disks and snapshots"
+	@printf "  %-28s %s\n" "make ping" "test SSH to the hypervisor"
+	@printf "  %-28s %s\n" "make image-cache" "download and check all catalog cloud images"
+	@printf "  %-28s %s\n" "make checksum-refresh" "refresh stored checksums for pinned images"
+	@printf "  %-28s %s\n" "make provision" "create the VMs"
+	@printf "  %-28s %s\n" "make provision-check" "check hypervisor setup; make no changes"
+	@printf "  %-28s %s\n" "make cleanup" "show which named VMs would be deleted (does not delete)"
+	@printf "  %-28s %s\n" "make cleanup-force" "delete the named VMs; keep their disks"
+	@printf "  %-28s %s\n" "make cleanup-force-disks" "delete the named VMs, disks, and snapshots"
 	@printf "\nRuntime options:\n"
-	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "required *.local.yml for every action (no default)"
-	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "pass extra ansible arguments"
+	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
+	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "extra ansible-playbook arguments"
 
 settings: require-local-settings
 	@$(PYTHON) $(PROJECT_ROOT)/scripts/generate-local-settings.py \
@@ -59,15 +59,15 @@ venv:
 
 require-venv:
 	@test -f "$(VENV)/bin/activate" || { \
-		echo "Shared Python venv not found at $(VENV)."; \
-		echo "Create it once from the repository root with: make venv"; \
+		echo "Python environment not found at $(VENV)."; \
+		echo "From the repository root, run: make venv"; \
 		exit 1; \
 	}
 
 require-local-settings:
 	@if [ -z "$(strip $(LOCAL_SETTINGS_FILE))" ]; then \
 		printf '%s\n' \
-			"LOCAL_SETTINGS_FILE is required." \
+			"LOCAL_SETTINGS_FILE is required. There is no default." \
 			"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml" \
 			"     or: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml" \
 			"Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
@@ -77,7 +77,7 @@ require-local-settings:
 		*.local.yml) ;; \
 		*) \
 			printf '%s\n' \
-				"LOCAL_SETTINGS_FILE must be a gitignored *.local.yml file (got $(LOCAL_SETTINGS_FILE))." \
+				"LOCAL_SETTINGS_FILE must end with .local.yml (got $(LOCAL_SETTINGS_FILE))." \
 				"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.local.yml"; \
 			exit 1 ;; \
 	esac

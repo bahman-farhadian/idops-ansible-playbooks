@@ -7,7 +7,7 @@ Provider-specific VM provisioning implementations.
 
 ## Current Providers
 
-- `kvm-vm-provisioning/`: KVM/libvirt cloud-image provisioning (Debian generic + cloud-init)
+- `kvm-vm-provisioning/`: create KVM guests from Debian 12/13 and Ubuntu 24.04/26.04 cloud images
 
 ## Migration Notes
 

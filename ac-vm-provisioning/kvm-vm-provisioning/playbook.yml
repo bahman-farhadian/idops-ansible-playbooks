@@ -35,9 +35,8 @@
     - name: Fail when no local settings file was selected
       ansible.builtin.fail:
         msg: >-
-          No local settings file was selected. This playbook has no default.
-          Run it through Make:
-          make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
+          No local settings file was selected. There is no default.
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
       when: kvm_selected_local_settings_file | length == 0
 
     # search, not match: match is start-anchored and rejects
@@ -47,10 +46,9 @@
         that:
           - kvm_selected_local_settings_file is search('\\.local\\.yml$')
         fail_msg: >-
-          kvm_local_settings_file must be a gitignored *.local.yml file
-          (got '{{ kvm_selected_local_settings_file }}'). Use
-          LOCAL_SETTINGS_FILE=vars/settings.local.yml or
-          LOCAL_SETTINGS_FILE=vars/settings.<name>.local.yml.
+          kvm_local_settings_file must end with .local.yml
+          (got '{{ kvm_selected_local_settings_file }}').
+          Example: LOCAL_SETTINGS_FILE=vars/settings.local.yml
 
     - name: Check for a machine-specific override file
       ansible.builtin.stat:
@@ -66,12 +64,10 @@
     - name: Fail when the selected local settings file is missing
       ansible.builtin.fail:
         msg: >-
-          {{ kvm_selected_local_settings_file }} is required and was not
-          found. It is the only place real, per-deployment values live -
-          real hypervisors, real instances, credentials; the tracked files
-          only carry generic defaults. Generate a starting point with:
-          make settings
-          (or make settings LOCAL_SETTINGS_FILE={{ kvm_selected_local_settings_file }}).
+          {{ kvm_selected_local_settings_file }} was not found.
+          Put real hosts, VMs, and keys in this file. Tracked vars files
+          only have generic defaults. Create it with:
+          make settings LOCAL_SETTINGS_FILE={{ kvm_selected_local_settings_file }}
       when: not kvm_local_override_file.stat.exists
 
     - name: Load the machine-specific override file for reporting
@@ -83,10 +79,11 @@
     - name: Report which settings come from the override file
       ansible.builtin.debug:
         msg: >-
-          {{ kvm_selected_local_settings_file }} is in effect and overrides
-          {{ kvm_local_overrides | length }} setting(s):
+          Using {{ kvm_selected_local_settings_file }}.
+          It sets {{ kvm_local_overrides | length }} key(s):
           {{ kvm_local_overrides.keys() | list | join(', ') }}.
-          Edit those there; the same keys in the numbered files are ignored.
+          Edit those keys in that file. The same keys in the numbered
+          vars files are ignored.
       when: kvm_local_override_file.stat.exists
 
     - name: Validate at least one hypervisor is declared
@@ -95,8 +92,9 @@
           - kvm_hypervisors is defined
           - (kvm_hypervisors | length) > 0
         fail_msg: >-
-          Declare at least one KVM host in kvm_hypervisors
-          (vars/01-hypervisors.yml).
+          Add at least one KVM host in kvm_hypervisors in
+          {{ kvm_selected_local_settings_file }}.
+          The list in vars/01-hypervisors.yml is empty on purpose.
 
     - name: Build effective hypervisor fleet
       ansible.builtin.set_fact:
@@ -143,11 +141,12 @@
             (item.image_cache_path | default(kvm_image_cache_path, true) | string)
             is match('^/')
         fail_msg: >-
-          Hypervisor '{{ item.name }}' sets image_cache_path to
-          '{{ item.image_cache_path | default(kvm_image_cache_path, true) }}',
-          which is not an absolute path. It is a directory on that host, so it
-          must start with '/', for example /var/lib/libvirt/images/base.
-          Leave it empty ("") to inherit the default from 01-hypervisors.yml.
+          Host '{{ item.name }}' has image_cache_path
+          '{{ item.image_cache_path | default(kvm_image_cache_path, true) }}'.
+          This must be a full path starting with /, for example
+          /var/lib/libvirt/images/base.
+          Set kvm_image_cache_path in {{ kvm_selected_local_settings_file }},
+          or set image_cache_path on this host. Empty is not allowed.
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:
         label: "{{ item.name }}:image_cache_path"
@@ -160,11 +159,13 @@
              | default(kvm_instance_disk_pool_path, true) | string)
             is match('^/')
         fail_msg: >-
-          Hypervisor '{{ item.name }}' sets instance_disk_pool_path to
-          '{{ item.instance_disk_pool_path | default(kvm_instance_disk_pool_path, true) }}',
-          which is not an absolute path. It is a directory on that host, so it
-          must start with '/', for example /var/lib/libvirt/images/instances.
-          Leave it empty ("") to inherit the default from 01-hypervisors.yml.
+          Host '{{ item.name }}' has instance_disk_pool_path
+          '{{ item.instance_disk_pool_path | default(kvm_instance_disk_pool_path, true) }}'.
+          This must be a full path starting with /, for example
+          /var/lib/libvirt/images/instances.
+          Set kvm_instance_disk_pool_path in
+          {{ kvm_selected_local_settings_file }}, or set
+          instance_disk_pool_path on this host. Empty is not allowed.
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:
         label: "{{ item.name }}:instance_disk_pool_path"
@@ -177,11 +178,11 @@
              | default(kvm_cloud_init_workspace_path, true) | string)
             is match('^/')
         fail_msg: >-
-          Hypervisor '{{ item.name }}' sets cloud_init_workspace_path to
-          '{{ item.cloud_init_workspace_path | default(kvm_cloud_init_workspace_path, true) }}',
-          which is not an absolute path. It is a directory on that host, so it
-          must start with '/', for example /tmp/idops-kvm-cloud-init.
-          Leave it empty ("") to inherit the default from 01-hypervisors.yml.
+          Host '{{ item.name }}' has cloud_init_workspace_path
+          '{{ item.cloud_init_workspace_path | default(kvm_cloud_init_workspace_path, true) }}'.
+          This must be a full path starting with /, for example
+          /tmp/idops-kvm-cloud-init.
+          Leave it empty to use the default in vars/01-hypervisors.yml.
       loop: "{{ kvm_resolved_hypervisors }}"
       loop_control:
         label: "{{ item.name }}:cloud_init_workspace_path"

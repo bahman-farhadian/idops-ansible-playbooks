@@ -2,8 +2,16 @@
 
 Production-oriented KVM provisioning for the `ac-vm-provisioning` domain.
 
-This project now uses **cloud-image provisioning** (Debian 12/13 `generic` cloud images + cloud-init), not template cloning.
-Scope: this playbook supports **Debian images only**. Catalog `image_variant` is `generic`.
+This project creates guests from cloud images and cloud-init. It does not
+clone templates.
+
+Supported images:
+
+- Debian 12 and 13 (`generic` qcow2)
+- Ubuntu 24.04 and 26.04 (Canonical `.img` files; they are qcow2 inside)
+
+Set `image_distro` to `debian` or `ubuntu`. Guest disks in the instance pool
+stay qcow2.
 
 ## What This Provides
 
@@ -97,10 +105,14 @@ Package mapping:
 - `setfacl` -> `acl`
 - OVMF firmware -> `ovmf`
 
-Tracked files in `vars/` carry generic defaults. The playbook refuses to run
-without a `*.local.yml` file (default `vars/settings.local.yml`), generated
-by `make settings`. Before first provisioning run, edit the real values that
-file wrote (never the tracked files):
+Tracked files in `vars/` have generic defaults. You must pass a `*.local.yml`
+file. There is no default.
+
+```bash
+make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
+```
+
+Edit the real values in that file, not in the tracked files:
 
 1. Set the `address` of `kvm-host-1` in `kvm_hypervisors` (section 1) to your
    KVM host, plus its `user` and `ssh_private_key_file` if it needs them. Add
@@ -128,7 +140,10 @@ file wrote (never the tracked files):
    (defaults to `['ens3', 'enp1s0', 'eth0']`).
 8. Debian profiles use `*-generic-amd64.qcow2`. Ubuntu profiles cache
    `ubuntu-*-server-cloudimg-amd64.img` (qcow2 contents, upstream `.img`
-   name). `nocloud` is blocked by default; override only if intentional with
+   name). Ubuntu instances must set `cloud_init_user: ubuntu` (the tracked
+   default is `debian`). Ubuntu 26.04 uses `virt_install_os_variant:
+   ubuntu25.10` until libosinfo ships `ubuntu26.04`. `nocloud` is blocked
+   by default; override only if intentional with
    `kvm_allow_nocloud_images=true`.
 9. Root-disk repartitioning on Debian cloud images is intentionally not
    supported in this playbook. Use installer-based provisioning or a custom
@@ -195,8 +210,8 @@ make cleanup-force LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
 
-`help`, `venv`, `lint`, and `deps-bundle` do not take a settings file. Every
-other target above requires `LOCAL_SETTINGS_FILE`.
+`help`, `venv`, `lint`, and `deps-bundle` do not need a settings file. Every
+other target above needs `LOCAL_SETTINGS_FILE`.
 
 `make provision-check` runs `preflight` in Ansible check mode.
 
@@ -297,7 +312,7 @@ checking `virsh dumpxml`, `domblklist`, or the QEMU domain log manually.
 
 Debian 12 note: the playbook avoids forced interface `set-name` during Debian 12
 network rendering. Guest readiness uses the same QEMU Guest Agent checkpoints
-and timeout policy for all supported Debian releases.
+and timeout policy for all supported Debian and Ubuntu guests.
 
 ## Cleanup Safety Rules
 
@@ -404,7 +419,7 @@ the only question left once everything above is settled: which VMs to create.
 | `04-images.yml` | cloud images, and how they are cached and trusted |
 | `05-runtime.yml` | readiness waits, snapshots and cleanup guards |
 | `06-instances.yml` | the VMs to create, and on which host |
-| `settings.local.yml` | required, gitignored, overrides any of the above (or another `*.local.yml` via `LOCAL_SETTINGS_FILE`) |
+| selected `*.local.yml` | required, gitignored, named by `LOCAL_SETTINGS_FILE`; overrides any of the above. There is no default. |
 
 Two files describe a deployment: `01-hypervisors.yml` declares the hosts and
 `06-instances.yml` lists the VMs. Everything between them is the defaults those
@@ -486,8 +501,8 @@ for what fields exist, not a second generated copy of it.
 ## Multiple Hypervisors And Host Credentials
 
 A KVM host is declared the same way a VM is: one entry in a list, with its own
-settings. the files in `vars/` opens with the hosts (section 1), so the
-first thing the file answers is *where* things are deployed.
+settings. `vars/01-hypervisors.yml` opens with the hosts, so the first
+thing it answers is *where* things are deployed.
 
 ```yaml
 kvm_hypervisors:
@@ -693,7 +708,10 @@ Seed/user-data defaults are centralized in `vars/03-cloud-init.yml`:
 - `kvm_default_cloud_init_user_sudo_rule`
 - `kvm_default_cloud_init_root_plain_password` (optional)
 
-Default APT mirror is `deb.debian.org` via `kvm_default_cloud_init_apt_config`.
+Default APT mirror is `deb.debian.org` via `kvm_default_cloud_init_apt_config`
+(`preserve_sources_list: true`). Ubuntu instances should keep that preserve
+flag (or override `cloud_init_apt_config`) so cloud-init does not rewrite
+Ubuntu sources to Debian mirrors.
 
 ## Additional Disks
 

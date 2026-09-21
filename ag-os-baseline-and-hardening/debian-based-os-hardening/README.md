@@ -3,12 +3,13 @@
 Debian/Ubuntu hardening project migrated from:
 `old_playbooks/debian-based-hardening-ansible`
 
-This project follows repository standards:
+How this project is laid out:
 
-- Single top-level entrypoint: `playbook.yml`
-- Workflow logic in `tasks/`
-- User-editable settings in `vars/debian-hardening.yml`
-- One Makefile UX with `make help` and `make ping`
+- One playbook: `playbook.yml`
+- Tasks in `tasks/`
+- Safe defaults in `vars/debian-hardening.yml`
+- Real hosts and keys in a named `*.local.yml` file (you must pass it; there is no default)
+- Run it with `make help` and `make ping`
 
 ## Supported Targets
 
@@ -23,12 +24,12 @@ This project follows repository standards:
 - `playbook.yml`
 - `tasks/` (`preflight.yml`, `ping.yml`, `scan.yml`, `harden.yml`, `reboot.yml`,
   `ssh-check.yml`, `runtime-check.yml`)
-- `roles/` (migrated hardening and Lynis roles)
+- `roles/` (hardening and Lynis roles)
 - `vars/debian-hardening.yml`
-- `host.yml`
+- `host.yml` (empty on purpose; do not put real hosts here)
 - `ansible.cfg`
-- `requirements.txt`
 - `Makefile`
+- `<repository-root>/requirements.txt` (shared pinned dependencies)
 
 ## Quick Start
 
@@ -45,15 +46,19 @@ make harden LOCAL_SETTINGS_FILE=vars/settings.local.yml
 
 ## Inventory
 
-Tracked files in `vars/` carry generic defaults. The playbook refuses to run
-without a `*.local.yml` file (default `vars/settings.local.yml`), generated
-by `make settings`. Targets are declared there, not in `host.yml`: `host.yml`
-is a static, empty placeholder, and real hosts are added to the
-`hardening_targets` inventory group dynamically at runtime, the same pattern
-`kvm-vm-provisioning` uses for its hypervisor fleet. Never hand-edit
-`host.yml` with a real host's address, user or password - that would put
-real infrastructure data in a tracked file. Do not use `--limit` / `LIMIT=`
-to pick a subset of hosts; keep a second local file for that job:
+Tracked files in `vars/` have safe generic defaults. They do not name your
+real machines.
+
+You must pass a `*.local.yml` file on every run. There is no default.
+
+```bash
+make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
+```
+
+Put hosts in that file, not in `host.yml`. `host.yml` stays empty. The
+playbook adds hosts to the `hardening_targets` group at runtime.
+
+Do not use `--limit`. For a second set of hosts, use a second file:
 
 ```bash
 make harden LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
@@ -71,8 +76,8 @@ debian_hardening_targets:
     become_password: ""     # Optional per-host sudo password.
 ```
 
-Leave `become_password` empty when connecting as root or when sudo is
-passwordless on that host.
+Leave `become_password` empty if you connect as root, or if sudo does not
+ask for a password.
 
 ## Primary User Rename (Cloud Images)
 
@@ -83,9 +88,10 @@ Renaming that same active account in one pass can fail with:
 Recommended two-pass flow:
 
 1. First pass (bootstrap with default user):
-   - Keep `prep_primary_user_desired_name` empty (or equal to current cloud user).
+   - Set `prep_primary_user_desired_name` empty (or equal to the current
+     cloud user) in the selected local file. The tracked default is `idops`.
    - Run `make harden` with the target's `user` in `debian_hardening_targets`
-     (`vars/settings.local.yml`) set to the default cloud user.
+     set to the default cloud user (`debian` or `ubuntu`) on port 22.
 2. Second pass (rename from root session):
    - Set `prep_primary_user_desired_name` to the final username (for example `idops`).
    - Set that target's `user` to `root` and `port` to the hardened SSH port
@@ -96,6 +102,9 @@ Notes:
 
 - If you plan to use root SSH for pass two, ensure root SSH is allowed and root has an authorized key (`prep_root_authorized_keys`).
 - If root login shows `Please login as the user "debian"` or `"ubuntu"` rather than root, complete pass one first, then enable root SSH through this playbook and rerun.
+- Ubuntu 24.04+ often uses `ssh.socket`. Pass one stops that unit so
+  `sshd_config` `Port` (shipped default `2222`) is the listener.
+- After pass one, ping on port 22 fails. Pass two uses the hardened port.
 
 ## Terminal Dotfiles
 
@@ -151,24 +160,56 @@ alone with `make role-terminal-dotfiles`. The bash half is part of
 
 ```bash
 make ping LOCAL_SETTINGS_FILE=vars/settings.local.yml
-make scan LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make harden LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make scan LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make reboot LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make ssh-check LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make runtime-check LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make score
+make suggestions
+make gap-report
 ```
 
-`scan` and `harden` are explicit, separate workflows.
+`make scan` and `make harden` are separate. `make scan` fails if the Lynis
+score is below `lynis_min_hardening_index` (default `86`).
 
-## Firewall: Trusting Your Private Network
+`make score`, `make suggestions`, and `make gap-report` only read files in
+`artifacts/lynis/`. They do not need `LOCAL_SETTINGS_FILE`.
 
-The default firewall policy drops everything not explicitly allowed, which
-also blocks other hosts on your own LAN or libvirt guest network unless they
-happen to be reaching an allowed port. Set
-`firewall_allow_private_networks: true` in `vars/settings.local.yml` to
-accept all traffic (any port, any protocol) from RFC1918 IPv4 ranges
-(`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) and IPv6 ULA
-(`fc00::/7`), without needing to list ports one at a time. Traffic from
-outside those ranges is unaffected and still has to go through the normal
-SSH/port allow-lists.
+`make runtime-check` prints live SSH and firewall state. It fails if UFW is
+still installed, leftover UFW paths exist, cloud-init sudoers is still
+there, cloud-init is still enabled, or SMTP listens on `0.0.0.0:25`.
+
+`make role-firewall` (and other `make role-*` targets) run only that role.
+You still must pass `LOCAL_SETTINGS_FILE`.
+
+## Firewall
+
+This project uses iptables (`iptables-persistent`). It does not use UFW.
+
+By default (`firewall_purge_ufw: true`) it removes the UFW package and these
+leftover paths: `/etc/ufw`, `/etc/default/ufw`, `/var/lib/ufw`.
+
+Fail2ban uses iptables on `ssh_port` (default `2222`).
+
+INPUT and FORWARD default to DROP. `firewall_allow_private_networks` is
+`true`: hosts on private IPv4 (`10.0.0.0/8`, `172.16.0.0/12`,
+`192.168.0.0/16`) and IPv6 ULA (`fc00::/7`) can reach any port. Set it to
+`false` in your local file if those hosts must use the SSH and port lists
+instead.
+
+## Cloud-init and mail
+
+By default (`prep_disable_cloud_init: true`) the playbook turns cloud-init
+off after first boot. It writes `/etc/cloud/cloud-init.disabled`, masks the
+units, and removes `/etc/sudoers.d/90-cloud-init-users` after the primary
+sudoers file exists. If cloud-init stays on, it can rewrite sudoers on the
+next boot.
+
+By default (`service_hardening_bind_mta_loopback: true`) Postfix/Exim listen
+on loopback only. Ubuntu Postfix starts listening on all addresses; the role
+restarts Postfix so the change takes effect (reload is not enough). Debian
+Exim is usually already loopback-only.
 
 ## Dist-Upgrade Network Retry Controls
 
@@ -203,7 +244,11 @@ Lynis reports are collected under:
 
 ## Secrets
 
-Sensitive values (for example the GRUB password, `grub_password_plaintext`)
-are settings like any other: generate `vars/settings.local.yml` with
-`make settings` and set them there. That file is git-ignored, so nothing
-sensitive is ever committed.
+Secrets (for example the GRUB password, `grub_password_plaintext`) go in a
+named `*.local.yml` file:
+
+```bash
+make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
+```
+
+That file is gitignored. Do not put secrets in tracked files.

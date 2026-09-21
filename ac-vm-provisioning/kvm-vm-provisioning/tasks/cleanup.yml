@@ -7,7 +7,9 @@
     that:
       - kvm_instance_definitions is defined
       - kvm_instance_definitions | length > 0
-    fail_msg: "Define at least one instance in vars/06-instances.yml under kvm_instance_definitions."
+    fail_msg: >-
+      Add at least one VM in kvm_instance_definitions in your local
+      settings file. The list in vars/06-instances.yml is empty on purpose.
 
 - name: Resolve the instance scope for this hypervisor
   ansible.builtin.include_tasks: tasks/resolve-host-scope.yml

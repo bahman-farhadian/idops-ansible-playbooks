@@ -6,5 +6,7 @@ Domain for operating-system baseline configuration and hardening workflows.
 
 - `debian-based-os-hardening/`
   - Migrated from `old_playbooks/debian-based-hardening-ansible`
-  - Single-entrypoint structure (`playbook.yml`) aligned with contributor guide
-  - Debian/Ubuntu hardening roles and Lynis scan workflows
+  - One playbook: `playbook.yml`
+  - Hardens Debian 12/13 and Ubuntu 22.04/24.04/26.04
+  - Lynis scan must score at least 86
+  - Firewall is iptables, not UFW

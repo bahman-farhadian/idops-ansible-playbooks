@@ -138,6 +138,40 @@ migration note. New work belongs in a domain directory, scaffolded from
     raw `ansible` ad-hoc command against a static group (rather than
     `ansible-playbook` against the dynamic one), route it through the
     playbook as another action instead of a second, parallel inventory path.
+20. Write Makefile help, fail/debug messages, and READMEs in plain English.
+    Short sentences. Common words. Say what failed and what to do next.
+    Keep real names (paths, Make targets, variable names). See "Language".
+
+## Language
+
+English may not be the first language of people who run or change this
+repository. Do not hide how the project works. The reader should know
+what it does, how to run it, and what to do when it fails.
+
+This applies to:
+
+- `make help` text
+- Make and playbook fail messages
+- `debug` / log lines operators will read
+- project and domain `README.md` files
+- comments that tell an operator what to type
+
+Rules:
+
+1. Use short sentences and common words.
+2. A fail message says what is wrong and the next command or file to fix.
+   Do not only name an internal variable.
+3. Keep real names: file paths, Make targets, variable names, commands.
+4. Do not use idioms, jokes, or phrases that only make sense if you
+   already know the project.
+5. `make help` and the project README must be enough to start. Do not
+   hide the real steps only in this guide or in code comments.
+
+Bad: "LOCAL_SETTINGS_FILE is required for settings and playbook actions (no default)."
+Good: "You must pass a *.local.yml file. There is no default."
+
+Bad: "Leave it empty to inherit the default."
+Good: "Empty is not allowed. Set a full path starting with / in your local settings file."
 
 ## Best-Practice Project Structure
 
@@ -216,41 +250,70 @@ that file exists for.
    example as a comment directly below it, so the shape of a real value is
    still documented.
 2. `vars_files` loads top to bottom, and the last definition of a key wins.
-   `vars/settings.local.yml` is loaded last, as a plain, required entry — not
-   the "first found" nested-list form, because that would make it optional.
+   The selected `*.local.yml` is loaded last via Make
+   (`LOCAL_SETTINGS_FILE` → `-e <project>_local_settings_file=...`). The
+   entry is a templated required path. The dummy
+   `vars/.syntax-check.local.yml` fallback exists only so ansible-lint
+   `--syntax-check` can parse it; it is not an operator default. Do not use
+   the "first found" nested-list form, because that would make the file
+   optional.
 3. Ansible silently skips a missing `vars_files` entry instead of erroring, so
    a missing settings file would otherwise leave every real, per-deployment
    value undefined with no warning — there is no hypervisor, target, or
    credential to fall back to. The first play in every project therefore
    starts with an explicit guard that stops the whole run with a clear
-   message instead:
+   message instead. Copy the live pattern from `kvm-vm-provisioning/playbook.yml`
+   (selected-file extra-var, suffix check with `search` not `match`, `stat`
+   of the selected path, fail if missing, then `include_vars` + `debug` for
+   reporting). A shortened form of that guard:
 
 ```yaml
   vars_files:
     - vars/01-hypervisors.yml
     - vars/02-vm-defaults.yml
-    # The files above carry this project's generic, safe-to-ship defaults.
-    # The real, per-deployment values they deliberately leave out live only
-    # here, and this file is required - see the fail task below.
-    # Additional named files (vars/settings.<name>.local.yml) are selected
-    # with LOCAL_SETTINGS_FILE; see "Multiple Local Settings Files".
+    # Tracked files carry generic defaults. Real values live only in a
+    # gitignored *.local.yml selected with kvm_local_settings_file.
+    # There is no operator default. The dummy path exists only so
+    # ansible-lint --syntax-check can parse this entry.
     - "{{ kvm_local_settings_file | default('vars/.syntax-check.local.yml') }}"
+  vars:
+    kvm_selected_local_settings_file: "{{ kvm_local_settings_file | default('') }}"
+    kvm_local_settings_path: >-
+      {{
+        kvm_selected_local_settings_file
+        if kvm_selected_local_settings_file is match('^/')
+        else (playbook_dir ~ '/' ~ kvm_selected_local_settings_file)
+      }}
 
   tasks:
-    - name: Check for the machine-specific settings file
-      ansible.builtin.stat:
-        path: "{{ playbook_dir }}/vars/settings.local.yml"
-      register: local_settings_file
-      changed_when: false
-
-    - name: Fail when settings.local.yml is missing
+    - name: Fail when no local settings file was selected
       ansible.builtin.fail:
         msg: >-
-          {{ selected_local_settings_file }} is required and was not found.
-          It is the only place real, per-deployment values live; the tracked
-          files only carry generic defaults. Generate a starting point with:
-          make settings LOCAL_SETTINGS_FILE={{ selected_local_settings_file }}
-      when: not local_settings_file.stat.exists
+          No local settings file was selected. There is no default.
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.local.yml
+      when: kvm_selected_local_settings_file | length == 0
+
+    - name: Validate selected local settings file name
+      ansible.builtin.assert:
+        that:
+          - kvm_selected_local_settings_file is search('\\.local\\.yml$')
+        fail_msg: >-
+          kvm_local_settings_file must end with .local.yml
+          (got '{{ kvm_selected_local_settings_file }}').
+
+    - name: Check for a machine-specific override file
+      ansible.builtin.stat:
+        path: "{{ kvm_local_settings_path }}"
+      register: kvm_local_override_file
+      changed_when: false
+
+    - name: Fail when the selected local settings file is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ kvm_selected_local_settings_file }} was not found.
+          Create it with:
+          make settings LOCAL_SETTINGS_FILE={{ kvm_selected_local_settings_file }}
+      when: not kvm_local_override_file.stat.exists
 ```
 
 **One narrow exception:** a variable Ansible must resolve before that guard
@@ -269,9 +332,11 @@ cannot follow that pattern.
 
 ### Adding It To A Project
 
-1. Blank every top-level setting in the project's tracked vars file(s) to a
-   type-appropriate placeholder, keeping any multi-line worked example as a
-   comment below its key (see "How It Works" above, and the one exception).
+1. Give every top-level setting in the project's tracked vars file(s) a
+   real, generic default where one exists (Standard 12). Blank only
+   credentials and real hosts/instances/targets, keeping a multi-line
+   worked example as a comment below those keys (see "How It Works"
+   above, and the one exception).
 2. Append the selected local file — a templated, required entry with **no
    default**, not a nested-list fallback — to every play's `vars_files`.
    Wire `LOCAL_SETTINGS_FILE` from the Makefile as
@@ -417,7 +482,7 @@ state for this run." Convenience is not worth an implicit target.
    the operator just typed):
 
 ```
-LOCAL_SETTINGS_FILE is required.
+LOCAL_SETTINGS_FILE is required. There is no default.
 Example: make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
      or: make provision LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
 Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml

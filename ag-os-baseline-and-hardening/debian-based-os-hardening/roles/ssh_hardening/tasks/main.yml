@@ -118,6 +118,8 @@
 - name: Warn when inventory SSH port differs from hardened SSH port
   ansible.builtin.debug:
     msg: >-
-      SSH hardening is set to port {{ ssh_port }}, while Ansible currently connects with ansible_port={{ ansible_port | default(22) }}.
-      After this run, update host.yml ansible_port to {{ ssh_port }} and re-run hardening for idempotency.
+      SSH will listen on port {{ ssh_port }}, but this run connected on
+      port {{ ansible_port | default(22) }}.
+      After this run, set port: {{ ssh_port }} for this host in your local
+      settings file, then run harden again. Do not edit host.yml.
   when: (ansible_port | default(22) | int) != (ssh_port | int)

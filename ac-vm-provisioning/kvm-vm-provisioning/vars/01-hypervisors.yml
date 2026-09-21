@@ -5,9 +5,9 @@
 # falls back to: its credentials, its storage layout, the guest network it
 # offers, and how libvirt reaches the disks it owns.
 #
-# NOTE: if vars/settings.local.yml exists and defines a key that also appears
-# here, that file wins and the value here is ignored. Every run prints which
-# keys it is overriding.
+# NOTE: if the selected *.local.yml (LOCAL_SETTINGS_FILE) defines a key that
+# also appears here, that file wins and the value here is ignored. Every run
+# prints which keys it is overriding.
 #
 # This is one of several settings files, read in this order:
 #   01-hypervisors.yml   where VMs are deployed: hosts, storage and network
@@ -16,7 +16,7 @@
 #   04-images.yml        cloud images, and how they are cached and trusted
 #   05-runtime.yml       readiness waits, snapshots and cleanup guards
 #   06-instances.yml     the VMs to create, and on which host
-#   settings.local.yml   required, gitignored, overrides any of the above
+#   *.local.yml          required, gitignored, selected with LOCAL_SETTINGS_FILE
 # -----------------------------------------------------------------------------
 # 1. KVM HOST CONNECTION DEFAULTS
 # Applied to any host below that omits the matching key or leaves it empty.
@@ -27,7 +27,7 @@
 # These are sane, generic defaults, not personal or host-specific: none of
 # them names a real machine. Only the entries in kvm_hypervisors below (a
 # host's actual address, and its user/key if not SSH-config-based) have to
-# be real and belong only in vars/settings.local.yml.
+# be real and belong only in the selected *.local.yml.
 # -----------------------------------------------------------------------------
 kvm_hypervisor_user: ""                               # Default SSH user. Values: "" (SSH config/current user) | a username, e.g. "operator".
 kvm_hypervisor_ssh_private_key_file: ""               # Default SSH key. Values: "" (SSH agent/config) | a key path, e.g. "~/.ssh/id_kvm_host_1".
@@ -76,8 +76,8 @@ kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-
 # does not name a hypervisor of its own.
 #
 # This list is the one thing in this file that must be real: it names actual
-# machines. It stays empty here on purpose and belongs only in
-# vars/settings.local.yml - see the example below for the shape to copy.
+# machines. It stays empty here on purpose and belongs only in the selected
+# *.local.yml - see the example below for the shape to copy.
 #
 # Keys:
 # - name (required)                 logical host name; instances target it

@@ -100,7 +100,8 @@ HEADER = """---
 # Running `make settings` again only ADDS settings that are new upstream and
 # not yet mentioned below; it never changes a line already here, and does
 # nothing at all if there is nothing new to add.
-# To start over from a clean template instead: make settings FORCE=1
+# To start over from a clean template instead:
+#   make settings FORCE=1 LOCAL_SETTINGS_FILE=<this-file>
 # (that overwrites this file; a copy is saved next to it as <file>.bak first)
 """
 
