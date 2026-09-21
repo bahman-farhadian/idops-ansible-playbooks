@@ -1,11 +1,19 @@
 ---
-- name: Fail when the OS is not Debian or Ubuntu
+- name: Fail when the OS is not a supported Debian or Ubuntu release
   ansible.builtin.assert:
     that:
       - ansible_facts['os_family'] == 'Debian'
+      - >-
+        (ansible_facts['distribution'] == 'Debian'
+         and ansible_facts['distribution_major_version'] in ['12', '13'])
+        or
+        (ansible_facts['distribution'] == 'Ubuntu'
+         and ansible_facts['distribution_version'] in ['24.04', '26.04'])
     fail_msg: >-
-      This playbook installs Nexus on Debian or Ubuntu.
-      Host {{ inventory_hostname }} is {{ ansible_facts['distribution'] }}.
+      This playbook installs Nexus on Debian 12, Debian 13, Ubuntu 24.04,
+      or Ubuntu 26.04. Host {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] | default('') }}.
 
 - name: Fail when the extra disk mount is missing
   ansible.builtin.assert:

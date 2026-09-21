@@ -49,13 +49,13 @@ apt_debian_repository_by_suite: {}                                   # Optional 
 # Example (was the live default; see local settings for real values):
 # apt_debian_repository_by_suite:
 #   bookworm:
-#     url: "http://192.168.24.10:8081/repository/debian-bookworm"
-#     updates_url: "http://192.168.24.10:8081/repository/debian-bookworm-updates"
-#     security_url: "http://192.168.24.10:8081/repository/debian-bookworm-security"
+#     url: "http://192.168.24.2:8081/repository/debian-bookworm"
+#     updates_url: "http://192.168.24.2:8081/repository/debian-bookworm-updates"
+#     security_url: "http://192.168.24.2:8081/repository/debian-bookworm-security"
 #   trixie:
-#     url: "http://192.168.24.10:8081/repository/debian-trixie"
-#     updates_url: "http://192.168.24.10:8081/repository/debian-trixie-updates"
-#     security_url: "http://192.168.24.10:8081/repository/debian-trixie-security"
+#     url: "http://192.168.24.2:8081/repository/debian-trixie"
+#     updates_url: "http://192.168.24.2:8081/repository/debian-trixie-updates"
+#     security_url: "http://192.168.24.2:8081/repository/debian-trixie-security"
 apt_debian_release_override: ""                                      # Optional suite override. Values: "" (fact-based map) | a suite name, e.g. "bookworm".
 apt_debian_disable_conflicting_sources: true                         # Disable conflicting Debian source entries in sources.list.d. Values: true | false.
 apt_debian_components:                                               # Repository components for Debian hosts.
@@ -71,15 +71,15 @@ apt_ubuntu_repository_by_suite: {}                                   # Optional 
 # Example (was the live default; see local settings for real values):
 # apt_ubuntu_repository_by_suite:
 #   noble:
-#     url: "http://192.168.24.10:8081/repository/ubuntu-noble"
-#     updates_url: "http://192.168.24.10:8081/repository/ubuntu-noble-updates"
-#     backports_url: "http://192.168.24.10:8081/repository/ubuntu-noble-backports"
-#     security_url: "http://192.168.24.10:8081/repository/ubuntu-noble-security"
+#     url: "http://192.168.24.2:8081/repository/ubuntu-noble"
+#     updates_url: "http://192.168.24.2:8081/repository/ubuntu-noble-updates"
+#     backports_url: "http://192.168.24.2:8081/repository/ubuntu-noble-backports"
+#     security_url: "http://192.168.24.2:8081/repository/ubuntu-noble-security"
 #   resolute:
-#     url: "http://192.168.24.10:8081/repository/ubuntu-resolute"
-#     updates_url: "http://192.168.24.10:8081/repository/ubuntu-resolute-updates"
-#     backports_url: "http://192.168.24.10:8081/repository/ubuntu-resolute-backports"
-#     security_url: "http://192.168.24.10:8081/repository/ubuntu-resolute-security"
+#     url: "http://192.168.24.2:8081/repository/ubuntu-resolute"
+#     updates_url: "http://192.168.24.2:8081/repository/ubuntu-resolute-updates"
+#     backports_url: "http://192.168.24.2:8081/repository/ubuntu-resolute-backports"
+#     security_url: "http://192.168.24.2:8081/repository/ubuntu-resolute-security"
 apt_ubuntu_release_override: ""                                      # Optional suite override. Values: "" (use ansible_facts distribution_release) | a suite name, e.g. "noble".
 apt_ubuntu_disable_conflicting_sources: true                         # Disable conflicting Ubuntu source entries in sources.list.d. Values: true | false.
 apt_ubuntu_components:                                               # Repository components for Ubuntu hosts.

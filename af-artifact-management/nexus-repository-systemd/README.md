@@ -3,6 +3,9 @@
 Install Sonatype Nexus Repository Manager 3 as a **systemd** service.
 This is not a Docker container.
 
+The Nexus **host** can be Debian 12, Debian 13, Ubuntu 24.04, or
+Ubuntu 26.04. APT proxies cover all four as clients.
+
 It runs on the lab LAN only: HTTP port **8081** for the web UI and APT,
 and port **8082** for a Docker Hub reverse proxy. Private networks
 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) can use it. Do not
@@ -51,19 +54,17 @@ Tracked APT URLs stay on the internet. When Nexus is up, a local
 settings file can set `apt_debian_repository_by_suite` and
 `apt_ubuntu_repository_by_suite` so guests use this cache.
 
-Suggested guest: `debian-13-nexus` at `192.168.24.10`, 4 GiB RAM,
-extra disk 100 GiB on `/data`. Change the IP in the local files if
-you need a different address.
+Suggested guest: `debian-13-nexus` at `192.168.24.2`, 4 GiB RAM,
+extra disk 20 GiB on `/data`. The playbook also accepts Ubuntu 24.04
+or 26.04 as the Nexus host if you point `nexus_targets` at that guest.
 
 ## Commands
 
-Create the local file for this playbook, then set the admin password
-and the real host:
+The local file `vars/settings.nexus.local.yml` already has the host
+and a generated admin password (gitignored).
 
 ```bash
 cd af-artifact-management/nexus-repository-systemd
-make settings LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
-# set nexus_targets and nexus_admin_password in that file
 make ping LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
 make deploy LOCAL_SETTINGS_FILE=vars/settings.nexus.local.yml
 ```
@@ -81,9 +82,9 @@ in `vars/debian-hardening.yml`):
 ```yaml
 apt_debian_repository_by_suite:
   trixie:
-    url: "http://192.168.24.10:8081/repository/debian-trixie"
-    updates_url: "http://192.168.24.10:8081/repository/debian-trixie-updates"
-    security_url: "http://192.168.24.10:8081/repository/debian-trixie-security"
+    url: "http://192.168.24.2:8081/repository/debian-trixie"
+    updates_url: "http://192.168.24.2:8081/repository/debian-trixie-updates"
+    security_url: "http://192.168.24.2:8081/repository/debian-trixie-security"
 ```
 
 Same idea for Ubuntu suites under `apt_ubuntu_repository_by_suite`.
