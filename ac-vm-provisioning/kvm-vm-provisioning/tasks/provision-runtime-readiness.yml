@@ -1,4 +1,16 @@
 ---
+- name: "Readiness | Require guest SSH target fields | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.assert:
+    that:
+      - runtime_readiness_instance.instance_ipv4_address is defined
+      - runtime_readiness_instance.instance_ipv4_address | length > 0
+      - runtime_readiness_instance.cloud_init_user is defined
+      - runtime_readiness_instance.cloud_init_user | length > 0
+    fail_msg: >-
+      Runtime target {{ runtime_readiness_instance.instance_name }} is missing
+      instance_ipv4_address or cloud_init_user. The SSH fallback that
+      installs qemu-guest-agent needs both fields on instance_runtime_targets.
+
 - name: "Readiness | Build guest checkpoints | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.set_fact:
     runtime_readiness_checkpoints:

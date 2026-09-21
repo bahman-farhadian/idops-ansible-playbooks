@@ -144,7 +144,10 @@ Edit the real values in that file, not in the tracked files:
    Do not use the vendor cloud users `debian` or `ubuntu`. First-boot APT
    that must reach a local cache should use the cache IPv4 URL, not a
    `.local` name. Debian 13 and Ubuntu send `.local` to multicast DNS
-   until hardening turns that off. Extra names go in
+   (RFC 6762) until hardening turns that off, so the guest never asks
+   unicast DNS for that name. Nexus selects each APT proxy by URL path
+   (`/repository/<name>`) on the HTTP port; the DNS A record only needs
+   to point at that host. Extra names go in
    `kvm_default_cloud_init_extra_hosts` (cloud-init `write_files` on the
    hosts templates) and `kvm_default_cloud_init_disable_multicast_dns`.
    If the virtio guest agent stays down, provision installs
