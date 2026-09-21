@@ -10,6 +10,4 @@ No open items. Ubuntu 24.04 and 26.04 catalog profiles live in
 
 ## af-artifact-management/nexus-repository-systemd
 
-- Add a hosted Docker repository later (today is Docker Hub reverse proxy only).
-- After Nexus is up: fill the cache, then provision the four guests with
-  `vars/settings.kvm.fleet-via-nexus.local.yml`.
+- Hosted/private Docker registry (out of scope for the Hub proxy).

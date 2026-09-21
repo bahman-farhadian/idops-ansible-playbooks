@@ -10,8 +10,8 @@
 nexus_targets: [] # Values: [] | list of host maps (name, address, user, port).
 # Example (was the live default; see local settings for real values):
 # nexus_targets:
-#  - name: "idops-nexus-repository"
-#    address: "192.168.24.2"
+#  - name: "nexus-01"
+#    address: "192.0.2.10"
 #    user: "root"
 #    port: 2222
 #    become_password: ""
