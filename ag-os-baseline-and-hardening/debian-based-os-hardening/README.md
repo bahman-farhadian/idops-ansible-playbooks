@@ -225,17 +225,17 @@ Override these in `vars/debian-hardening.yml` when needed:
 
 ## Offline Lynis Bundle Mode
 
-For targets without internet access, enable offline Lynis delivery in `vars/debian-hardening.yml`:
+Lynis is cloned once on the machine that runs `make`, then copied to
+each guest. That is the default (`lynis_offline_bundle_from_control_node: true`).
 
-- `lynis_offline_bundle_from_control_node: true`
 - `lynis_control_cache_dir: "{{ playbook_dir }}/artifacts/cache/lynis"`
 
-Behavior in offline mode:
+Behavior:
 
 - Control node clones/updates Lynis from `lynis_repo_url`.
-- Control node creates commit-tagged tarball bundles in temp cache:
+- Control node creates commit-tagged tarball bundles:
   - `lynis-<commit>.tar.gz`
-- Bundle is copied to each target under `/tmp/` and extracted to `lynis_install_path`.
+- Bundle is copied to each target under `/var/tmp/` and extracted to `lynis_install_path`.
 - Existing bundles are reused by commit name, so unchanged commits are not re-bundled.
 
 ## Artifacts

@@ -69,7 +69,7 @@
 - name: Copy cached Lynis bundle to managed host (offline bundle mode)
   ansible.builtin.copy:
     src: "{{ hostvars['localhost'].lynis_bundle_path }}"
-    dest: "/tmp/{{ hostvars['localhost'].lynis_bundle_filename }}"
+    dest: "/var/tmp/{{ hostvars['localhost'].lynis_bundle_filename }}"
     mode: "0644"
   when: lynis_offline_bundle_from_control_node | bool
 
@@ -88,7 +88,7 @@
 
 - name: Extract Lynis bundle on managed host (offline bundle mode)
   ansible.builtin.unarchive:
-    src: "/tmp/{{ hostvars['localhost'].lynis_bundle_filename }}"
+    src: "/var/tmp/{{ hostvars['localhost'].lynis_bundle_filename }}"
     dest: "{{ lynis_install_path }}"
     remote_src: true
     mode: "0755"

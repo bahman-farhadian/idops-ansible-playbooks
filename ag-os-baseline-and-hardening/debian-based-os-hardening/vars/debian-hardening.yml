@@ -99,7 +99,7 @@ lynis_repo_version: "3.1.7"                                         # Lynis git 
 lynis_install_path: "/opt/lynis"                                    # Lynis install directory on target.
 lynis_report_output_dir: "{{ playbook_dir }}/artifacts/lynis"       # Control-node report output path.
 lynis_quick_mode: true                                              # Run Lynis in quick mode. Values: true | false.
-lynis_offline_bundle_from_control_node: false                       # Values: true (clone+bundle on control node, then copy tar to target) | false (fetch directly on target).
+lynis_offline_bundle_from_control_node: true                        # Values: true (clone+bundle on control node, then copy tar to target) | false (fetch directly on target).
 lynis_control_cache_dir: "{{ playbook_dir }}/artifacts/cache/lynis" # Control-node cache path for commit-tagged Lynis tar bundles.
 lynis_min_hardening_index: 86                                       # Minimum Lynis hardening_index for a passing scan. Values: integer 0-100, e.g. 86.
 
