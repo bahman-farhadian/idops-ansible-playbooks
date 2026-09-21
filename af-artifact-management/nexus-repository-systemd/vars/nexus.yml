@@ -91,20 +91,22 @@ nexus_secrets_key: ""         # Base64 32-byte key. CHANGE THIS. Set it in the l
 nexus_secrets_file: "{{ nexus_data_dir }}/etc/nexus-secrets.json" # Path on the Nexus host.
 
 # -----------------------------------------------------------------------------
-# Cleanup policies (cache, not hosted)
-# Applied to the APT and Docker proxy repositories we create.
-# Days since last download. Docs:
-#   https://help.sonatype.com/en/cleanup-policies-api.html
+# Cleanup policies for CACHE proxies only (APT + Docker Hub reverse proxy).
+# Keep cached blobs up to 30 days. A later hosted/private Docker registry
+# is out of scope and must not use these policies.
+# Docs: https://help.sonatype.com/en/cleanup-policies-api.html
 # -----------------------------------------------------------------------------
 nexus_cleanup_policies:
   - name: idops-apt-cache
     format: apt
-    notes: "Remove cached APT packages not downloaded in 30 days."
+    notes: "APT cache: keep up to 30 days."
     criteriaLastDownloaded: 30
+    criteriaLastBlobUpdated: 30
   - name: idops-docker-cache
     format: docker
-    notes: "Remove cached Docker content not downloaded in 30 days."
+    notes: "Docker Hub proxy cache: keep up to 30 days. Not for hosted registries."
     criteriaLastDownloaded: 30
+    criteriaLastBlobUpdated: 30
 
 # -----------------------------------------------------------------------------
 # APT reverse proxies (Debian and Ubuntu)

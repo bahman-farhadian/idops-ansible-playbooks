@@ -32,6 +32,7 @@
       format: "{{ item.format }}"
       notes: "{{ item.notes }}"
       criteriaLastDownloaded: "{{ item.criteriaLastDownloaded | int }}"
+      criteriaLastBlobUpdated: "{{ item.criteriaLastBlobUpdated | int }}"
     status_code: [201, 204]
   no_log: true
   loop: "{{ nexus_cleanup_policies }}"
@@ -52,6 +53,7 @@
       format: "{{ item.format }}"
       notes: "{{ item.notes }}"
       criteriaLastDownloaded: "{{ item.criteriaLastDownloaded | int }}"
+      criteriaLastBlobUpdated: "{{ item.criteriaLastBlobUpdated | int }}"
     status_code: [200, 204]
   no_log: true
   loop: "{{ nexus_cleanup_policies }}"
