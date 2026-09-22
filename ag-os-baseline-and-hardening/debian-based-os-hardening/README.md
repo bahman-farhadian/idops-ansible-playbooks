@@ -15,9 +15,10 @@ How this project is laid out:
 
 - Debian 12
 - Debian 13
-- Ubuntu 22.04
 - Ubuntu 24.04
 - Ubuntu 26.04
+
+Harden and scan gather host facts, print that release, and refuse any other guest.
 
 ## Project Layout
 

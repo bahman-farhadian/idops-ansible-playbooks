@@ -1,4 +1,13 @@
 ---
+- name: Fail when host facts were not gathered
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] is defined
+      - ansible_facts['distribution'] is defined
+    fail_msg: >-
+      Harden did not gather host facts on {{ inventory_hostname }}.
+      The harden and scan plays must gather facts so the release check can run.
+
 - name: Ensure host OS is supported
   ansible.builtin.assert:
     that:
@@ -6,6 +15,17 @@
       - >-
         (ansible_facts['distribution'] == 'Debian' and ansible_facts['distribution_major_version'] in ['12', '13'])
         or
-        (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_version'] in ['22.04', '24.04', '26.04'])
+        (ansible_facts['distribution'] == 'Ubuntu' and ansible_facts['distribution_version'] in ['24.04', '26.04'])
     fail_msg: >-
-      Unsupported OS/version. Supported targets are Debian 12/13 and Ubuntu 22.04/24.04/26.04.
+      Unsupported OS/version. Supported targets are Debian 12, Debian 13,
+      Ubuntu 24.04, and Ubuntu 26.04. Host {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] | default('unknown') }}
+      {{ ansible_facts['distribution_version'] | default('') }}.
+
+- name: Show the detected guest release
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] }}
+      ({{ ansible_facts['architecture'] | default('unknown architecture') }}).
