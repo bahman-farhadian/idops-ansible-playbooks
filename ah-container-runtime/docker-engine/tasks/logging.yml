@@ -1,0 +1,44 @@
+---
+- name: Install rsyslog
+  ansible.builtin.apt:
+    name: rsyslog
+    state: present
+
+- name: Enable rsyslog
+  ansible.builtin.systemd:
+    name: rsyslog
+    enabled: true
+    state: started
+
+- name: Create the directory operators bind-mount for service logs
+  ansible.builtin.file:
+    path: "{{ docker_engine_data_root }}/service-logs"
+    state: directory
+    owner: root
+    group: docker
+    mode: "0775"
+
+- name: Create the dockerd log directory
+  ansible.builtin.file:
+    path: "{{ docker_engine_daemon_log_dir }}"
+    state: directory
+    owner: root
+    group: adm
+    mode: "0750"
+
+- name: Route dockerd syslog to a file
+  ansible.builtin.template:
+    src: docker-rsyslog.conf.j2
+    dest: /etc/rsyslog.d/10-docker.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart rsyslog
+
+- name: Install the dockerd logrotate policy
+  ansible.builtin.template:
+    src: docker-logrotate.j2
+    dest: /etc/logrotate.d/docker
+    owner: root
+    group: root
+    mode: "0644"

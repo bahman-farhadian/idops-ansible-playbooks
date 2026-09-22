@@ -1,0 +1,84 @@
+---
+# Single Docker Engine. Swarm stays off unless the host was already a
+# member before this deploy. Real hosts and apt proxy URLs belong only
+# in a named *.local.yml file.
+
+# -----------------------------------------------------------------------------
+# Target inventory
+# One list entry per engine host. Added to docker_engine_targets at runtime.
+# -----------------------------------------------------------------------------
+docker_engine_targets: [] # Values: [] | list of host maps (name, address, user, port, data_disk, live_restore).
+# Example (was the live default; see local settings for real values):
+# docker_engine_targets:
+#   - name: "docker-01"
+#     address: "192.0.2.10"
+#     user: "root"
+#     port: 2222
+#     data_disk: "/dev/vdb"
+#     live_restore: true
+
+docker_engine_become_enabled: true  # Run remote tasks as root. Values: true | false.
+docker_engine_become_method: "sudo" # Privilege escalation method. Values: "sudo" | "su".
+docker_engine_become_user: "root"   # Privilege escalation target user.
+
+# -----------------------------------------------------------------------------
+# Pinned Docker CE stable packages
+# Checked on 2026-09-22 against the Docker stable indexes for bookworm,
+# trixie, noble, and resolute. The same upstream version exists for all
+# four. The distro suffix is applied at deploy time. Do not move this pin
+# until that version is in the stable index for every suite above.
+# This playbook does not download those indexes. The guest installs from
+# the Nexus apt proxy URLs below.
+# -----------------------------------------------------------------------------
+docker_engine_version: "29.8.1"            # docker-ce and docker-ce-cli upstream version. Example: "29.8.1".
+docker_engine_package_revision: "1"        # Debian revision before the distro suffix. Example: "1".
+docker_engine_containerd_version: "2.3.5"  # containerd.io upstream version. Example: "2.3.5".
+docker_engine_buildx_version: "0.37.1"     # docker-buildx-plugin upstream version. Example: "0.37.1".
+docker_engine_compose_version: "5.5.1"     # docker-compose-plugin upstream version. Example: "5.5.1".
+
+docker_engine_releases: # Package suffix and apt suite for each supported release. Values: map keyed by debian-12, debian-13, ubuntu-24, ubuntu-26.
+  debian-12:
+    suite: bookworm
+    package_dist: "debian.12~bookworm"
+  debian-13:
+    suite: trixie
+    package_dist: "debian.13~trixie"
+  ubuntu-24:
+    suite: noble
+    package_dist: "ubuntu.24.04~noble"
+  ubuntu-26:
+    suite: resolute
+    package_dist: "ubuntu.26.04~resolute"
+
+# Suite name to the Nexus apt proxy that caches Docker CE stable for that
+# suite. Create the proxies before deploy. This playbook only consumes them.
+docker_engine_apt_uris: {} # Values: {} | map of suite name to an apt proxy URL.
+# Example (was the live default; see local settings for real values):
+# docker_engine_apt_uris:
+#   bookworm: "http://deb.idops-repository.idops:8081/repository/docker-ce-debian-bookworm"
+#   trixie: "http://deb.idops-repository.idops:8081/repository/docker-ce-debian-trixie"
+#   noble: "http://deb.idops-repository.idops:8081/repository/docker-ce-ubuntu-noble"
+#   resolute: "http://deb.idops-repository.idops:8081/repository/docker-ce-ubuntu-resolute"
+
+# -----------------------------------------------------------------------------
+# Data disk
+# The disk arrives unformatted. Deploy creates XFS and mounts it at the
+# data-root. An empty data_disk selects a disk only when the host has
+# exactly one non-root disk with no signature.
+# -----------------------------------------------------------------------------
+docker_engine_data_root: "/docker" # Docker data-root and mountpoint. Example: "/docker".
+docker_engine_mount_options: "defaults,noatime,uquota,pquota" # fstab options for the data disk. Example: "defaults,noatime,uquota,pquota".
+docker_engine_force_format: false # Format a disk that already has a non-XFS signature. Values: true | false.
+docker_engine_remove_old_data: false # Delete the previous data-root after a successful copy. Values: true | false.
+
+# -----------------------------------------------------------------------------
+# Daemon
+# live_restore true keeps containers across a daemon restart on a single
+# host. A future Swarm member needs false, set on that host's list entry
+# before the first deploy. no-new-privileges and icc false are always on.
+# User namespace remap stays off.
+# -----------------------------------------------------------------------------
+docker_engine_live_restore: true # Default live-restore when a host does not set its own. Values: true | false.
+docker_engine_log_max_size: "10m" # json-file max size per container. Example: "10m".
+docker_engine_log_max_file: "3"   # json-file rotated files per container. Example: "3".
+docker_engine_daemon_log_dir: "/var/log/docker" # rsyslog destination for dockerd. Example: "/var/log/docker".

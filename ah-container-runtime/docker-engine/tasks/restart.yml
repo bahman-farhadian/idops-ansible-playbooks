@@ -1,0 +1,23 @@
+---
+- name: Run install preflight
+  ansible.builtin.include_tasks: tasks/preflight.yml
+
+- name: Record Swarm membership before the restart
+  ansible.builtin.include_tasks: tasks/swarm-state.yml
+
+- name: Fail when Docker is not installed
+  ansible.builtin.assert:
+    that:
+      - docker_engine_dockerd_bin.stat.exists
+    fail_msg: >-
+      Docker is not installed on {{ inventory_hostname }}.
+      Run make deploy before make restart.
+
+- name: Restart dockerd
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+
+- name: Prove the engine came back
+  ansible.builtin.include_tasks: tasks/validate.yml

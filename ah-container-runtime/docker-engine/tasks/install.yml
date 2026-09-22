@@ -1,0 +1,88 @@
+---
+- name: Install apt tools used to add the Docker source
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Create the apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install the Docker apt signing key
+  ansible.builtin.copy:
+    src: docker.asc
+    dest: /etc/apt/keyrings/docker.asc
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Add the Docker CE apt source
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc]
+      {{ docker_engine_apt_uri }} {{ docker_engine_suite }} stable
+    filename: docker-ce
+    state: present
+    update_cache: true
+
+- name: Read the installed Docker package versions
+  ansible.builtin.command:
+    argv:
+      - dpkg-query
+      - -W
+      - -f
+      - '${Package} ${Version}\n'
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+  register: docker_engine_installed_versions
+  changed_when: false
+  failed_when: false
+
+- name: Decide whether the pin is already installed
+  ansible.builtin.set_fact:
+    docker_engine_pin_installed: >-
+      {{
+        docker_engine_installed_versions.rc == 0
+        and (
+          docker_engine_expected_versions
+          | difference(docker_engine_installed_versions.stdout_lines)
+          | length
+        ) == 0
+      }}
+
+- name: Release the hold so the pin can be installed
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: install
+  loop: "{{ docker_engine_package_names }}"
+  when:
+    - not docker_engine_pin_installed
+    - >-
+      docker_engine_installed_versions.stdout_lines | default([])
+      | select('match', (item | regex_escape) ~ ' ')
+      | list | length > 0
+
+- name: Install the pinned Docker packages
+  ansible.builtin.apt:
+    name: "{{ docker_engine_pinned_packages }}"
+    state: present
+    update_cache: true
+    allow_downgrade: true
+    allow_change_held_packages: true
+  when: not docker_engine_pin_installed
+
+- name: Hold the Docker packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: "{{ docker_engine_package_names }}"

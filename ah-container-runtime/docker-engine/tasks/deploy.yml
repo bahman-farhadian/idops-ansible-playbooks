@@ -1,0 +1,24 @@
+---
+- name: Run install preflight
+  ansible.builtin.include_tasks: tasks/preflight.yml
+
+- name: Record Swarm membership before any change
+  ansible.builtin.include_tasks: tasks/swarm-state.yml
+
+- name: Prepare the Docker data disk
+  ansible.builtin.include_tasks: tasks/storage.yml
+
+- name: Copy an existing Docker data tree onto the data disk
+  ansible.builtin.include_tasks: tasks/migrate.yml
+
+- name: Install the pinned Docker packages
+  ansible.builtin.include_tasks: tasks/install.yml
+
+- name: Configure daemon logs
+  ansible.builtin.include_tasks: tasks/logging.yml
+
+- name: Write daemon.json and start Docker on the data-root
+  ansible.builtin.include_tasks: tasks/daemon.yml
+
+- name: Prove the engine is on the pinned version
+  ansible.builtin.include_tasks: tasks/validate.yml

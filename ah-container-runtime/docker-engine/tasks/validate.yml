@@ -1,0 +1,84 @@
+---
+- name: Read the running Docker root, version, live-restore, and Swarm state
+  ansible.builtin.command:
+    argv:
+      - docker
+      - info
+      - -f
+      - "{% raw %}{{.DockerRootDir}}|{{.ServerVersion}}|{{.LiveRestoreEnabled}}|{{.Swarm.LocalNodeState}}{% endraw %}"
+  register: docker_engine_info
+  changed_when: false
+
+- name: Split the docker info fields
+  ansible.builtin.set_fact:
+    docker_engine_info_fields: "{{ docker_engine_info.stdout | trim | split('|') }}"
+
+- name: Fail when the engine is not using the data-root
+  ansible.builtin.assert:
+    that:
+      - >-
+        (docker_engine_info_fields[0] | trim)
+        is match((docker_engine_data_root | regex_escape) ~ '(/.*)?$')
+    fail_msg: >-
+      Docker root on {{ inventory_hostname }} is
+      {{ docker_engine_info_fields[0] | trim }}.
+      Expected {{ docker_engine_data_root }}.
+
+- name: Fail when the engine version is not the pin
+  ansible.builtin.assert:
+    that:
+      - (docker_engine_info_fields[1] | trim) == docker_engine_version
+    fail_msg: >-
+      Docker on {{ inventory_hostname }} is
+      {{ docker_engine_info_fields[1] | trim }}.
+      Expected {{ docker_engine_version }}.
+      Change the pin in vars/docker-engine.yml and run make deploy.
+
+- name: Fail when live-restore does not match this host
+  ansible.builtin.assert:
+    that:
+      - (docker_engine_info_fields[2] | trim | bool) == (docker_engine_host_live_restore | bool)
+    fail_msg: >-
+      live-restore on {{ inventory_hostname }} is
+      {{ docker_engine_info_fields[2] | trim }}.
+      Expected {{ docker_engine_host_live_restore | bool }}.
+
+- name: Fail when a single-engine host joined a Swarm
+  ansible.builtin.assert:
+    that:
+      - (docker_engine_info_fields[3] | trim) == 'inactive'
+    fail_msg: >-
+      {{ inventory_hostname }} is in a Swarm
+      ({{ docker_engine_info_fields[3] | trim }}).
+      This playbook leaves Swarm off. Join with the Swarm playbook
+      only after live_restore is false.
+  when:
+    - docker_engine_action_effective == 'deploy'
+    - not (docker_engine_was_in_swarm | bool)
+
+- name: Fail when a Swarm member dropped out of the cluster
+  ansible.builtin.assert:
+    that:
+      - (docker_engine_info_fields[3] | trim) == 'active'
+    fail_msg: >-
+      {{ inventory_hostname }} was in a Swarm and is now
+      {{ docker_engine_info_fields[3] | trim }}.
+      The engine restart did not bring the membership back.
+  when: docker_engine_was_in_swarm | bool
+
+- name: Read held packages
+  ansible.builtin.command:
+    argv:
+      - apt-mark
+      - showhold
+  register: docker_engine_holds
+  changed_when: false
+
+- name: Fail when a Docker package is not held
+  ansible.builtin.assert:
+    that:
+      - item in docker_engine_holds.stdout_lines
+    fail_msg: >-
+      {{ item }} is not held on {{ inventory_hostname }}.
+      A later apt upgrade would move the pin.
+  loop: "{{ docker_engine_package_names }}"

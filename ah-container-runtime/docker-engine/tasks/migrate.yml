@@ -1,0 +1,79 @@
+---
+- name: Skip the copy when Docker is not installed yet
+  ansible.builtin.debug:
+    msg: "Docker is not installed on {{ inventory_hostname }}. Nothing to copy."
+  when: not docker_engine_dockerd_bin.stat.exists
+
+- name: Read the current daemon.json when Docker is already installed
+  when: docker_engine_dockerd_bin.stat.exists
+  block:
+    - name: Read daemon.json if it exists
+      ansible.builtin.slurp:
+        src: /etc/docker/daemon.json
+      register: docker_engine_daemon_file
+      failed_when: false
+
+    - name: Decide the current data-root
+      ansible.builtin.set_fact:
+        docker_engine_current_root: >-
+          {{
+            ((docker_engine_daemon_file.content | b64decode | from_json)['data-root'])
+            if (
+              docker_engine_daemon_file.content is defined
+              and (docker_engine_daemon_file.content | default('') | length) > 0
+            )
+            else '/var/lib/docker'
+          }}
+
+    - name: Stat the migration marker and the old data directory
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: docker_engine_migration_stats
+      loop:
+        - "{{ docker_engine_data_root }}/.docker-engine-migrated"
+        - "{{ docker_engine_current_root }}"
+
+    - name: Copy the old tree when the engine still uses another directory
+      when:
+        - docker_engine_migration_stats.results[1].stat.exists
+        - not docker_engine_migration_stats.results[0].stat.exists
+        - docker_engine_current_root | realpath != docker_engine_data_root | realpath
+      block:
+        - name: Install rsync
+          ansible.builtin.apt:
+            name: rsync
+            state: present
+
+        - name: Stop Docker before the copy
+          ansible.builtin.systemd:
+            name: docker
+            state: stopped
+
+        - name: Copy the Docker data tree
+          ansible.builtin.command:
+            argv:
+              - rsync
+              - -aHAX
+              - --numeric-ids
+              - "{{ docker_engine_current_root }}/"
+              - "{{ docker_engine_data_root }}/"
+          register: docker_engine_rsync
+          changed_when: true
+
+        - name: Record the copy
+          ansible.builtin.copy:
+            dest: "{{ docker_engine_data_root }}/.docker-engine-migrated"
+            content: >-
+              Copied from {{ docker_engine_current_root }}
+              on {{ ansible_facts['date_time']['iso8601'] }}
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Remove the old data tree when requested
+          ansible.builtin.file:
+            path: "{{ docker_engine_current_root }}"
+            state: absent
+          when:
+            - docker_engine_remove_old_data | bool
+            - docker_engine_current_root not in ['/', '/var', '/home', docker_engine_data_root]

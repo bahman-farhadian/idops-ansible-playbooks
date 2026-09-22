@@ -1,0 +1,94 @@
+---
+- name: Read the block device tree
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --json
+      - --output
+      - NAME,TYPE
+  register: docker_engine_lsblk
+  changed_when: false
+
+- name: Read the source of the / mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --noheadings
+      - --output
+      - SOURCE
+      - /
+  register: docker_engine_root_source
+  changed_when: false
+
+- name: Name the disk that backs /
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --noheadings
+      - --output
+      - PKNAME
+      - "{{ docker_engine_root_source.stdout | trim }}"
+  register: docker_engine_root_parent
+  changed_when: false
+
+- name: Record the root disk name
+  ansible.builtin.set_fact:
+    docker_engine_root_disk: >-
+      {{
+        docker_engine_root_parent.stdout | trim
+        if (docker_engine_root_parent.stdout | trim | length) > 0
+        else (docker_engine_root_source.stdout | trim | basename)
+      }}
+
+- name: List non-root whole disks
+  ansible.builtin.set_fact:
+    docker_engine_disk_candidates: >-
+      {{ (docker_engine_lsblk.stdout | from_json).blockdevices
+         | selectattr('type', 'equalto', 'disk')
+         | rejectattr('name', 'equalto', docker_engine_root_disk)
+         | map(attribute='name')
+         | list }}
+
+- name: Probe each candidate for a disk signature
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -p
+      - "/dev/{{ item }}"
+  register: docker_engine_probe
+  changed_when: false
+  failed_when: false
+  loop: "{{ docker_engine_disk_candidates }}"
+
+- name: Fail when a disk probe returned an unexpected status
+  ansible.builtin.assert:
+    that:
+      - item.rc in [0, 2]
+    fail_msg: "blkid failed on /dev/{{ item.item }} (rc {{ item.rc }})."
+  loop: "{{ docker_engine_probe.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Keep candidates that have no signature
+  ansible.builtin.set_fact:
+    docker_engine_empty_disks: >-
+      {{ docker_engine_probe.results
+         | selectattr('rc', 'equalto', 2)
+         | map(attribute='item')
+         | list }}
+
+- name: Fail unless exactly one empty data disk was found
+  ansible.builtin.assert:
+    that:
+      - docker_engine_empty_disks | length == 1
+    fail_msg: >-
+      {{ inventory_hostname }} has
+      {{ docker_engine_empty_disks | length }} empty non-root disk(s)
+      ({{ docker_engine_empty_disks | join(', ') or 'none' }}).
+      Set data_disk on this host in
+      {{ docker_engine_selected_local_settings_file }}
+      to one path such as /dev/disk/by-id/... or /dev/vdb.
+
+- name: Use the single empty disk
+  ansible.builtin.set_fact:
+    docker_engine_resolved_disk: "/dev/{{ docker_engine_empty_disks | first }}"

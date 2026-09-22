@@ -1,0 +1,105 @@
+---
+- name: Fail when host facts were not gathered
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] is defined
+      - ansible_facts['distribution'] is defined
+      - ansible_facts['architecture'] is defined
+    fail_msg: >-
+      Deploy did not gather host facts on {{ inventory_hostname }}.
+      The deploy play must gather facts so the release check can run.
+
+- name: Fail when the OS is not a supported Debian or Ubuntu release
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - >-
+        (ansible_facts['distribution'] == 'Debian'
+         and ansible_facts['distribution_major_version'] in ['12', '13'])
+        or
+        (ansible_facts['distribution'] == 'Ubuntu'
+         and ansible_facts['distribution_version'] in ['24.04', '26.04'])
+    fail_msg: >-
+      This playbook installs Docker Engine on Debian 12, Debian 13,
+      Ubuntu 24.04, or Ubuntu 26.04. Host {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] | default('') }}.
+
+- name: Show the detected guest release
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] }}
+      ({{ ansible_facts['architecture'] }}).
+
+- name: Fail when the CPU architecture is not x86_64
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['architecture'] == 'x86_64'
+    fail_msg: >-
+      The pinned Docker packages are amd64. Host {{ inventory_hostname }}
+      is {{ ansible_facts['architecture'] }}.
+
+- name: Select the package suffix for this release
+  ansible.builtin.set_fact:
+    docker_engine_release_id: >-
+      {{
+        'debian-' ~ ansible_facts['distribution_major_version']
+        if ansible_facts['distribution'] == 'Debian'
+        else 'ubuntu-' ~ (ansible_facts['distribution_version'].split('.') | first)
+      }}
+
+- name: Fail when this release has no package map
+  ansible.builtin.assert:
+    that:
+      - docker_engine_release_id in docker_engine_releases
+    fail_msg: >-
+      No package map for {{ docker_engine_release_id }} on
+      {{ inventory_hostname }}.
+
+- name: Record the apt suite and package suffix
+  ansible.builtin.set_fact:
+    docker_engine_suite: "{{ docker_engine_releases[docker_engine_release_id].suite }}"
+    docker_engine_package_dist: "{{ docker_engine_releases[docker_engine_release_id].package_dist }}"
+
+- name: Fail when the apt proxy URL for this suite is missing
+  ansible.builtin.assert:
+    that:
+      - docker_engine_apt_uris[docker_engine_suite] is defined
+      - (docker_engine_apt_uris[docker_engine_suite] | string | length) > 0
+    fail_msg: >-
+      docker_engine_apt_uris.{{ docker_engine_suite }} is empty in
+      {{ docker_engine_selected_local_settings_file | default('your local settings file') }}.
+      Point it at the Nexus apt proxy that caches Docker CE stable for
+      {{ docker_engine_suite }}. This playbook does not add download.docker.com.
+
+- name: Record the apt proxy URL and pinned package versions
+  ansible.builtin.set_fact:
+    docker_engine_apt_uri: "{{ docker_engine_apt_uris[docker_engine_suite] }}"
+    docker_engine_package_names:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    docker_engine_pinned_packages:
+      - "docker-ce=5:{{ docker_engine_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "docker-ce-cli=5:{{ docker_engine_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "containerd.io={{ docker_engine_containerd_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "docker-buildx-plugin={{ docker_engine_buildx_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "docker-compose-plugin={{ docker_engine_compose_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+    docker_engine_expected_versions:
+      - "docker-ce 5:{{ docker_engine_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "docker-ce-cli 5:{{ docker_engine_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "containerd.io {{ docker_engine_containerd_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "docker-buildx-plugin {{ docker_engine_buildx_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+      - "docker-compose-plugin {{ docker_engine_compose_version }}-{{ docker_engine_package_revision }}~{{ docker_engine_package_dist }}"
+
+- name: Fail when the data-root is a system mount
+  ansible.builtin.assert:
+    that:
+      - docker_engine_data_root not in ['/', '/var', '/boot', '/home']
+    fail_msg: >-
+      docker_engine_data_root must be its own mount, not
+      {{ docker_engine_data_root }}.

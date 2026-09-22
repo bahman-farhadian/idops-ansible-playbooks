@@ -1,0 +1,45 @@
+---
+- name: Check whether dockerd is installed
+  ansible.builtin.stat:
+    path: /usr/bin/dockerd
+  register: docker_engine_dockerd_bin
+
+- name: Read Swarm membership when the engine is installed
+  ansible.builtin.command:
+    argv:
+      - docker
+      - info
+      - -f
+      - "{{ '{{.Swarm.LocalNodeState}}' }}"
+  register: docker_engine_swarm_state
+  changed_when: false
+  failed_when: false
+  when: docker_engine_dockerd_bin.stat.exists
+
+- name: Fail when dockerd is installed but does not answer
+  ansible.builtin.fail:
+    msg: >-
+      dockerd is installed on {{ inventory_hostname }} but docker info
+      failed. Fix the daemon, then run this action again.
+  when:
+    - docker_engine_dockerd_bin.stat.exists
+    - docker_engine_swarm_state.rc != 0
+
+- name: Remember whether this host is already a Swarm member
+  ansible.builtin.set_fact:
+    docker_engine_was_in_swarm: >-
+      {{
+        docker_engine_dockerd_bin.stat.exists
+        and (docker_engine_swarm_state.stdout | default('') | trim) == 'active'
+      }}
+
+- name: Fail when Swarm is pending, locked, or in error
+  ansible.builtin.assert:
+    that:
+      - (docker_engine_swarm_state.stdout | trim) in ['inactive', 'active']
+    fail_msg: >-
+      Swarm on {{ inventory_hostname }} is
+      {{ docker_engine_swarm_state.stdout | trim }}.
+      Expected inactive or active. This playbook does not run
+      swarm init --force-new-cluster.
+  when: docker_engine_dockerd_bin.stat.exists

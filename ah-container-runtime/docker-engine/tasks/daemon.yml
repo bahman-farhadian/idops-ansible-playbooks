@@ -1,0 +1,105 @@
+---
+- name: Fail when a Swarm member is configured with live-restore
+  ansible.builtin.assert:
+    that:
+      - not (docker_engine_host_live_restore | bool)
+    fail_msg: >-
+      {{ inventory_hostname }} is already in a Swarm and
+      live_restore is true. Set live_restore false for this host
+      and run make deploy again. Swarm refuses to run with live-restore.
+  when: docker_engine_was_in_swarm | bool
+
+- name: Read the running data-root when Docker answers
+  ansible.builtin.command:
+    argv:
+      - docker
+      - info
+      - -f
+      - "{{ '{{.DockerRootDir}}' }}"
+  register: docker_engine_running_root
+  changed_when: false
+  failed_when: false
+  when: docker_engine_dockerd_bin.stat.exists
+
+- name: Count images on the running engine
+  ansible.builtin.command:
+    argv:
+      - docker
+      - image
+      - ls
+      - -q
+  register: docker_engine_image_ids
+  changed_when: false
+  failed_when: false
+  when:
+    - docker_engine_dockerd_bin.stat.exists
+    - docker_engine_running_root.rc | default(1) == 0
+
+- name: Stat the Docker image tree on the data-root
+  ansible.builtin.stat:
+    path: "{{ docker_engine_data_root }}/image"
+  register: docker_engine_target_image_tree
+
+- name: Fail when daemon.json would hide images that were not copied
+  ansible.builtin.assert:
+    that:
+      - >-
+        (docker_engine_running_root.stdout | default('') | trim)
+        is match((docker_engine_data_root | regex_escape) ~ '(/.*)?$')
+        or (docker_engine_image_ids.stdout_lines | default([]) | length) == 0
+        or docker_engine_target_image_tree.stat.exists
+    fail_msg: >-
+      Docker on {{ inventory_hostname }} uses
+      {{ docker_engine_running_root.stdout | default('') | trim }}
+      and that tree has images, but {{ docker_engine_data_root }}/image
+      is missing. The copy did not finish. Remove a partial
+      {{ docker_engine_data_root }}/.docker-engine-migrated if one
+      exists and run make deploy again.
+  when:
+    - docker_engine_dockerd_bin.stat.exists
+    - docker_engine_running_root.rc | default(1) == 0
+
+- name: Create /etc/docker
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Build daemon.json
+  ansible.builtin.set_fact:
+    docker_engine_daemon_config: >-
+      {{
+        {
+          'data-root': docker_engine_data_root,
+          'storage-driver': 'overlay2',
+          'live-restore': (docker_engine_host_live_restore | bool),
+          'no-new-privileges': true,
+          'icc': false,
+          'log-driver': 'json-file',
+          'log-opts': {
+            'max-size': docker_engine_log_max_size,
+            'max-file': (docker_engine_log_max_file | string)
+          }
+        }
+      }}
+
+- name: Write daemon.json
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ docker_engine_daemon_config | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart docker
+
+- name: Enable Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Apply daemon.json before the checks
+  ansible.builtin.meta: flush_handlers

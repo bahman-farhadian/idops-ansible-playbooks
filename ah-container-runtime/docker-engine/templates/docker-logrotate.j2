@@ -1,0 +1,8 @@
+{{ docker_engine_daemon_log_dir }}/*.log {
+  weekly
+  rotate 4
+  compress
+  missingok
+  notifempty
+  copytruncate
+}

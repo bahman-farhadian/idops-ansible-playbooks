@@ -1,0 +1,151 @@
+---
+- name: Prepare Docker engine inventory
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - vars/docker-engine.yml
+    # Tracked files have generic defaults. Real hosts and apt proxy
+    # URLs live in a gitignored *.local.yml selected with
+    # docker_engine_local_settings_file. There is no default. The dummy
+    # path exists only so ansible-lint --syntax-check can parse this entry.
+    - "{{ docker_engine_local_settings_file | default('vars/.syntax-check.local.yml') }}"
+  vars:
+    docker_engine_action_effective: "{{ docker_engine_action | default('deploy') }}"
+    docker_engine_selected_local_settings_file: "{{ docker_engine_local_settings_file | default('') }}"
+    docker_engine_local_settings_path: >-
+      {{
+        docker_engine_selected_local_settings_file
+        if docker_engine_selected_local_settings_file is match('^/')
+        else (playbook_dir ~ '/' ~ docker_engine_selected_local_settings_file)
+      }}
+
+  tasks:
+    - name: Fail when no local settings file was selected
+      ansible.builtin.fail:
+        msg: >-
+          No local settings file was selected. There is no default.
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.docker-engine.local.yml
+      when: docker_engine_selected_local_settings_file | length == 0
+
+    - name: Validate selected local settings file name
+      ansible.builtin.assert:
+        that:
+          - docker_engine_selected_local_settings_file is search('\\.local\\.yml$')
+        fail_msg: >-
+          docker_engine_local_settings_file must end with .local.yml
+          (got '{{ docker_engine_selected_local_settings_file }}').
+          Example: LOCAL_SETTINGS_FILE=vars/settings.docker-engine.local.yml
+
+    - name: Check for a local settings file
+      ansible.builtin.stat:
+        path: "{{ docker_engine_local_settings_path }}"
+      register: docker_engine_local_override_file
+      changed_when: false
+
+    - name: Fail when the selected local settings file is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ docker_engine_selected_local_settings_file }} was not found.
+          Put the real hosts and apt proxy URLs in this file.
+          Create it with:
+          make settings LOCAL_SETTINGS_FILE={{ docker_engine_selected_local_settings_file }}
+      when: not docker_engine_local_override_file.stat.exists
+
+    - name: Load the local settings file for reporting
+      ansible.builtin.include_vars:
+        file: "{{ docker_engine_local_settings_path }}"
+        name: docker_engine_local_overrides
+      when: docker_engine_local_override_file.stat.exists
+
+    - name: Show which keys come from the local settings file
+      ansible.builtin.debug:
+        msg: >-
+          Using {{ docker_engine_selected_local_settings_file }}.
+          It sets {{ docker_engine_local_overrides | length }} key(s):
+          {{ docker_engine_local_overrides.keys() | list | join(', ') }}.
+          Edit those keys in that file. The same keys in
+          vars/docker-engine.yml are ignored.
+      when: docker_engine_local_override_file.stat.exists
+
+    - name: Validate requested action
+      ansible.builtin.assert:
+        that:
+          - docker_engine_action_effective in ['ping', 'deploy', 'restart']
+        fail_msg: "docker_engine_action must be ping, deploy, or restart."
+
+    - name: Fail when no engine host is declared
+      ansible.builtin.assert:
+        that:
+          - docker_engine_targets is defined
+          - (docker_engine_targets | length) > 0
+        fail_msg: >-
+          Add at least one host in docker_engine_targets in
+          {{ docker_engine_selected_local_settings_file }}.
+          The list in vars/docker-engine.yml is empty on purpose.
+
+    - name: Fail when a target name is missing or duplicated
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - (item.name | string | length) > 0
+          - docker_engine_targets | selectattr('name', 'equalto', item.name) | list | length == 1
+        fail_msg: "Each docker_engine_targets entry needs a unique name."
+      loop: "{{ docker_engine_targets }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Add Docker engine hosts to inventory
+      ansible.builtin.add_host:
+        name: "{{ item.name }}"
+        groups: docker_engine_targets
+        ansible_host: "{{ item.address | default(item.name) }}"
+        ansible_user: "{{ (item.user | default('', true)) or omit }}"
+        ansible_port: "{{ item.port | default(22) }}"
+        ansible_become_password: "{{ (item.become_password | default('', true)) or omit }}"
+        ansible_python_interpreter: "{{ item.python_interpreter | default('/usr/bin/python3') }}"
+        docker_engine_host_data_disk: "{{ item.data_disk | default('') }}"
+        docker_engine_host_live_restore: "{{ item.live_restore | default(docker_engine_live_restore) }}"
+        docker_engine_host_force_format: "{{ item.force_format | default(docker_engine_force_format) }}"
+      loop: "{{ docker_engine_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Run Docker engine action
+  hosts: docker_engine_targets
+  become: "{{ docker_engine_become_enabled | default(true) | bool }}"
+  become_method: "{{ docker_engine_become_method | default('sudo') }}"
+  become_user: "{{ docker_engine_become_user | default('root') }}"
+  gather_facts: "{{ docker_engine_action_effective in ['deploy', 'restart'] }}"
+  serial: 1
+  any_errors_fatal: true
+  vars_files:
+    - vars/docker-engine.yml
+    - "{{ docker_engine_local_settings_file | default('vars/.syntax-check.local.yml') }}"
+  vars:
+    docker_engine_action_effective: "{{ docker_engine_action | default('deploy') }}"
+    docker_engine_selected_local_settings_file: "{{ docker_engine_local_settings_file | default('') }}"
+
+  handlers:
+    - name: Restart docker
+      ansible.builtin.systemd:
+        name: docker
+        state: restarted
+        daemon_reload: true
+
+    - name: Restart rsyslog
+      ansible.builtin.systemd:
+        name: rsyslog
+        state: restarted
+
+  tasks:
+    - name: Run connectivity check
+      ansible.builtin.include_tasks: tasks/ping.yml
+      when: docker_engine_action_effective == 'ping'
+
+    - name: Install and configure Docker Engine
+      ansible.builtin.include_tasks: tasks/deploy.yml
+      when: docker_engine_action_effective == 'deploy'
+
+    - name: Restart Docker Engine
+      ansible.builtin.include_tasks: tasks/restart.yml
+      when: docker_engine_action_effective == 'restart'

@@ -1,0 +1,4 @@
+# Dockerd messages that reach syslog. Container stdout stays in the
+# json-file logs under the Docker data-root, not in this file.
+if $programname == 'dockerd' then {{ docker_engine_daemon_log_dir }}/dockerd.log
+& stop

@@ -1,30 +1,28 @@
 # ah-container-runtime
 
-Domain status: empty (not started)
+Domain status: in use
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ah-container-runtime domain.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+Docker Engine on a guest, with Swarm left off.
+
+## Implemented projects
+
+- `docker-engine/`
+  - Docker Engine on Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04
+  - CPU must be x86_64
+  - Dedicated XFS data-root, pinned Docker CE packages from a Nexus apt proxy
+  - Does not initialize Swarm
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
+
+- Upstream: guest provisioning, OS hardening, and Nexus apt proxies for
+  Docker CE stable (bookworm, trixie, noble, resolute)
+- Downstream: `ai-container-orchestration/docker-swarm` on hosts that
+  were installed with live-restore off
 
 ## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
 
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
-
-## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+Run `docker-engine` after the guest exists and the apt proxies answer.
+A Swarm member is installed here first, then joined from
+`ai-container-orchestration`.

@@ -1,0 +1,266 @@
+---
+- name: Use the configured data disk
+  ansible.builtin.set_fact:
+    docker_engine_resolved_disk: "{{ docker_engine_host_data_disk }}"
+  when: (docker_engine_host_data_disk | default('') | length) > 0
+
+- name: Discover the single empty non-root disk
+  ansible.builtin.include_tasks: tasks/discover.yml
+  when: (docker_engine_host_data_disk | default('') | length) == 0
+
+- name: Stat the data disk
+  ansible.builtin.stat:
+    path: "{{ docker_engine_resolved_disk }}"
+    follow: true
+  register: docker_engine_disk_stat
+
+- name: Fail when the data disk is not a block device
+  ansible.builtin.assert:
+    that:
+      - docker_engine_disk_stat.stat.exists
+      - docker_engine_disk_stat.stat.isblk | default(false)
+    fail_msg: >-
+      {{ docker_engine_resolved_disk }} on {{ inventory_hostname }}
+      does not exist or is not a block device.
+
+- name: Resolve the data disk to its real path
+  ansible.builtin.command:
+    argv:
+      - readlink
+      - -f
+      - "{{ docker_engine_resolved_disk }}"
+  register: docker_engine_disk_real
+  changed_when: false
+
+- name: Name the disk that contains the data device
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --noheadings
+      - --output
+      - PKNAME
+      - "{{ docker_engine_disk_real.stdout | trim }}"
+  register: docker_engine_data_parent
+  changed_when: false
+
+- name: Read the source of the / mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --noheadings
+      - --output
+      - SOURCE
+      - /
+  register: docker_engine_root_source
+  changed_when: false
+
+- name: Name the disk that backs /
+  ansible.builtin.command:
+    argv:
+      - lsblk
+      - --noheadings
+      - --output
+      - PKNAME
+      - "{{ docker_engine_root_source.stdout | trim }}"
+  register: docker_engine_root_parent
+  changed_when: false
+
+- name: Fail when the data disk is the root disk
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          docker_engine_data_parent.stdout | trim
+          if (docker_engine_data_parent.stdout | trim | length) > 0
+          else (docker_engine_disk_real.stdout | trim | basename)
+        ) != (
+          docker_engine_root_parent.stdout | trim
+          if (docker_engine_root_parent.stdout | trim | length) > 0
+          else (docker_engine_root_source.stdout | trim | basename)
+        )
+    fail_msg: >-
+      {{ docker_engine_resolved_disk }} is the disk that backs / on
+      {{ inventory_hostname }}. Refusing to format it.
+
+- name: Probe the data disk for an existing signature
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -p
+      - "{{ docker_engine_resolved_disk }}"
+  register: docker_engine_disk_probe
+  changed_when: false
+  failed_when: docker_engine_disk_probe.rc not in [0, 2]
+
+- name: Read the filesystem type on the data disk
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - TYPE
+      - "{{ docker_engine_resolved_disk }}"
+  register: docker_engine_disk_type
+  changed_when: false
+  failed_when: false
+
+- name: Fail when the disk has a non-XFS signature and force is off
+  ansible.builtin.assert:
+    that:
+      - >-
+        docker_engine_disk_probe.rc == 2
+        or (docker_engine_disk_type.stdout | trim) == 'xfs'
+        or (docker_engine_host_force_format | bool)
+    fail_msg: >-
+      {{ docker_engine_resolved_disk }} already has a signature
+      ({{ docker_engine_disk_type.stdout | trim or 'partition table or other' }}).
+      Refusing to format it. Set force_format true on this host only
+      when that disk should be wiped.
+
+- name: Install xfsprogs
+  ansible.builtin.apt:
+    name: xfsprogs
+    state: present
+    update_cache: true
+
+- name: Create an XFS filesystem on an empty disk
+  ansible.builtin.command:
+    argv:
+      - mkfs.xfs
+      - "{{ docker_engine_resolved_disk }}"
+  when: docker_engine_disk_probe.rc == 2
+  register: docker_engine_mkfs
+  changed_when: true
+
+- name: Replace a non-XFS signature when force is set
+  ansible.builtin.command:
+    argv:
+      - mkfs.xfs
+      - -f
+      - "{{ docker_engine_resolved_disk }}"
+  when:
+    - docker_engine_disk_probe.rc == 0
+    - (docker_engine_disk_type.stdout | trim) != 'xfs'
+    - docker_engine_host_force_format | bool
+  register: docker_engine_mkfs_force
+  changed_when: true
+
+- name: Read the filesystem UUID
+  ansible.builtin.command:
+    argv:
+      - blkid
+      - -o
+      - value
+      - -s
+      - UUID
+      - "{{ docker_engine_resolved_disk }}"
+  register: docker_engine_disk_uuid
+  changed_when: false
+
+- name: Fail when the filesystem UUID is missing
+  ansible.builtin.assert:
+    that:
+      - (docker_engine_disk_uuid.stdout | trim | length) > 0
+    fail_msg: "Could not read a filesystem UUID from {{ docker_engine_resolved_disk }}."
+
+- name: Create the data-root directory
+  ansible.builtin.file:
+    path: "{{ docker_engine_data_root }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0711"
+
+- name: Persist the data disk in fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: "^(?!#)(\\S+)\\s+{{ docker_engine_data_root | regex_escape }}\\s+"
+    line: >-
+      UUID={{ docker_engine_disk_uuid.stdout | trim }}
+      {{ docker_engine_data_root }}
+      xfs
+      {{ docker_engine_mount_options }}
+      0 2
+    state: present
+
+- name: Read the current data-root mount
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --noheadings
+      - --output
+      - FSTYPE,OPTIONS
+      - "{{ docker_engine_data_root }}"
+  register: docker_engine_findmnt
+  changed_when: false
+  failed_when: false
+
+- name: Mount the data disk
+  ansible.builtin.command:
+    argv:
+      - mount
+      - "{{ docker_engine_data_root }}"
+  when: docker_engine_findmnt.rc != 0
+  register: docker_engine_mount_cmd
+  changed_when: true
+
+- name: Remount when quota options are missing
+  ansible.builtin.command:
+    argv:
+      - mount
+      - -o
+      - "remount,{{ docker_engine_mount_options }}"
+      - "{{ docker_engine_data_root }}"
+  when:
+    - docker_engine_findmnt.rc == 0
+    - >-
+      ('uquota' not in docker_engine_findmnt.stdout and 'usrquota' not in docker_engine_findmnt.stdout)
+      or
+      ('pquota' not in docker_engine_findmnt.stdout and 'prjquota' not in docker_engine_findmnt.stdout)
+  register: docker_engine_remount_cmd
+  changed_when: true
+
+- name: Read the data-root mount after the change
+  ansible.builtin.command:
+    argv:
+      - findmnt
+      - --noheadings
+      - --output
+      - FSTYPE,OPTIONS
+      - "{{ docker_engine_data_root }}"
+  register: docker_engine_findmnt_after
+  changed_when: false
+
+- name: Fail when the data-root is not XFS with project quotas
+  ansible.builtin.assert:
+    that:
+      - "'xfs' in (docker_engine_findmnt_after.stdout | lower)"
+      - >-
+        'uquota' in docker_engine_findmnt_after.stdout
+        or 'usrquota' in docker_engine_findmnt_after.stdout
+      - >-
+        'pquota' in docker_engine_findmnt_after.stdout
+        or 'prjquota' in docker_engine_findmnt_after.stdout
+    fail_msg: >-
+      {{ docker_engine_data_root }} on {{ inventory_hostname }} is
+      '{{ docker_engine_findmnt_after.stdout | trim }}'.
+      Expected an XFS mount with uquota and pquota.
+      The guest kernel needs CONFIG_XFS_QUOTA.
+
+- name: Read XFS features
+  ansible.builtin.command:
+    argv:
+      - xfs_info
+      - "{{ docker_engine_data_root }}"
+  register: docker_engine_xfs_info
+  changed_when: false
+
+- name: Fail when XFS directory ftype is not enabled
+  ansible.builtin.assert:
+    that:
+      - "'ftype=1' in docker_engine_xfs_info.stdout"
+    fail_msg: >-
+      {{ docker_engine_data_root }} does not report ftype=1.
+      overlay2 needs that XFS feature. xfs_info said:
+      {{ docker_engine_xfs_info.stdout | trim }}
