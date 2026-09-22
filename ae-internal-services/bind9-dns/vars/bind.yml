@@ -28,6 +28,8 @@ bind_become_user: "root"   # Privilege escalation target user.
 # -----------------------------------------------------------------------------
 bind_listen_ipv4: "any" # Addresses BIND listens on. Values: "any" | an IPv4 address.
 bind_recursion: true    # Answer recursive queries for allowed clients. Values: true | false.
+# Local master zones set empty forwarders so recursive clients get the
+# zone, not a public NXDOMAIN for a private TLD.
 bind_forward_policy: "only" # How to use forwarders. Values: "only" | "first".
 bind_forwarders: # Upstream resolvers used for the cache. Values: list of IPv4 addresses.
   - "1.1.1.1"

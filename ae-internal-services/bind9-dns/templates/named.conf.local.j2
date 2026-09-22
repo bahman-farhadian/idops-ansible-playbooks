@@ -2,6 +2,7 @@ zone "{{ bind_zone }}" {
     type master;
     file "/etc/bind/db.{{ bind_zone }}";
     allow-update { none; };
+    forwarders { };
 };
 {% if bind_reverse_zone | default('') | length > 0 %}
 
@@ -9,5 +10,6 @@ zone "{{ bind_reverse_zone }}" {
     type master;
     file "/etc/bind/db.{{ bind_reverse_zone }}";
     allow-update { none; };
+    forwarders { };
 };
 {% endif %}

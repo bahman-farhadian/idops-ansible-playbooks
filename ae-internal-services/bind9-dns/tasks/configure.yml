@@ -99,3 +99,26 @@
       {{ bind_ns_name }}.{{ bind_zone }} is
       {{ bind_local_lookup.stdout | trim }}
       from 127.0.0.1.
+
+- name: Wait until named answers on the guest IPv4
+  ansible.builtin.command:
+    argv:
+      - dig
+      - +short
+      - +time=2
+      - +tries=3
+      - "@{{ ansible_host }}"
+      - "{{ bind_ns_name }}.{{ bind_zone }}"
+      - A
+  register: bind_lan_lookup
+  until: bind_lan_lookup.rc == 0 and (bind_lan_lookup.stdout | trim | length) > 0
+  retries: 12
+  delay: 2
+  changed_when: false
+
+- name: Show the guest IPv4 lookup
+  ansible.builtin.debug:
+    msg: >-
+      {{ bind_ns_name }}.{{ bind_zone }} is
+      {{ bind_lan_lookup.stdout | trim }}
+      from {{ ansible_host }}.

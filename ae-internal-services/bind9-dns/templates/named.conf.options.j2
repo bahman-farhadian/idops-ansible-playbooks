@@ -29,5 +29,11 @@ options {
 {% endif %}
     allow-transfer { none; };
     dnssec-validation auto;
+    validate-except {
+        "{{ bind_zone }}";
+{% if bind_reverse_zone | default('') | length > 0 %}
+        "{{ bind_reverse_zone }}";
+{% endif %}
+    };
     auth-nxdomain no;
 };

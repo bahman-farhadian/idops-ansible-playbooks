@@ -20,6 +20,11 @@ should use this server.
 Clients set this host as their resolver. They then use names such as
 `deb.idops-repository.idops` instead of a raw IP.
 
+Local master zones set empty `forwarders`. Global `forward only` would
+otherwise send recursive queries for a private TLD to 1.1.1.1/8.8.8.8,
+which return NXDOMAIN. Deploy also checks the answer on the guest IPv4,
+not only on 127.0.0.1.
+
 Do not use a `.local` zone. systemd-resolved sends `.local` to multicast
 DNS (RFC 6762) and never asks this server for those names. Use a unicast
 TLD such as `.idops`.
