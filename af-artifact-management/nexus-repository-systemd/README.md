@@ -15,6 +15,9 @@ gathers host facts, prints that release, and refuses any other guest.
 - HTTP **8082** for a Docker Hub reverse proxy
 - APT proxy repositories for Debian (bookworm, trixie) and Ubuntu
   (noble, resolute), including updates/security (and Ubuntu backports)
+- APT proxy repositories for Docker CE stable on those four suites
+  (`docker-ce-debian-bookworm`, `docker-ce-debian-trixie`,
+  `docker-ce-ubuntu-noble`, `docker-ce-ubuntu-resolute`)
 - Cleanup policies on those **proxy caches only**: keep up to 30 days.
   A hosted/private Docker registry is out of scope.
 

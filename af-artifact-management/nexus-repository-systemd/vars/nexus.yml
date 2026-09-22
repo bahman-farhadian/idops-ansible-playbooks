@@ -168,6 +168,20 @@ nexus_apt_proxy_repositories:
   - name: ubuntu-resolute-security
     remote_url: "http://security.ubuntu.com/ubuntu"
     distribution: "resolute-security"
+  # Docker CE stable. The client component is "stable", not "main".
+  # One proxy per suite, same shape as the Debian and Ubuntu entries above.
+  - name: docker-ce-debian-bookworm
+    remote_url: "https://download.docker.com/linux/debian"
+    distribution: "bookworm"
+  - name: docker-ce-debian-trixie
+    remote_url: "https://download.docker.com/linux/debian"
+    distribution: "trixie"
+  - name: docker-ce-ubuntu-noble
+    remote_url: "https://download.docker.com/linux/ubuntu"
+    distribution: "noble"
+  - name: docker-ce-ubuntu-resolute
+    remote_url: "https://download.docker.com/linux/ubuntu"
+    distribution: "resolute"
 
 # -----------------------------------------------------------------------------
 # Docker reverse proxy

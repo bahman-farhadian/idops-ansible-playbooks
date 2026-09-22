@@ -21,5 +21,3 @@ No open items. Recursive cache plus authoritative `idops-repository.idops`.
 ## af-artifact-management/nexus-repository-systemd
 
 - Hosted/private Docker registry (out of scope for the Hub proxy).
-- Docker CE stable apt proxies for bookworm, trixie, noble, and resolute.
-  `docker-engine` installs from those proxies and does not create them.
