@@ -1,0 +1,17 @@
+---
+# Empty on purpose. Real hosts go in docker_swarm_managers and
+# docker_swarm_workers in a named *.local.yml file. playbook.yml adds
+# them at runtime. Do not put a real address, user, or password here.
+all:
+  children:
+    local:
+      hosts:
+        localhost:
+          ansible_connection: local
+          ansible_python_interpreter: /usr/bin/python3
+    docker_swarm_members:
+      hosts: {}
+    docker_swarm_managers:
+      hosts: {}
+    docker_swarm_workers:
+      hosts: {}

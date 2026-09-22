@@ -1,0 +1,6 @@
+---
+- name: Run Swarm preflight
+  ansible.builtin.include_tasks: tasks/preflight.yml
+
+- name: Initialize or join the cluster
+  ansible.builtin.include_tasks: tasks/cluster.yml

@@ -1,0 +1,71 @@
+---
+- name: Skip networks when none were requested
+  ansible.builtin.debug:
+    msg: "No overlay networks were requested."
+  when: (docker_swarm_networks | default([]) | length) == 0
+
+- name: Read an existing overlay network
+  ansible.builtin.command:
+    argv:
+      - docker
+      - network
+      - inspect
+      - "{{ item.name }}"
+      - --format
+      - "{% raw %}{{.Driver}} {{.Attachable}}{% endraw %}"
+  loop: "{{ docker_swarm_networks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: docker_swarm_network_reads
+  changed_when: false
+  failed_when: false
+  when: (docker_swarm_networks | default([]) | length) > 0
+
+- name: Fail when docker network inspect failed for another reason
+  ansible.builtin.assert:
+    that:
+      - item.rc in [0, 1]
+    fail_msg: "docker network inspect {{ item.item.name }} failed (rc {{ item.rc }})."
+  loop: "{{ docker_swarm_network_reads.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - (docker_swarm_networks | default([]) | length) > 0
+    - not (item.skipped | default(false))
+
+- name: Fail when an existing network is not the requested overlay
+  ansible.builtin.assert:
+    that:
+      - (item.stdout | trim | lower) == ('overlay ' ~ ((item.item.attachable | bool) | string | lower))
+    fail_msg: >-
+      Network {{ item.item.name }} already exists as
+      '{{ item.stdout | trim }}'.
+      Expected overlay and attachable
+      {{ item.item.attachable | bool | lower }}.
+      This playbook does not recreate it.
+  loop: "{{ docker_swarm_network_reads.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - (docker_swarm_networks | default([]) | length) > 0
+    - not (item.skipped | default(false))
+    - item.rc == 0
+
+- name: Create a missing overlay network
+  ansible.builtin.command:
+    argv: "{{ docker_swarm_network_create }}"
+  vars:
+    docker_swarm_network_create: >-
+      {{
+        ['docker', 'network', 'create', '--driver', 'overlay']
+        + (['--attachable'] if (item.item.attachable | bool) else [])
+        + [item.item.name]
+      }}
+  loop: "{{ docker_swarm_network_reads.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.node | default(item.item.name) }}"
+  when:
+    - (docker_swarm_networks | default([]) | length) > 0
+    - not (item.skipped | default(false))
+    - item.rc == 1
+  changed_when: true

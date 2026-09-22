@@ -1,0 +1,79 @@
+---
+- name: Fail when host facts were not gathered
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] is defined
+      - ansible_facts['distribution'] is defined
+      - ansible_facts['architecture'] is defined
+    fail_msg: >-
+      Deploy did not gather host facts on {{ inventory_hostname }}.
+      The deploy play must gather facts so the release check can run.
+
+- name: Fail when the OS is not a supported Debian or Ubuntu release
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - >-
+        (ansible_facts['distribution'] == 'Debian'
+         and ansible_facts['distribution_major_version'] in ['12', '13'])
+        or
+        (ansible_facts['distribution'] == 'Ubuntu'
+         and ansible_facts['distribution_version'] in ['24.04', '26.04'])
+    fail_msg: >-
+      This playbook joins Docker Swarm on Debian 12, Debian 13,
+      Ubuntu 24.04, or Ubuntu 26.04. Host {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] | default('') }}.
+
+- name: Show the detected guest release
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] }}
+      ({{ ansible_facts['architecture'] }}).
+
+- name: Fail when the CPU architecture is not x86_64
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['architecture'] == 'x86_64'
+    fail_msg: >-
+      Swarm members use the amd64 engine pin. Host
+      {{ inventory_hostname }} is {{ ansible_facts['architecture'] }}.
+
+- name: Read engine version, data-root, live-restore, and Swarm state
+  ansible.builtin.command:
+    argv:
+      - docker
+      - info
+      - -f
+      - "{% raw %}{{.ServerVersion}}|{{.DockerRootDir}}|{{.LiveRestoreEnabled}}|{{.Swarm.LocalNodeState}}{% endraw %}"
+  register: docker_swarm_info
+  changed_when: false
+
+- name: Split the docker info fields
+  ansible.builtin.set_fact:
+    docker_swarm_info_fields: "{{ docker_swarm_info.stdout | trim | split('|') }}"
+    docker_swarm_node_hostname: "{{ ansible_facts['hostname'] }}"
+
+- name: Fail when the engine is not the pinned Docker CE build
+  ansible.builtin.assert:
+    that:
+      - (docker_swarm_info_fields[0] | trim) == docker_swarm_engine_version
+      - >-
+        (docker_swarm_info_fields[1] | trim)
+        is match((docker_swarm_data_root | regex_escape) ~ '(/.*)?$')
+      - not (docker_swarm_info_fields[2] | trim | bool)
+      - (docker_swarm_info_fields[3] | trim) in ['inactive', 'active']
+    fail_msg: >-
+      {{ inventory_hostname }} is not ready to join.
+      Need Docker {{ docker_swarm_engine_version }}, data-root
+      {{ docker_swarm_data_root }}, live-restore false, and Swarm
+      inactive or active. docker info returned
+      {{ docker_swarm_info.stdout | trim }}.
+      Install the engine with live_restore false before this playbook.
+      This playbook does not install packages.
+
+- name: Record the Swarm state used by the join
+  ansible.builtin.set_fact:
+    docker_swarm_node_state: "{{ docker_swarm_info_fields[3] | trim }}"

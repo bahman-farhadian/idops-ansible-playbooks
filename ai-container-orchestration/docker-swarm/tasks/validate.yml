@@ -1,0 +1,92 @@
+---
+- name: Read Swarm nodes
+  ansible.builtin.command:
+    argv:
+      - docker
+      - node
+      - ls
+      - --format
+      - "{% raw %}{{json .}}{% endraw %}"
+  register: docker_swarm_node_ls
+  changed_when: false
+
+- name: Parse Swarm nodes
+  ansible.builtin.set_fact:
+    docker_swarm_nodes: "{{ docker_swarm_node_ls.stdout_lines | map('from_json') | list }}"
+    docker_swarm_expected_hosts: >-
+      {{
+        groups['docker_swarm_members']
+        | map('extract', hostvars, 'docker_swarm_node_hostname')
+        | list
+      }}
+
+- name: Fail when a member hostname is missing from the cluster
+  ansible.builtin.assert:
+    that:
+      - item in (docker_swarm_nodes | map(attribute='Hostname') | list)
+    fail_msg: >-
+      {{ item }} is not in docker node ls on
+      {{ groups['docker_swarm_managers'][0] }}.
+      The guest hostname must match the name Swarm reports.
+  loop: "{{ docker_swarm_expected_hosts }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Fail when a member is not Ready and Active
+  ansible.builtin.assert:
+    that:
+      - (docker_swarm_nodes | selectattr('Hostname', 'equalto', item) | list | first).Status == 'Ready'
+      - (docker_swarm_nodes | selectattr('Hostname', 'equalto', item) | list | first).Availability == 'Active'
+    fail_msg: >-
+      {{ item }} is not Ready and Active.
+      docker node ls:
+      {{ docker_swarm_nodes | selectattr('Hostname', 'equalto', item) | list }}
+  loop: "{{ docker_swarm_expected_hosts }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Fail when manager consensus is wrong
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          docker_swarm_nodes
+          | selectattr('Hostname', 'equalto', hostvars[item]['docker_swarm_node_hostname'])
+          | list
+          | first
+        ).get('ManagerStatus', '') in ['Leader', 'Reachable']
+    fail_msg: >-
+      Manager {{ item }} ({{ hostvars[item]['docker_swarm_node_hostname'] }})
+      is not Leader or Reachable.
+  loop: "{{ groups['docker_swarm_managers'] }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Fail when the cluster does not have exactly one leader
+  ansible.builtin.assert:
+    that:
+      - >-
+        docker_swarm_nodes
+        | selectattr('ManagerStatus', 'defined')
+        | selectattr('ManagerStatus', 'equalto', 'Leader')
+        | list
+        | length == 1
+    fail_msg: "docker node ls does not show exactly one Leader."
+
+- name: Fail when a worker is reported as a manager
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          docker_swarm_nodes
+          | selectattr('Hostname', 'equalto', hostvars[item]['docker_swarm_node_hostname'])
+          | list
+          | first
+        ).get('ManagerStatus', '') == ''
+    fail_msg: >-
+      Worker {{ item }} ({{ hostvars[item]['docker_swarm_node_hostname'] }})
+      has a manager status. It should be a worker.
+  loop: "{{ groups['docker_swarm_workers'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  when: (groups['docker_swarm_workers'] | default([]) | length) > 0

@@ -1,0 +1,9 @@
+---
+- name: Apply node labels
+  ansible.builtin.include_tasks: tasks/labels.yml
+
+- name: Create overlay networks
+  ansible.builtin.include_tasks: tasks/networks.yml
+
+- name: Prove the cluster
+  ansible.builtin.include_tasks: tasks/validate.yml

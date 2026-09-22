@@ -1,0 +1,56 @@
+---
+# Docker Swarm on hosts that already run the pinned engine from
+# ah-container-runtime/docker-engine. This playbook does not install
+# packages and does not format disks.
+
+# -----------------------------------------------------------------------------
+# Managers
+# The first entry initializes the cluster. Count must be odd (1, 3, 5).
+# advertise_addr is the address other members use. It is not taken from
+# the default route.
+# -----------------------------------------------------------------------------
+docker_swarm_managers: [] # Values: [] | list of host maps (name, address, user, port, advertise_addr).
+# Example (was the live default; see local settings for real values):
+# docker_swarm_managers:
+#   - name: "swarm-01"
+#     address: "192.0.2.11"
+#     user: "root"
+#     port: 2222
+#     advertise_addr: "192.0.2.11"
+
+docker_swarm_workers: [] # Values: [] | list of host maps (name, address, user, port, advertise_addr).
+# Example (was the live default; see local settings for real values):
+# docker_swarm_workers:
+#   - name: "swarm-04"
+#     address: "192.0.2.14"
+#     user: "root"
+#     port: 2222
+#     advertise_addr: "192.0.2.14"
+
+docker_swarm_become_enabled: true  # Run remote tasks as root. Values: true | false.
+docker_swarm_become_method: "sudo" # Privilege escalation method. Values: "sudo" | "su".
+docker_swarm_become_user: "root"   # Privilege escalation target user.
+
+# Keep these two values the same as docker-engine. Deploy refuses a
+# member whose running engine does not match.
+docker_swarm_engine_version: "29.8.1" # docker info ServerVersion. Example: "29.8.1".
+docker_swarm_data_root: "/docker"     # docker info DockerRootDir. Example: "/docker".
+
+# -----------------------------------------------------------------------------
+# Placement
+# node is the guest hostname Swarm reports, which is usually the
+# inventory name when cloud-init set the same hostname. An empty list
+# is valid. key and value are a single token each.
+# -----------------------------------------------------------------------------
+docker_swarm_labels: [] # Values: [] | list of {node, key, value}.
+# Example (was the live default; see local settings for real values):
+# docker_swarm_labels:
+#   - node: "swarm-04"
+#     key: "role"
+#     value: "app"
+
+docker_swarm_networks: [] # Values: [] | list of {name, attachable}.
+# Example (was the live default; see local settings for real values):
+# docker_swarm_networks:
+#   - name: "services"
+#     attachable: true

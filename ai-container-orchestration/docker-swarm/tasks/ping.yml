@@ -1,0 +1,7 @@
+---
+- name: Check SSH to the Swarm host
+  ansible.builtin.ping:
+
+- name: Show ping result
+  ansible.builtin.debug:
+    msg: "Host {{ inventory_hostname }} is reachable."

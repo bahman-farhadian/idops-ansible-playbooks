@@ -45,8 +45,8 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - `ae-internal-services`: core in-house platform services (DNS, DHCP, NTP, internal supporting services).
 - `af-artifact-management`: internal package/image/repository cache and registry services.
 - `ag-os-baseline-and-hardening`: OS baseline + security hardening for hosts and VMs.
-- `ah-container-runtime`: Docker/containerd runtime rollout and policy.
-- `ai-container-orchestration`: Kubernetes and cluster-level orchestration controls.
+- `ah-container-runtime`: Docker Engine on a single host, Swarm left off.
+- `ai-container-orchestration`: Docker Swarm on hosts that already run that engine.
 - `aj-traffic-management`: ingress/reverse proxy/load-balancing and service exposure controls.
 - `ak-databases`: stateful data platforms and high-availability database services.
 - `al-data-caching`: cache platforms (Redis/Valkey/Memcached) for application and database acceleration patterns.

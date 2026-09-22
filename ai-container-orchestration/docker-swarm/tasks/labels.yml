@@ -1,0 +1,43 @@
+---
+- name: Skip labels when none were requested
+  ansible.builtin.debug:
+    msg: "No Swarm labels were requested."
+  when: (docker_swarm_labels | default([]) | length) == 0
+
+- name: Read current labels
+  ansible.builtin.command:
+    argv:
+      - docker
+      - node
+      - inspect
+      - "{{ item.node }}"
+      - --format
+      - "{% raw %}{{json .Spec.Labels}}{% endraw %}"
+  loop: "{{ docker_swarm_labels }}"
+  loop_control:
+    label: "{{ item.node }}.{{ item.key }}"
+  register: docker_swarm_label_reads
+  changed_when: false
+  when: (docker_swarm_labels | default([]) | length) > 0
+
+- name: Set a label that is missing or different
+  ansible.builtin.command:
+    argv:
+      - docker
+      - node
+      - update
+      - --label-add
+      - "{{ item.item.key }}={{ item.item.value }}"
+      - "{{ item.item.node }}"
+  loop: "{{ docker_swarm_label_reads.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.node }}.{{ item.item.key }}"
+  when:
+    - (docker_swarm_labels | default([]) | length) > 0
+    - not (item.skipped | default(false))
+    - >-
+      (
+        (item.stdout | default('null') | from_json | default({}, true))[item.item.key]
+        | default('')
+      ) != item.item.value
+  changed_when: true

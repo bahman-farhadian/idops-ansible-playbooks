@@ -1,30 +1,28 @@
 # ai-container-orchestration
 
-Domain status: empty (not started)
+Domain status: in use
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ai-container-orchestration domain.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+Docker Swarm on guests that already run Docker Engine.
+
+## Implemented projects
+
+- `docker-swarm/`
+  - Initialize an odd set of managers and join workers
+  - Optional node labels and overlay networks
+  - Host OS: Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04, x86_64
+  - Does not install the engine and does not open firewall ports
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
+
+- Upstream: `ah-container-runtime/docker-engine` with `live_restore: false`
+  on every member, and a host firewall that already allows TCP 2377,
+  TCP 7946, UDP 7946, and UDP 4789 between members
+- Downstream: workloads that schedule onto the cluster
 
 ## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
 
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
-
-## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+Install the engine first. Then run `docker-swarm`. A later engine
+deploy on a member keeps the Swarm membership if live-restore stays
+false.
