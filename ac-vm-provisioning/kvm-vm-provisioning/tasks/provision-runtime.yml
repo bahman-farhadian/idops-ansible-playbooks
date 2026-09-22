@@ -738,6 +738,21 @@
     - kvm_start_instances_after_snapshot | bool
     - (runtime_domains_requiring_snapshot | default([])) | length > 0
 
+# libvirt "running" is only the qemu process. Guests still need QGA and
+# sshd after the snapshot restart, or chained make ping races first boot.
+- name: Run guest readiness checkpoints after snapshot restart
+  ansible.builtin.include_tasks: tasks/provision-runtime-readiness.yml
+  loop: "{{ runtime_domains_requiring_snapshot | default([]) }}"
+  loop_control:
+    loop_var: runtime_readiness_instance
+    label: "{{ runtime_readiness_instance.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - kvm_snapshot_enabled | bool
+    - kvm_start_instances_after_snapshot | bool
+    - kvm_wait_for_cloud_init_before_snapshot | bool
+    - (runtime_domains_requiring_snapshot | default([])) | length > 0
+
 - name: Collect final declared domain states
   ansible.builtin.command:
     argv:
@@ -750,6 +765,27 @@
   register: runtime_final_domain_states
   changed_when: false
   when: kvm_run_mutation_phases | bool
+
+- name: Wait for guest SSH on running domains before provision returns
+  ansible.builtin.wait_for:
+    host: "{{ item.item.instance_ipv4_address }}"
+    port: "{{ item.item.ssh_port | default(22) }}"
+    timeout: "{{ kvm_qemu_guest_agent_wait_timeout_seconds | int }}"
+    state: started
+    search_regex: "SSH-2.0"
+    msg: >-
+      Guest {{ item.item.instance_name }} is running in libvirt, but SSH
+      {{ item.item.instance_ipv4_address }}:{{ item.item.ssh_port | default(22) }}
+      did not answer within {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds.
+      Chained make ping will fail until sshd is listening. Check first-boot
+      APT and: virsh dumpxml {{ item.item.instance_name }};
+      tail -n 200 /var/log/libvirt/qemu/{{ item.item.instance_name }}.log
+  loop: "{{ runtime_final_domain_states.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when:
+    - kvm_run_mutation_phases | bool
+    - (item.stdout | default('') | trim) == 'running'
 
 - name: Runtime reconciliation summary
   ansible.builtin.debug:
