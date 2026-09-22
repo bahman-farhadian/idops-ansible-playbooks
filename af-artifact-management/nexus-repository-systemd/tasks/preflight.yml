@@ -1,4 +1,14 @@
 ---
+- name: Fail when host facts were not gathered
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] is defined
+      - ansible_facts['distribution'] is defined
+      - ansible_facts['architecture'] is defined
+    fail_msg: >-
+      Deploy did not gather host facts on {{ inventory_hostname }}.
+      The deploy play must gather facts so the release check can run.
+
 - name: Fail when the OS is not a supported Debian or Ubuntu release
   ansible.builtin.assert:
     that:
@@ -14,6 +24,22 @@
       or Ubuntu 26.04. Host {{ inventory_hostname }} is
       {{ ansible_facts['distribution'] }}
       {{ ansible_facts['distribution_version'] | default('') }}.
+
+- name: Show the detected guest release
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} is
+      {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] }}
+      ({{ ansible_facts['architecture'] }}).
+
+- name: Fail when the CPU architecture is not x86_64
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['architecture'] == 'x86_64'
+    fail_msg: >-
+      The Nexus archive is linux-x86_64. Host {{ inventory_hostname }} is
+      {{ ansible_facts['architecture'] }}.
 
 - name: Fail when the extra disk mount is missing
   ansible.builtin.assert:

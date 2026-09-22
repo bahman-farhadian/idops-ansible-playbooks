@@ -3,7 +3,9 @@
 Install Sonatype Nexus Repository Manager 3 as a systemd service. This
 is not a Docker container.
 
-The host can be Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04.
+The host can be Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04,
+and the CPU must be x86_64 (the archive is `linux-x86_64`). Deploy
+gathers host facts, prints that release, and refuses any other guest.
 
 ## What it installs
 
