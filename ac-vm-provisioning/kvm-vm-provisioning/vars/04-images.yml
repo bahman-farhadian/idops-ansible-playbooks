@@ -46,7 +46,7 @@ kvm_cloud_image_catalog:
     image_major: "12"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
     # Pick this profile's image_version from https://cloud.debian.org/images/cloud/bookworm/
-    image_version: "20260806-2562"      # REQUIRED: pin a Debian build token. Example: 20260706-2531.
+    image_version: "20260909-2596"      # REQUIRED: pin a Debian build token. Example: 20260706-2531.
     image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
     # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
     virt_install_os_variant: "debian12" # OS variant for virt-install.
@@ -60,7 +60,7 @@ kvm_cloud_image_catalog:
     image_major: "13"                   # Major version used in the image filename.
     image_variant: "generic"            # Cloud image variant (generic | genericcloud).
     # Pick this profile's image_version from https://cloud.debian.org/images/cloud/trixie/
-    image_version: "20260810-2566"      # REQUIRED: pin a Debian build token. Example: 20260706-2531.
+    image_version: "20260914-2601"      # REQUIRED: pin a Debian build token. Example: 20260706-2531.
     image_checksum_algorithm: "sha512"  # Checksum algorithm used by the manifest.
     # image_checksum: ""                # Optional operator-provided expected checksum (enables offline acquisition).
     virt_install_os_variant: "debian13" # OS variant for virt-install.
