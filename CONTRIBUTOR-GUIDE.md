@@ -199,6 +199,50 @@ for a feature, use another published stable API on that same release,
 or wait for a stable release that documents the feature. Do not move
 the pin to an RC so an unpublished endpoint appears.
 
+## Supported guest releases
+
+This applies to every project that installs or configures a guest.
+
+Support the two newest Debian stable releases and the two newest Ubuntu
+LTS releases. The current set is:
+
+- Debian 12
+- Debian 13
+- Ubuntu 24.04
+- Ubuntu 26.04
+
+When a newer Debian stable release or Ubuntu LTS release is published,
+add it and remove the oldest release of that family in the same change.
+Do not keep a third Debian release or a third Ubuntu release on the list.
+
+Deliver every service on all four releases. A service that was installed
+on only one of them is not done. Test with the KVM cloud images for
+these four releases.
+
+On the deploy or harden play, gather facts. Read
+`ansible_facts['distribution']` and the version facts, and fail when the
+guest is not one of the four. Do not write a separate playbook per
+release. Package names that are the same on all four stay one list.
+Where a path or a unit name differs, pick it from the gathered facts.
+
+Ping does not need full facts.
+
+## Perimeter firewall
+
+The operator chooses one perimeter firewall. Ship the two choices as
+independent projects under `ad-network-and-connectivity`. The operator
+runs one of them.
+
+- Debian or Ubuntu firewall. A normal cloud-init guest on one of the
+  four supported releases. The playbook configures forwarding, SNAT,
+  DNAT, address blocks, a DMZ, OpenVPN, and WireGuard. The hardening
+  playbook applies to this guest.
+- OPNsense. Its own install image and its own playbook. Configuration
+  is `config.xml` or the HTTPS API. This guest does not use cloud-init,
+  and the hardening playbook does not apply.
+
+Do not make one playbook install both.
+
 ## Large files
 
 A guest with 1 GiB of RAM often has `/tmp` on tmpfs of a few hundred

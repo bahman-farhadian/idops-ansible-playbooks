@@ -1,30 +1,22 @@
 # ad-network-and-connectivity
 
-Domain status: empty (not started)
+Domain for routing, addressing, and the perimeter firewall.
 
-## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ad-network-and-connectivity domain.
+Domain status: not started
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+## Firewall
 
-## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
+The operator runs one perimeter firewall. The two projects are independent.
 
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
+- Debian or Ubuntu firewall. A normal cloud-init guest on Debian 12,
+  Debian 13, Ubuntu 24.04, or Ubuntu 26.04. The playbook configures
+  forwarding, SNAT, DNAT, address blocks, a DMZ, OpenVPN, and WireGuard.
+  OS hardening applies to this guest.
+- OPNsense. Its own install image and its own playbook. Configuration is
+  `config.xml` or the HTTPS API. It does not use cloud-init, and OS
+  hardening does not apply.
 
 ## Status
-- Architecture finalized: no
+
+- Operator choice recorded: yes (run one project)
 - First playbook implemented: no
-- Validation pipeline added: no

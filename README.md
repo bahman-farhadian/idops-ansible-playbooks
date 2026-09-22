@@ -41,7 +41,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - `aa-physical-server-foundation`: rack-level baseline, firmware/BIOS policy, storage/RAID, and hardware prep standards.
 - `ab-hypervisor-host-platform`: reserved for hypervisor host build (currently empty placeholder).
 - `ac-vm-provisioning`: VM lifecycle creation and allocation for workload environments.
-- `ad-network-and-connectivity`: routing, addressing, segmentation, firewall paths, and connectivity enforcement.
+- `ad-network-and-connectivity`: routing, addressing, segmentation, and the perimeter firewall. The operator runs either a Debian/Ubuntu firewall or OPNsense.
 - `ae-internal-services`: core in-house platform services (DNS, DHCP, NTP, internal supporting services).
 - `af-artifact-management`: internal package/image/repository cache and registry services.
 - `ag-os-baseline-and-hardening`: OS baseline + security hardening for hosts and VMs.
