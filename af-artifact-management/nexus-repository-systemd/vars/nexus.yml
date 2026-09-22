@@ -22,21 +22,26 @@ nexus_become_user: "root"   # Privilege escalation target user.
 
 # -----------------------------------------------------------------------------
 # Download and install
-# We PIN this version on purpose. The web UI may show a newer build
-# (for example 3.96.x). Do not follow that banner unless you change
-# the three values below and run make deploy again.
+# We PIN this version on purpose. The web UI may offer a newer build.
+# Nexus has no LTS line. Use a generally available archive from
+# https://help.sonatype.com/en/download.html
+# The "-01" suffix is the archive build id, not a release candidate.
 #
-# Pick a build:
-#   current: https://help.sonatype.com/en/download.html
-#   older:   https://help.sonatype.com/en/download-archives---repository-manager-3.html
+# 3.96.2-01 (18 Sep 2026) is newer, but the 3.96.0-3.96.2 notes say
+# Sonatype removed those downloads: Change Repository Blob Store can
+# delete blobs still used by other repositories. A fix is planned for
+# 3.96.3. Stay on 3.95.4-01 until 3.96.3 is on the download page.
+# https://help.sonatype.com/en/sonatype-nexus-repository-3-96-0-release-notes.html
+#
+# Older builds:
+#   https://help.sonatype.com/en/download-archives---repository-manager-3.html
 # Linux x86_64 archive (includes a JDK):
 #   https://download.sonatype.com/nexus/3/nexus-<version>-linux-x86_64.tar.gz
 # Checksum file:
 #   https://download.sonatype.com/nexus/3/nexus-<version>-linux-x86_64.tar.gz.sha256
 #
-# Example: to move to 3.96.1-01, set nexus_version to 3.96.1-01, set
-# nexus_download_checksum to sha256:<hash from the .sha256 file>, then
-# make deploy.
+# To move versions, set nexus_version, set nexus_download_checksum to
+# sha256:<hash from the .sha256 file>, then run make deploy.
 # -----------------------------------------------------------------------------
 nexus_version: "3.95.4-01" # Pinned Nexus version. Values: a Sonatype version token such as 3.95.4-01.
 nexus_download_url: "https://download.sonatype.com/nexus/3/nexus-{{ nexus_version }}-linux-x86_64.tar.gz" # Download URL. Built from nexus_version.

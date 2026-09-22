@@ -19,10 +19,14 @@ gathers host facts, prints that release, and refuses any other guest.
   A hosted/private Docker registry is out of scope.
 
 The version is pinned in `vars/nexus.yml` (`nexus_version` and
-`nexus_download_checksum`). Pin a stable or LTS release only. The web
-UI may show a newer build. Do not follow that banner onto an RC or
-unreleased build. To change version, edit those two values (links are
-in the comments of that file) and run `make deploy`.
+`nexus_download_checksum`). The pin is `3.95.4-01`, a generally
+available build. Nexus has no LTS line. The `-01` suffix is the archive
+build id, not a release candidate. The web UI may offer `3.96.2`. Do not
+follow that notice: Sonatype removed the 3.96.0–3.96.2 downloads because
+Change Repository Blob Store can delete blobs that other repositories
+still use. Stay on this pin until `3.96.3` is on the download page. To
+change version, edit those two values (links are in the comments of that
+file) and run `make deploy`.
 
 This Community Edition has no public Cleanup Policies REST resource.
 `make deploy` creates the 30-day policies through the published Script
