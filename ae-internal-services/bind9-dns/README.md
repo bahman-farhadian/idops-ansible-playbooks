@@ -6,6 +6,10 @@ Install BIND 9 as a systemd service. One process does two jobs:
 2. Authoritative DNS for a local zone (for example `idops-repository.idops`)
 
 The host can be Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04.
+Deploy gathers host facts, prints that release, and refuses any other
+guest. The BIND package names are the same on all four. After install,
+deploy reads the service facts and starts `named` or `bind9`, whichever
+unit the package shipped.
 
 ## What it installs
 
