@@ -746,9 +746,12 @@ Per-instance overrides in `kvm_instance_definitions[]`:
 
 - `guest_device` (required, `vd[b-z]`, example: `vdb`)
 - `size_gb` (required, integer > 0)
-- `mount_point` (required, absolute path, example: `/data`, `/var/lib/app`)
-- `filesystem` (optional, `ext4` or `xfs`, default: `ext4`)
-- `mount_options` (optional, default: `defaults,nofail`)
+- `mount_point` (optional, absolute path, example: `/data`, `/var/lib/app`).
+  Omit `mount_point` and `filesystem` to attach the disk raw. Cloud-init
+  does not partition it, format it, or mount it, and readiness does not
+  wait for a mount. A later playbook can format `/dev/vdb` itself.
+- `filesystem` (optional when `mount_point` is set, `ext4` or `xfs`, default: `ext4`)
+- `mount_options` (optional when `mount_point` is set, default: `defaults,nofail`)
 - `disk_extension` (optional, default: `instance_disk_extension`)
 - `filesystem_label` (optional)
 

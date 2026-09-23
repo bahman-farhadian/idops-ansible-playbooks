@@ -871,23 +871,24 @@
       {% endfor %}
         - [systemctl, enable, --now, qemu-guest-agent.service]
         - [systemctl, enable, --now, ssh.service]
-      {% if (item.instance_extra_disks_enabled | bool) and ((item.instance_extra_disks | default([])) | length > 0) %}
+      {% set formatted_extra_disks = item.instance_extra_disks | selectattr('mount_point', 'defined') | list %}
+      {% if (item.instance_extra_disks_enabled | bool) and (formatted_extra_disks | length > 0) %}
       disk_setup:
-      {% for extra_disk in item.instance_extra_disks %}
+      {% for extra_disk in formatted_extra_disks %}
         /dev/{{ extra_disk.guest_device }}:
           table_type: gpt
           layout: true
           overwrite: false
       {% endfor %}
       fs_setup:
-      {% for extra_disk in item.instance_extra_disks %}
+      {% for extra_disk in formatted_extra_disks %}
         - label: {{ (extra_disk.filesystem_label | default((item.instance_name ~ '-' ~ extra_disk.guest_device)[0:16])) | to_json }}
           filesystem: {{ extra_disk.filesystem | default('ext4') }}
           device: /dev/{{ extra_disk.guest_device }}1
           partition: auto
       {% endfor %}
       mounts:
-      {% for extra_disk in item.instance_extra_disks %}
+      {% for extra_disk in formatted_extra_disks %}
         - [
             "/dev/{{ extra_disk.guest_device }}1",
             "{{ extra_disk.mount_point }}",

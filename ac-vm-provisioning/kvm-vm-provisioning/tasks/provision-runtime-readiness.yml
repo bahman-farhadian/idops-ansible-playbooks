@@ -49,8 +49,8 @@
         runtime_readiness_checkpoints
         + [
             {
-              'label': 'xfs mount ' ~ item.mount_point,
-              'command': 'mountpoint -q ' ~ item.mount_point
+              'label': 'xfs mount ' ~ (item.mount_point | default('')),
+              'command': 'mountpoint -q ' ~ (item.mount_point | default(''))
             }
           ]
       }}

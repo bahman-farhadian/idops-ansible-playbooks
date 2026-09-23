@@ -459,22 +459,33 @@
     that:
       - disk_spec.guest_device is defined
       - disk_spec.guest_device is match('^vd[b-z]$')
-      - disk_spec.mount_point is defined
-      - disk_spec.mount_point is match('^/[A-Za-z0-9._/-]*$')
-      - disk_spec.mount_point not in ['/', '/boot', '/boot/efi']
-      - (disk_spec.mount_point != '/var') or (kvm_allow_mount_var_on_extra_disk | default(false) | bool)
       - disk_spec.size_gb is defined
       - (disk_spec.size_gb | int) > 0
-      - (disk_spec.filesystem | default('ext4')) in ['ext4', 'xfs']
-      - (disk_spec.mount_options | default('defaults,nofail')) is string
       - (disk_spec.disk_extension | default(item.0.instance_disk_extension)) is match('^[A-Za-z0-9]+$')
+      # No mount_point and no filesystem: attach the disk raw. Cloud-init
+      # must not partition it. The guest playbook formats it later.
+      - >-
+        (disk_spec.mount_point is not defined and disk_spec.filesystem is not defined)
+        or (
+          disk_spec.mount_point is defined
+          and disk_spec.mount_point is match('^/[A-Za-z0-9._/-]*$')
+          and disk_spec.mount_point not in ['/', '/boot', '/boot/efi']
+          and (
+            (disk_spec.mount_point != '/var')
+            or (kvm_allow_mount_var_on_extra_disk | default(false) | bool)
+          )
+          and (disk_spec.filesystem | default('ext4')) in ['ext4', 'xfs']
+          and (disk_spec.mount_options | default('defaults,nofail')) is string
+        )
     fail_msg: >-
-      Invalid additional disk definition for instance {{ item.0.instance_name }}:
-      guest_device must be vd[b-z], mount_point must be an absolute path
-      (not /, /boot, /boot/efi), and size_gb must be > 0.
-      /var is blocked by default on fresh extra disks because it can break boot.
-      Set kvm_allow_mount_var_on_extra_disk=true only if you intentionally
-      handle /var data migration in your image pipeline.
+      Invalid additional disk definition for instance {{ item.0.instance_name }}.
+      guest_device must be vd[b-z] and size_gb must be > 0.
+      Omit mount_point and filesystem to attach the disk with no partition
+      and no filesystem. Set mount_point to format and mount it
+      (filesystem ext4 or xfs, not /, /boot, or /boot/efi).
+      /var is blocked by default on a formatted extra disk because it can
+      break boot. Set kvm_allow_mount_var_on_extra_disk=true only if you
+      intentionally handle /var data migration in your image pipeline.
   vars:
     disk_spec: "{{ item.1 }}"
   loop_control:
@@ -489,9 +500,21 @@
       - item.instance_extra_disks | map(attribute='guest_device') | list | length
         ==
         item.instance_extra_disks | map(attribute='guest_device') | list | unique | length
-      - item.instance_extra_disks | map(attribute='mount_point') | list | length
-        ==
-        item.instance_extra_disks | map(attribute='mount_point') | list | unique | length
+      - >-
+        (
+          item.instance_extra_disks
+          | selectattr('mount_point', 'defined')
+          | map(attribute='mount_point')
+          | list
+          | length
+        ) == (
+          item.instance_extra_disks
+          | selectattr('mount_point', 'defined')
+          | map(attribute='mount_point')
+          | list
+          | unique
+          | length
+        )
     fail_msg: >-
       Instance {{ item.instance_name }} has duplicate additional disk guest_device or mount_point values.
   loop: "{{ normalized_instances }}"

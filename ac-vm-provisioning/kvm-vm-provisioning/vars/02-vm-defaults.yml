@@ -50,11 +50,13 @@ kvm_cpu_share_allow_capacity_overcommit: false # Allow demand above usable host 
 # instance_extra_disks item keys:
 # - guest_device (required, vd[b-z], example: vdb)
 # - size_gb (required, integer > 0)
-# - mount_point (required, absolute path, example: /data or /var/lib/app)
+# - mount_point (optional). Set it to format and mount the disk.
+#   Omit mount_point and filesystem to attach a raw disk: no partition,
+#   no filesystem, and no mount checkpoint. The guest playbook formats it.
 #   NOTE: /var is blocked by default because mounting a fresh disk on /var can break boot.
-# - filesystem (optional, ext4 | xfs, default: ext4). xfs installs xfsprogs
-#   in the guest and readiness checks mkfs.xfs plus the mount.
-# - mount_options (optional, default: defaults,nofail)
+# - filesystem (optional when mount_point is set, ext4 | xfs, default: ext4).
+#   xfs installs xfsprogs in the guest and readiness checks mkfs.xfs plus the mount.
+# - mount_options (optional when mount_point is set, default: defaults,nofail)
 # - disk_extension (optional, default: instance_disk_extension)
 # - filesystem_label (optional, default: <instance>-<guest_device>, truncated)
 # -----------------------------------------------------------------------------
