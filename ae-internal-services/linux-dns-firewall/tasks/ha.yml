@@ -113,6 +113,7 @@
   loop: "{{ openvpn_profiles }}"
   loop_control:
     label: "{{ item.name }}"
+  register: openvpn_allow_list
 
 - name: Install OpenVPN CA and server certificate
   ansible.builtin.copy:
@@ -214,6 +215,77 @@
     openvpn_profile: "{{ item }}"
   no_log: true
 
+- name: List client profiles kept on the control node
+  ansible.builtin.find:
+    paths: "{{ openvpn_pki_dir }}/clients"
+    patterns: "*.ovpn"
+    file_type: file
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: openvpn_kept_client_profiles
+
+- name: Remove retired client profiles on the control node
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  delegate_to: localhost
+  become: false
+  run_once: true
+  loop: "{{ openvpn_kept_client_profiles.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: >-
+    (item.path | basename | splitext | first)
+    not in (openvpn_client_profiles | map(attribute='name') | list)
+
+- name: List client certificates on the control node
+  ansible.builtin.find:
+    paths: "{{ openvpn_pki_dir }}"
+    patterns:
+      - "*.crt"
+      - "*.key"
+    file_type: file
+    recurse: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: openvpn_kept_client_keys
+
+- name: Remove retired client certificates on the control node
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  delegate_to: localhost
+  become: false
+  run_once: true
+  loop: "{{ openvpn_kept_client_keys.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when:
+    - (item.path | basename) not in ['ca.crt', 'ca.key', 'server.crt', 'server.key']
+    - >-
+      (item.path | basename | splitext | first)
+      not in (openvpn_client_profiles | map(attribute='name') | list)
+
+- name: List client profiles on this firewall
+  ansible.builtin.find:
+    paths: /root/openvpn-clients
+    patterns: "*.ovpn"
+    file_type: file
+  register: openvpn_node_client_profiles
+
+- name: Remove retired client profiles on this firewall
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ openvpn_node_client_profiles.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: >-
+    (item.path | basename | splitext | first)
+    not in (openvpn_client_profiles | map(attribute='name') | list)
+
 - name: Keep OpenVPN from starting at boot
   ansible.builtin.systemd:
     name: "openvpn-server@{{ item.name }}"
@@ -252,7 +324,15 @@
 - name: Start OpenVPN on the node that holds the WAN VIP
   ansible.builtin.systemd:
     name: "openvpn-server@{{ item.name }}"
-    state: "{{ 'restarted' if (openvpn_server_config is changed) else 'started' }}"
+    state: >-
+      {{
+        'restarted'
+        if (
+          (openvpn_server_config is changed)
+          or (openvpn_allow_list is changed)
+        )
+        else 'started'
+      }}
   loop: "{{ openvpn_profiles }}"
   loop_control:
     label: "{{ item.name }}"
