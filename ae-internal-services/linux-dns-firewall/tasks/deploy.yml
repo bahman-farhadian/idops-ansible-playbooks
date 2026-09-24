@@ -7,3 +7,6 @@
 
 - name: Write BIND config and start named
   ansible.builtin.include_tasks: tasks/configure.yml
+
+- name: Install keepalived and the OpenVPN profiles
+  ansible.builtin.include_tasks: tasks/ha.yml

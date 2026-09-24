@@ -1,0 +1,29 @@
+---
+# Firewall pair, keepalived, and the two OpenVPN profiles.
+# Real node addresses and VIPs belong in the gitignored local file.
+# Deploy refuses any list other than exactly two nodes.
+
+firewall_wan_interface: enp1s0 # NIC with the default route. Example: enp1s0.
+firewall_lan_interface: enp2s0 # Isolated NIC. It has no default route. Example: enp2s0.
+firewall_ha_nodes: []          # The pair. Values: [] | exactly two maps (name, wan_address, lan_address, priority).
+firewall_ha_vip_wan: ""        # WAN address clients use. Example: "192.0.2.11".
+firewall_ha_vip_lan: ""        # LAN address clients use. Example: "10.32.0.11".
+firewall_ha_vrid: 51           # VRRP id, 1-255, unique on that L2 network. Example: 51.
+firewall_ha_vip_prefix: 24     # Prefix length of both VIPs. Example: 24.
+
+# Admin clients are pushed every route below. User clients are pushed
+# only the user list. Do not put 10.32.0.0/24 on the user list.
+openvpn_admin_port: 1194
+openvpn_user_port: 1195
+openvpn_admin_network: "10.8.0.0"    # Admin tunnel pool. Example: "10.8.0.0".
+openvpn_admin_netmask: "255.255.255.0"
+openvpn_user_network: "10.9.0.0"     # User tunnel pool. Example: "10.9.0.0".
+openvpn_user_netmask: "255.255.255.0"
+openvpn_admin_routes: # Networks an admin client may reach. Values: list of {address, netmask}.
+  - address: "10.32.0.0"
+    netmask: "255.255.255.0"
+  - address: "192.168.32.0"
+    netmask: "255.255.255.0"
+openvpn_user_routes: # Networks a user client may reach. Values: list of {address, netmask}.
+  - address: "192.168.32.0"
+    netmask: "255.255.255.0"

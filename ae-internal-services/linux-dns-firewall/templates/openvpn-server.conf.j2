@@ -1,0 +1,24 @@
+# {{ openvpn_profile.name }} clients receive only the routes listed here.
+local {{ firewall_ha_vip_wan }}
+port {{ openvpn_profile.port }}
+proto udp
+dev {{ openvpn_profile.device }}
+dev-type tun
+ca /etc/openvpn/server/ca.crt
+cert /etc/openvpn/server/server.crt
+key /etc/openvpn/server/server.key
+server {{ openvpn_profile.network }} {{ openvpn_profile.netmask }}
+topology subnet
+{% for route in openvpn_profile.routes %}
+push "route {{ route.address }} {{ route.netmask }}"
+{% endfor %}
+keepalive 10 120
+data-ciphers AES-256-GCM:AES-128-GCM
+auth SHA256
+user nobody
+group nogroup
+persist-key
+persist-tun
+explicit-exit-notify 1
+remote-cert-tls client
+verb 3

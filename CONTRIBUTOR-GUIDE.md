@@ -229,12 +229,14 @@ Ping does not need full facts.
 
 ## Perimeter firewall
 
-The Linux perimeter firewall is the DNS guest
-(`ae-internal-services/linux-dns-firewall`). Provision that guest
-once. It runs on Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04.
-OS hardening applies. Forwarding and SNAT are the hardening firewall
-role on that guest (`firewall_forward_ipv4_enabled`,
-`firewall_nat_ipv4_enabled`).
+The Linux perimeter firewall is a pair of DNS guests
+(`ae-internal-services/linux-dns-firewall`). Provision two guests.
+keepalived moves a WAN VIP and a LAN VIP between them. It runs on
+Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04. OS hardening
+applies. Forwarding and SNAT are the hardening firewall role on
+that guest (`firewall_forward_ipv4_enabled`,
+`firewall_nat_ipv4_enabled`). OpenVPN on the pair has an admin
+profile and a user profile.
 
 OPNsense is a later project under `ad-network-and-connectivity`.
 It uses its own install image and its own playbook. Configuration is

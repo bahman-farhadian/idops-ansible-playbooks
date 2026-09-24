@@ -1,0 +1,45 @@
+# Both nodes start as BACKUP. The higher priority becomes MASTER.
+# Unicast avoids VRRP multicast on the libvirt bridge.
+global_defs {
+    router_id {{ inventory_hostname }}
+    script_user root
+    enable_script_security
+}
+
+vrrp_sync_group VG_FW {
+    group {
+        VI_WAN
+        VI_LAN
+    }
+    notify "/etc/keepalived/notify-openvpn.sh"
+}
+
+vrrp_instance VI_WAN {
+    state BACKUP
+    interface {{ firewall_wan_interface }}
+    virtual_router_id {{ firewall_ha_vrid | int }}
+    priority {{ firewall_ha_self.priority | int }}
+    advert_int 1
+    unicast_src_ip {{ firewall_ha_self.wan_address }}
+    unicast_peer {
+        {{ firewall_ha_peer.wan_address }}
+    }
+    virtual_ipaddress {
+        {{ firewall_ha_vip_wan }}/{{ firewall_ha_vip_prefix | int }}
+    }
+}
+
+vrrp_instance VI_LAN {
+    state BACKUP
+    interface {{ firewall_lan_interface }}
+    virtual_router_id {{ firewall_ha_vrid | int }}
+    priority {{ firewall_ha_self.priority | int }}
+    advert_int 1
+    unicast_src_ip {{ firewall_ha_self.lan_address }}
+    unicast_peer {
+        {{ firewall_ha_peer.lan_address }}
+    }
+    virtual_ipaddress {
+        {{ firewall_ha_vip_lan }}/{{ firewall_ha_vip_prefix | int }}
+    }
+}

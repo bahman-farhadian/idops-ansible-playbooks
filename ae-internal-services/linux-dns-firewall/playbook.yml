@@ -4,6 +4,7 @@
   gather_facts: false
   vars_files:
     - vars/bind.yml
+    - vars/firewall-ha.yml
     # Tracked files have generic defaults. Real hosts and records
     # live in a gitignored *.local.yml selected with
     # bind_local_settings_file. There is no default. The dummy path
@@ -83,6 +84,23 @@
           {{ bind_selected_local_settings_file }}.
           The list in vars/bind.yml is empty on purpose.
 
+    - name: Fail unless the firewall is a keepalived pair
+      ansible.builtin.assert:
+        that:
+          - firewall_ha_nodes is defined
+          - firewall_ha_nodes | length == 2
+          - firewall_ha_vip_wan | length > 0
+          - firewall_ha_vip_lan | length > 0
+          - (firewall_ha_nodes[0].priority | int) != (firewall_ha_nodes[1].priority | int)
+          - >-
+            (bind_targets | map(attribute='name') | list | sort)
+            == (firewall_ha_nodes | map(attribute='name') | list | sort)
+        fail_msg: >-
+          firewall_ha_nodes must list exactly two hosts, with different
+          priorities, and bind_targets must name those same two hosts.
+          A single firewall is not deployed. Set the pair and both VIPs in
+          {{ bind_selected_local_settings_file }}.
+
     - name: Fail when the zone uses the multicast DNS TLD .local
       ansible.builtin.assert:
         that:
@@ -124,6 +142,7 @@
   gather_facts: "{{ bind_action_effective == 'deploy' }}"
   vars_files:
     - vars/bind.yml
+    - vars/firewall-ha.yml
     - "{{ bind_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   vars:
     bind_action_effective: "{{ bind_action | default('deploy') }}"
@@ -135,6 +154,12 @@
         name: "{{ bind_systemd_unit | default('named') }}"
         state: restarted
         daemon_reload: true
+
+    - name: Restart keepalived
+      ansible.builtin.systemd:
+        name: keepalived
+        state: restarted
+        enabled: true
 
   tasks:
     - name: Run connectivity check

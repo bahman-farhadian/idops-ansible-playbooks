@@ -1,0 +1,177 @@
+---
+- name: Fail when this host is not one of the two firewall nodes
+  ansible.builtin.assert:
+    that:
+      - firewall_ha_nodes | length == 2
+      - inventory_hostname in (firewall_ha_nodes | map(attribute='name') | list)
+      - firewall_ha_vip_wan | length > 0
+      - firewall_ha_vip_lan | length > 0
+      - (firewall_ha_vrid | int) >= 1
+      - (firewall_ha_vrid | int) <= 255
+    fail_msg: >-
+      {{ inventory_hostname }} is not in firewall_ha_nodes.
+      The list needs exactly two nodes, and this host's name must match one of them.
+
+- name: Record this node, its peer, and the OpenVPN profiles
+  ansible.builtin.set_fact:
+    firewall_ha_self: "{{ firewall_ha_nodes | selectattr('name', 'equalto', inventory_hostname) | first }}"
+    firewall_ha_peer: "{{ firewall_ha_nodes | rejectattr('name', 'equalto', inventory_hostname) | first }}"
+    openvpn_profiles:
+      - name: admin
+        port: "{{ openvpn_admin_port | int }}"
+        device: tun-admin
+        network: "{{ openvpn_admin_network }}"
+        netmask: "{{ openvpn_admin_netmask }}"
+        routes: "{{ openvpn_admin_routes }}"
+      - name: user
+        port: "{{ openvpn_user_port | int }}"
+        device: tun-user
+        network: "{{ openvpn_user_network }}"
+        netmask: "{{ openvpn_user_netmask }}"
+        routes: "{{ openvpn_user_routes }}"
+    openvpn_pki_dir: "{{ playbook_dir }}/artifacts/openvpn"
+
+- name: Install keepalived and OpenVPN
+  ansible.builtin.apt:
+    name:
+      - keepalived
+      - openvpn
+    state: present
+    update_cache: true
+  register: firewall_ha_packages
+  retries: 6
+  delay: 10
+  until: firewall_ha_packages is succeeded
+
+- name: Create the shared OpenVPN CA on the control node
+  ansible.builtin.command:
+    argv:
+      - bash
+      - "{{ playbook_dir }}/files/openvpn-init-pki.sh"
+      - "{{ openvpn_pki_dir }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: openvpn_pki_init
+  changed_when: "'created' in (openvpn_pki_init.stdout | default(''))"
+
+- name: Install keepalived notify script
+  ansible.builtin.copy:
+    src: notify-openvpn.sh
+    dest: /etc/keepalived/notify-openvpn.sh
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Write keepalived config
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart keepalived
+
+- name: Install OpenVPN CA and server certificate
+  ansible.builtin.copy:
+    src: "{{ openvpn_pki_dir }}/{{ item.name }}"
+    dest: "/etc/openvpn/server/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - {name: ca.crt, mode: "0644"}
+    - {name: server.crt, mode: "0644"}
+    - {name: server.key, mode: "0600"}
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+- name: Write OpenVPN server configs
+  ansible.builtin.template:
+    src: openvpn-server.conf.j2
+    dest: "/etc/openvpn/server/{{ item.name }}.conf"
+    owner: root
+    group: root
+    mode: "0640"
+  loop: "{{ openvpn_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    openvpn_profile: "{{ item }}"
+  register: openvpn_server_config
+
+- name: Create the client profile directory
+  ansible.builtin.file:
+    path: /root/openvpn-clients
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Write OpenVPN client profiles
+  ansible.builtin.template:
+    src: openvpn-client.ovpn.j2
+    dest: "/root/openvpn-clients/{{ item.name }}.ovpn"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ openvpn_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    openvpn_profile: "{{ item }}"
+  no_log: true
+
+- name: Keep OpenVPN from starting at boot
+  ansible.builtin.systemd:
+    name: "openvpn-server@{{ item.name }}"
+    enabled: false
+    daemon_reload: true
+  loop: "{{ openvpn_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Enable keepalived
+  ansible.builtin.systemd:
+    name: keepalived
+    enabled: true
+    state: started
+
+- name: Flush keepalived restart before the VIP check
+  ansible.builtin.meta: flush_handlers
+
+- name: Check whether this node holds the WAN VIP
+  ansible.builtin.command:
+    argv:
+      - ip
+      - -4
+      - -o
+      - addr
+      - show
+      - dev
+      - "{{ firewall_wan_interface }}"
+  register: firewall_ha_wan_addr
+  changed_when: false
+  failed_when: false
+  retries: 8
+  delay: 2
+  until: firewall_ha_vip_wan in (firewall_ha_wan_addr.stdout | default(''))
+
+- name: Start OpenVPN on the node that holds the WAN VIP
+  ansible.builtin.systemd:
+    name: "openvpn-server@{{ item.name }}"
+    state: "{{ 'restarted' if (openvpn_server_config is changed) else 'started' }}"
+  loop: "{{ openvpn_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: firewall_ha_vip_wan in (firewall_ha_wan_addr.stdout | default(''))
+
+- name: Stop OpenVPN on the node that does not hold the WAN VIP
+  ansible.builtin.systemd:
+    name: "openvpn-server@{{ item.name }}"
+    state: stopped
+  loop: "{{ openvpn_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: firewall_ha_vip_wan not in (firewall_ha_wan_addr.stdout | default(''))

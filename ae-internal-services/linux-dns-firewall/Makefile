@@ -18,7 +18,7 @@ SETTINGS_ARG := -e bind_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 help:
-	@printf "linux-dns-firewall - BIND 9 on the Linux firewall guest\n\n"
+	@printf "linux-dns-firewall - DNS and firewall pair\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
 	@printf "  %-28s %s\n" "make settings" "create or update your local settings file"
@@ -29,8 +29,8 @@ help:
 	@printf "  %-28s %s\n" "make deps-bundle" "download Python wheels into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "check playbook.yml syntax"
 	@printf "  %-28s %s\n" "make lint" "run ansible-lint"
-	@printf "  %-28s %s\n" "make ping" "test SSH to the DNS host"
-	@printf "  %-28s %s\n" "make deploy" "install BIND 9, write zones, start named"
+	@printf "  %-28s %s\n" "make ping" "test SSH to both firewall nodes"
+	@printf "  %-28s %s\n" "make deploy" "install BIND, keepalived, and OpenVPN on the pair"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "extra ansible-playbook arguments"

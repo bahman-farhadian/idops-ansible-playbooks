@@ -1,11 +1,21 @@
 # linux-dns-firewall
 
-One Debian or Ubuntu guest is the DNS server and the Linux firewall
-for the stack. This playbook installs BIND 9 on that guest.
-Hardening of this guest turns on IPv4 forwarding and SNAT. The first
-NIC is the WAN. An extra NIC is the isolated LAN and has no default
-route. named listens on every IPv4 address, so both NICs answer DNS.
-WireGuard is a later addition on this same guest.
+Two Debian or Ubuntu guests are the DNS servers and the Linux
+firewall for one stack. keepalived moves one WAN VIP and one LAN VIP
+between them. This playbook installs BIND 9, keepalived, and OpenVPN
+on that pair. A single firewall node is refused.
+
+The first NIC is the WAN and keeps the default route. The extra NIC
+is the isolated LAN and has no gateway. named listens on every IPv4
+address, so both NICs answer DNS. Clients use the VIPs.
+
+OpenVPN has two profiles. `admin` can reach `10.32.0.0/24` and
+`192.168.32.0/24`. `user` can reach `192.168.32.0/24` only. Client
+files are written to `/root/openvpn-clients/` on each node. The
+private keys are created on the control node under `artifacts/openvpn/`
+and are not committed.
+
+WireGuard is a later addition on this same pair.
 
 Install BIND 9 as a systemd service. One process does two jobs:
 
