@@ -116,7 +116,6 @@
   become_method: "{{ docker_engine_become_method | default('sudo') }}"
   become_user: "{{ docker_engine_become_user | default('root') }}"
   gather_facts: "{{ docker_engine_action_effective in ['deploy', 'restart'] }}"
-  serial: 1
   any_errors_fatal: true
   vars_files:
     - vars/docker-engine.yml

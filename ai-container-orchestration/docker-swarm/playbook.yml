@@ -187,6 +187,7 @@
   become_method: "{{ docker_swarm_become_method | default('sudo') }}"
   become_user: "{{ docker_swarm_become_user | default('root') }}"
   gather_facts: "{{ docker_swarm_action_effective == 'deploy' }}"
+  # The first manager writes the join token. Later hosts read it, so this play stays one host at a time.
   serial: 1
   any_errors_fatal: true
   vars_files:
