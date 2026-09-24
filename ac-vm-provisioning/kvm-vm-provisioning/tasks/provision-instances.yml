@@ -1049,13 +1049,33 @@
     - instances_to_create | length > 0
     - (additional_disks_to_attach | default([])) | length > 0
 
-- name: Remove cloud-init workspace artifacts when enabled
+# Delete this run's files only. Another provision may still be writing
+# the same directory, so the directory itself stays.
+- name: Remove cloud-init workspace artifacts for this run
   ansible.builtin.file:
-    path: "{{ kvm_cloud_init_workspace_path }}"
+    path: >-
+      {{
+        (kvm_cloud_init_workspace_path | regex_replace('/+$', ''))
+        ~ '/' ~ item.0.instance_name ~ item.1
+      }}
     state: absent
+  loop: >-
+    {{
+      (instances_to_create_materialized | default([]))
+      | product([
+          '-user-data.yaml',
+          '-meta-data.yaml',
+          '-network-config.yaml',
+          '-domain.xml'
+        ])
+      | list
+    }}
+  loop_control:
+    label: "{{ item.0.instance_name }}{{ item.1 }}"
   when:
     - kvm_run_mutation_phases | bool
     - kvm_cleanup_workspace_path_after_run | default(true) | bool
+    - instances_to_create | length > 0
 
 - name: Provision stage summary
   ansible.builtin.debug:

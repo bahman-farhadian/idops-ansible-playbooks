@@ -60,7 +60,7 @@ kvm_image_cache_path: "" # Base-image cache directory on hypervisor. CHANGE THIS
 kvm_auto_create_image_cache_path: true                           # Auto-create kvm_image_cache_path when missing. Values: true | false.
 kvm_instance_disk_pool_path: "" # Per-instance VM disk directory. CHANGE THIS. Example: "/var/lib/libvirt/images/instances".
 kvm_cloud_init_workspace_path: "/tmp/idops-kvm-cloud-init"       # Temporary cloud-init file workspace.
-kvm_cleanup_workspace_path_after_run: true                       # Remove cloud-init workspace at end of provision stage. Values: true | false.
+kvm_cleanup_workspace_path_after_run: true                       # Remove this run's cloud-init files and keep the directory. Values: true | false.
 
 
 # -----------------------------------------------------------------------------
