@@ -26,6 +26,8 @@ stay qcow2.
   such as `/data` or `/var/lib/<service>`
 - Deterministic per-instance MAC assignment (or optional explicit `instance_mac_address`)
   for reliable cloud-init network matching
+- Optional extra NICs (`instance_extra_nics`). The first NIC keeps the default
+  route. An extra NIC has its own address and no gateway.
 - Multi-hypervisor deployment: instances are placed on the host named by their
   `hypervisor` key, with per-host SSH credentials
 - UEFI firmware enforced for every guest

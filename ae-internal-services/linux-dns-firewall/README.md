@@ -2,9 +2,10 @@
 
 One Debian or Ubuntu guest is the DNS server and the Linux firewall
 for the stack. This playbook installs BIND 9 on that guest.
-Hardening of this guest turns on IPv4 forwarding and SNAT. With one
-NIC, that NIC is both the LAN and the WAN. A VPN tunnel is added
-later on this same guest and becomes another LAN.
+Hardening of this guest turns on IPv4 forwarding and SNAT. The first
+NIC is the WAN. An extra NIC is the isolated LAN and has no default
+route. named listens on every IPv4 address, so both NICs answer DNS.
+WireGuard is a later addition on this same guest.
 
 Install BIND 9 as a systemd service. One process does two jobs:
 

@@ -299,8 +299,22 @@
   ansible.builtin.set_fact:
     required_libvirt_networks: >-
       {{
-        normalized_instances
-        | map(attribute='libvirt_network_name')
+        (
+          (
+            normalized_instances
+            | map(attribute='libvirt_network_name')
+            | list
+          )
+          + (
+            normalized_instances
+            | map(attribute='instance_extra_nics')
+            | default([])
+            | flatten
+            | selectattr('libvirt_network_name', 'defined')
+            | map(attribute='libvirt_network_name')
+            | list
+          )
+        )
         | map('string')
         | unique
         | list
@@ -382,8 +396,7 @@
       Missing required libvirt network(s): {{
       missing_required_libvirt_networks | join(', ')
       }}.
-      Requested networks come from kvm_default_libvirt_network_name or
-      per-instance libvirt_network_name.
+      Requested networks come from the first NIC and from instance_extra_nics.
       Available networks on hypervisor: {{
       (libvirt_all_networks | length > 0) | ternary(libvirt_all_networks | join(', '), 'none')
       }}.

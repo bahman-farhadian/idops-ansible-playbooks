@@ -1,0 +1,57 @@
+---
+# Cloud-init matches each NIC by MAC. Derive one when the operator did
+# not set it, so a rebuild keeps the same LAN address match.
+- name: Reset extra NIC list for this instance
+  ansible.builtin.set_fact:
+    kvm_normalized_extra_nics: []
+    kvm_extra_network_argv: []
+
+- name: Fill extra NIC MAC and virt-install arguments
+  ansible.builtin.set_fact:
+    kvm_normalized_extra_nics: "{{ kvm_normalized_extra_nics + [kvm_nic] }}"
+    kvm_extra_network_argv: >-
+      {{
+        kvm_extra_network_argv
+        + [
+            '--network',
+            'network=' ~ kvm_nic.libvirt_network_name
+            ~ ',model=virtio,mac=' ~ kvm_nic.mac_address
+          ]
+      }}
+  vars:
+    kvm_nic_seed: "{{ kvm_instance.instance_name ~ '-nic-' ~ item.interface_name }}"
+    kvm_nic_hash: "{{ kvm_nic_seed | hash('sha1') }}"
+    kvm_nic_mac: >-
+      {{
+        item.mac_address
+        if (item.mac_address is defined and (item.mac_address | length > 0))
+        else (
+          '52:54:00:'
+          ~ kvm_nic_hash[0:2] ~ ':'
+          ~ kvm_nic_hash[2:4] ~ ':'
+          ~ kvm_nic_hash[4:6]
+        )
+      }}
+    kvm_nic: >-
+      {{
+        item | combine({
+          'mac_address': kvm_nic_mac,
+          'prefix': (item.prefix | int)
+        })
+      }}
+  loop: "{{ kvm_instance.instance_extra_nics | default([]) }}"
+  loop_control:
+    label: "{{ kvm_instance.instance_name }} {{ item.interface_name | default('extra-nic') }}"
+
+- name: Store normalized extra NICs on this instance
+  ansible.builtin.set_fact:
+    kvm_instances_with_extra_nics: >-
+      {{
+        kvm_instances_with_extra_nics
+        + [
+            kvm_instance | combine({
+              'instance_extra_nics': kvm_normalized_extra_nics,
+              'virt_install_extra_network_argv': kvm_extra_network_argv
+            })
+          ]
+      }}

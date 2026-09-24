@@ -102,6 +102,24 @@
     label: "{{ item.instance_name }}"
   when: instances_to_create | length > 0
 
+- name: Start extra NIC normalization
+  ansible.builtin.set_fact:
+    kvm_instances_with_extra_nics: []
+  when: instances_to_create | length > 0
+
+- name: Normalize extra NICs for instances to create
+  ansible.builtin.include_tasks: tasks/provision-normalize-extra-nics.yml
+  loop: "{{ instances_to_create_materialized }}"
+  loop_control:
+    loop_var: kvm_instance
+    label: "{{ kvm_instance.instance_name }}"
+  when: instances_to_create | length > 0
+
+- name: Use instances that include extra NIC details
+  ansible.builtin.set_fact:
+    instances_to_create_materialized: "{{ kvm_instances_with_extra_nics }}"
+  when: instances_to_create | length > 0
+
 - name: Validate required command availability for provision stage
   ansible.builtin.command:
     cmd: "which {{ item }}"
@@ -945,6 +963,17 @@
               via: {{ item.guest_network_gateway }}
           nameservers:
             addresses: {{ ([item.guest_dns_servers] if item.guest_dns_servers is string else item.guest_dns_servers) | to_json }}
+      {% for nic in item.instance_extra_nics | default([]) %}
+        idops{{ loop.index }}:
+          match:
+            macaddress: "{{ nic.mac_address | lower }}"
+          set-name: "{{ nic.interface_name }}"
+          dhcp4: false
+          dhcp6: false
+          optional: true
+          addresses:
+            - {{ nic.ipv4_address }}/{{ nic.prefix }}
+      {% endfor %}
   loop: "{{ instances_to_create_materialized | default([]) }}"
   loop_control:
     label: "{{ item.instance_name }}"

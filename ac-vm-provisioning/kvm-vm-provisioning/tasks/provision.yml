@@ -273,6 +273,7 @@
       cpu_share_enabled: "{{ kvm_default_cpu_share_enabled | default(false) }}"
       instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
       instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
+      instance_extra_nics: []
 
 - name: Build normalized instance definitions
   ansible.builtin.set_fact:
@@ -414,6 +415,47 @@
   loop: "{{ normalized_instances }}"
   loop_control:
     label: "{{ item.instance_name }}"
+
+- name: Validate extra NICs
+  ansible.builtin.assert:
+    that:
+      - item.1.libvirt_network_name is defined
+      - (item.1.libvirt_network_name | string | length) > 0
+      - item.1.ipv4_address is defined
+      - item.1.ipv4_address is match('^([0-9]{1,3}\\.){3}[0-9]{1,3}$')
+      - item.1.prefix is defined
+      - (item.1.prefix | int) >= 1
+      - (item.1.prefix | int) <= 32
+      - item.1.interface_name is defined
+      - item.1.interface_name is match('^[A-Za-z][A-Za-z0-9]{0,14}$')
+      - item.1.interface_name != item.0.guest_network_interface
+      - item.1.ipv4_address != item.0.instance_ipv4_address
+      - (item.1.gateway | default('') | string | length) == 0
+      - >-
+        (item.1.mac_address is not defined)
+        or ((item.1.mac_address | string | length) == 0)
+        or (item.1.mac_address is match('^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'))
+    fail_msg: >-
+      Extra NIC {{ item.1.interface_name | default('unknown') }} on
+      {{ item.0.instance_name }} needs libvirt_network_name, ipv4_address,
+      prefix, and interface_name. Leave gateway empty. The first NIC already
+      owns the default route.
+  loop: "{{ normalized_instances | subelements('instance_extra_nics', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }} {{ item.1.interface_name | default('extra-nic') }}"
+
+- name: Fail when one instance repeats an extra NIC name
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.instance_extra_nics | map(attribute='interface_name') | list | unique | length)
+        == (item.instance_extra_nics | length)
+    fail_msg: >-
+      Extra NIC interface names on {{ item.instance_name }} must be unique.
+  loop: "{{ normalized_instances }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when: (item.instance_extra_nics | default([])) | length > 0
 
 - name: Fail when first-boot APT uses a multicast DNS .local hostname
   ansible.builtin.assert:

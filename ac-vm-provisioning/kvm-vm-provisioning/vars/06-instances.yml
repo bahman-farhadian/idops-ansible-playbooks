@@ -34,6 +34,11 @@
 # - guest_network_gateway        Example: "192.168.122.1"
 # - guest_dns_servers            Example: ["1.1.1.1", "8.8.8.8"]
 # - instance_mac_address         Example: "52:54:00:11:22:33"
+# - instance_extra_nics          Example: one isolated LAN NIC, no gateway
+#     - libvirt_network_name: "isolated-lan"
+#       ipv4_address: "10.32.0.11"
+#       prefix: 24
+#       interface_name: "enp2s0"
 # - cloud_init_user              Example: "idops" (tracked default is "idops")
 # - cloud_init_extra_hosts       Example: [{ip: "192.0.2.20", names: ["deb.example.idops"]}]
 # - cloud_init_disable_multicast_dns Example: true

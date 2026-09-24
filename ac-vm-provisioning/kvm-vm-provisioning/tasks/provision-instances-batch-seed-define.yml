@@ -31,42 +31,51 @@
 
 - name: Render inactive UEFI domain XML for batch
   ansible.builtin.command:
-    argv:
-      - virt-install
-      - --name
-      - "{{ item.instance_name }}"
-      - --memory
-      - "{{ item.memory_mb | int }}"
-      - --vcpus
-      - >-
-        {{
-          (
-            (item.vcpu_count | int | string)
-            ~ ',sockets=1,cores=' ~ (item.vcpu_count | int | string)
-            ~ ',threads=1'
-          )
-          if (item.force_single_socket_vcpu_topology | default(true) | bool)
-          else (item.vcpu_count | int | string)
-        }}
-      - --machine
-      - "{{ item.virt_install_machine_type }}"
-      - --import
-      - --boot
-      - >-
-        loader=/usr/share/OVMF/OVMF_CODE_4M.ms.fd,loader.readonly=yes,loader.type=pflash,nvram.template=/usr/share/OVMF/OVMF_VARS_4M.ms.fd
-      - --disk
-      - "path={{ item.instance_disk_path }},format={{ item.instance_disk_extension }},bus=virtio"
-      - --disk
-      - "path={{ item.seed_disk_path }},device=cdrom,bus={{ item.seed_device_bus }},format=raw,readonly=on"
-      - --os-variant
-      - "{{ item.virt_install_os_variant }}"
-      - --network
-      - "network={{ item.libvirt_network_name }},model=virtio,mac={{ item.instance_mac_address }}"
-      - --channel
-      - "unix,target.type=virtio,target.name=org.qemu.guest_agent.0"
-      - --graphics
-      - none
-      - --print-xml
+    argv: "{{ kvm_virt_install_argv }}"
+  vars:
+    kvm_virt_install_vcpus: >-
+      {{
+        (
+          (item.vcpu_count | int | string)
+          ~ ',sockets=1,cores=' ~ (item.vcpu_count | int | string)
+          ~ ',threads=1'
+        )
+        if (item.force_single_socket_vcpu_topology | default(true) | bool)
+        else (item.vcpu_count | int | string)
+      }}
+    kvm_virt_install_argv: >-
+      {{
+        [
+          'virt-install',
+          '--name',
+          item.instance_name,
+          '--memory',
+          (item.memory_mb | int | string),
+          '--vcpus',
+          kvm_virt_install_vcpus,
+          '--machine',
+          item.virt_install_machine_type,
+          '--import',
+          '--boot',
+          'loader=/usr/share/OVMF/OVMF_CODE_4M.ms.fd,loader.readonly=yes,loader.type=pflash,nvram.template=/usr/share/OVMF/OVMF_VARS_4M.ms.fd',
+          '--disk',
+          'path=' ~ item.instance_disk_path ~ ',format=' ~ item.instance_disk_extension ~ ',bus=virtio',
+          '--disk',
+          'path=' ~ item.seed_disk_path ~ ',device=cdrom,bus=' ~ item.seed_device_bus ~ ',format=raw,readonly=on',
+          '--os-variant',
+          item.virt_install_os_variant,
+          '--network',
+          'network=' ~ item.libvirt_network_name ~ ',model=virtio,mac=' ~ item.instance_mac_address
+        ]
+        + (item.virt_install_extra_network_argv | default([]))
+        + [
+          '--channel',
+          'unix,target.type=virtio,target.name=org.qemu.guest_agent.0',
+          '--graphics',
+          'none',
+          '--print-xml'
+        ]
+      }}
   loop: "{{ kvm_instance_batch }}"
   loop_control:
     label: "{{ item.instance_name }}"
