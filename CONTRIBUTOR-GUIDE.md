@@ -238,10 +238,11 @@ that guest (`firewall_forward_ipv4_enabled`,
 `firewall_nat_ipv4_enabled`). OpenVPN on the pair has an admin
 profile and a user profile.
 
-OPNsense is a later project under `ad-network-and-connectivity`.
-It uses its own install image and its own playbook. Configuration is
-`config.xml` or the HTTPS API. That guest does not use cloud-init,
-and the hardening playbook does not apply.
+OPNsense is a later project,
+`ad-network-and-connectivity/opnsense-firewall`. It uses its own
+install image. Configuration is `config.xml` or the HTTPS API. That
+guest does not use cloud-init, and the hardening playbook does not
+apply.
 
 Do not install OPNsense on the Linux firewall guest.
 

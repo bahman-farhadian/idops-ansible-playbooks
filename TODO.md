@@ -5,7 +5,7 @@ the branch/PR that picks the item up, not in this file.
 
 ## ad-network-and-connectivity
 
-- OPNsense perimeter firewall (later): own image, `config.xml` or HTTPS API.
+- `opnsense-firewall` (later): own image, `config.xml` or HTTPS API.
 
 ## ac-vm-provisioning/kvm-vm-provisioning
 

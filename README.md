@@ -41,7 +41,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 - `aa-physical-server-foundation`: rack-level baseline, firmware/BIOS policy, storage/RAID, and hardware prep standards.
 - `ab-hypervisor-host-platform`: reserved for hypervisor host build (currently empty placeholder).
 - `ac-vm-provisioning`: VM lifecycle creation and allocation for workload environments.
-- `ad-network-and-connectivity`: routing, addressing, and segmentation. The Linux perimeter firewall is the DNS guest in `ae-internal-services`. OPNsense is a later project in this domain.
+- `ad-network-and-connectivity`: routing, addressing, and segmentation. The Linux perimeter firewall is `ae-internal-services/linux-firewall`. OPNsense is the later project `opnsense-firewall` in this domain.
 - `ae-internal-services`: core in-house platform services (DNS, DHCP, NTP, internal supporting services).
 - `af-artifact-management`: internal package/image/repository cache and registry services.
 - `ag-os-baseline-and-hardening`: OS baseline + security hardening for hosts and VMs.
