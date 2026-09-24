@@ -57,7 +57,7 @@
 -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 {% if (firewall_forward_ipv4_rules | default([])) | length > 0 %}
 {% for rule in firewall_forward_ipv4_rules %}
--A FORWARD -i {{ rule.in_interface }} -o {{ rule.out_interface }} -s {{ rule.source }} -j ACCEPT
+-A FORWARD -i {{ rule.in_interface }} -o {{ rule.out_interface }} -s {{ rule.source }}{% if rule.destination | default('') | length > 0 %} -d {{ rule.destination }}{% endif %} -j ACCEPT
 {% endfor %}
 {% elif firewall_forward_ipv4_lan_cidr | length > 0 %}
 -A FORWARD -i {{ firewall_forward_ipv4_lan_interface }} -o {{ firewall_forward_ipv4_wan_interface }} -s {{ firewall_forward_ipv4_lan_cidr }} -j ACCEPT
@@ -77,7 +77,10 @@ COMMIT
 
 {% if (firewall_nat_ipv4_rules | default([])) | length > 0 %}
 {% for rule in firewall_nat_ipv4_rules %}
--A POSTROUTING -o {{ rule.out_interface }} -s {{ rule.source }} -j MASQUERADE
+{% for dest in rule.exclude_destinations | default([]) %}
+-A POSTROUTING -o {{ rule.out_interface }} -s {{ rule.source }} -d {{ dest }} -j RETURN
+{% endfor %}
+-A POSTROUTING -o {{ rule.out_interface }} -s {{ rule.source }}{% if rule.destination | default('') | length > 0 %} -d {{ rule.destination }}{% endif %} -j MASQUERADE
 {% endfor %}
 {% else %}
 -A POSTROUTING -o {{ firewall_forward_ipv4_wan_interface }} -j MASQUERADE
