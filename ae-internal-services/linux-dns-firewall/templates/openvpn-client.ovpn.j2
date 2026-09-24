@@ -1,9 +1,9 @@
-# {{ openvpn_profile.name }} profile. Routes are pushed by the server.
+# {{ openvpn_profile.name }} — split tunnel. Only the route lines below are added.
+# DNS is not changed. Other traffic keeps the client's existing route.
 client
 dev tun
 proto udp
 remote {{ firewall_ha_vip_wan }} {{ openvpn_profile.port }}
-resolv-retry infinite
 nobind
 persist-key
 persist-tun
@@ -11,6 +11,14 @@ remote-cert-tls server
 data-ciphers AES-256-GCM:AES-128-GCM
 auth SHA256
 verb 3
+route-nopull
+pull-filter ignore "redirect-gateway"
+pull-filter ignore "route-gateway"
+pull-filter ignore "dhcp-option"
+pull-filter ignore "block-outside-dns"
+{% for route in openvpn_profile.routes %}
+route {{ route.address }} {{ route.netmask }}
+{% endfor %}
 <ca>
 {{ lookup('file', openvpn_pki_dir + '/ca.crt') }}
 </ca>

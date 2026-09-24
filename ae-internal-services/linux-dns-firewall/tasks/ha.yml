@@ -23,13 +23,31 @@
         network: "{{ openvpn_admin_network }}"
         netmask: "{{ openvpn_admin_netmask }}"
         routes: "{{ openvpn_admin_routes }}"
+        allowed: "{{ openvpn_admin_clients }}"
       - name: user
         port: "{{ openvpn_user_port | int }}"
         device: tun-user
         network: "{{ openvpn_user_network }}"
         netmask: "{{ openvpn_user_netmask }}"
         routes: "{{ openvpn_user_routes }}"
+        allowed: "{{ openvpn_user_clients }}"
     openvpn_pki_dir: "{{ playbook_dir }}/artifacts/openvpn"
+
+- name: Reset the VPN client profile list
+  ansible.builtin.set_fact:
+    openvpn_client_profiles: []
+
+- name: Record one profile per VPN client
+  ansible.builtin.set_fact:
+    openvpn_client_profiles: "{{ openvpn_client_profiles | default([]) + [openvpn_one_client] }}"
+  vars:
+    openvpn_one_client:
+      name: "{{ item.1 }}"
+      port: "{{ item.0.port }}"
+      routes: "{{ item.0.routes }}"
+  loop: "{{ openvpn_profiles | subelements('allowed') }}"
+  loop_control:
+    label: "{{ item.1 }}"
 
 - name: Install keepalived and OpenVPN
   ansible.builtin.apt:
@@ -45,10 +63,15 @@
 
 - name: Create the shared OpenVPN CA on the control node
   ansible.builtin.command:
-    argv:
-      - bash
-      - "{{ playbook_dir }}/files/openvpn-init-pki.sh"
-      - "{{ openvpn_pki_dir }}"
+    argv: >-
+      {{
+        [
+          'bash',
+          playbook_dir ~ '/files/openvpn-init-pki.sh',
+          openvpn_pki_dir
+        ]
+        + (openvpn_client_profiles | map(attribute='name') | list)
+      }}
   delegate_to: localhost
   become: false
   run_once: true
@@ -71,6 +94,25 @@
     group: root
     mode: "0644"
   notify: Restart keepalived
+
+- name: Install the OpenVPN client allow check
+  ansible.builtin.copy:
+    src: tls-verify.sh
+    dest: /etc/openvpn/server/tls-verify.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Write the OpenVPN client allow list
+  ansible.builtin.copy:
+    dest: "/etc/openvpn/server/allowed-{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ item.allowed | join('\n') ~ '\n' }}"
+  loop: "{{ openvpn_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
 
 - name: Install OpenVPN CA and server certificate
   ansible.builtin.copy:
@@ -101,6 +143,55 @@
     openvpn_profile: "{{ item }}"
   register: openvpn_server_config
 
+- name: Read the OpenVPN server configs
+  ansible.builtin.slurp:
+    src: "/etc/openvpn/server/{{ item.name }}.conf"
+  loop: "{{ openvpn_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: openvpn_server_config_text
+
+- name: Fail if OpenVPN would redirect traffic or set DNS
+  ansible.builtin.assert:
+    that:
+      - "'redirect-gateway' not in (item.content | b64decode)"
+      - "'dhcp-option' not in (item.content | b64decode)"
+      - "'block-outside-dns' not in (item.content | b64decode)"
+    fail_msg: >-
+      {{ item.source }} contains a full-tunnel or DNS option.
+      Remove redirect-gateway, dhcp-option, and block-outside-dns.
+  loop: "{{ openvpn_server_config_text.results }}"
+  loop_control:
+    label: "{{ item.source | default('openvpn-server') }}"
+
+- name: Create the client profile directory on the control node
+  ansible.builtin.file:
+    path: "{{ openvpn_pki_dir }}/clients"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Write OpenVPN client profiles on the control node
+  ansible.builtin.template:
+    src: openvpn-client.ovpn.j2
+    dest: "{{ openvpn_pki_dir }}/clients/{{ item.name }}.ovpn"
+    owner: root
+    group: root
+    mode: "0600"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  loop: "{{ openvpn_client_profiles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    openvpn_profile: "{{ item }}"
+  no_log: true
+
 - name: Create the client profile directory
   ansible.builtin.file:
     path: /root/openvpn-clients
@@ -116,7 +207,7 @@
     owner: root
     group: root
     mode: "0600"
-  loop: "{{ openvpn_profiles }}"
+  loop: "{{ openvpn_client_profiles }}"
   loop_control:
     label: "{{ item.name }}"
   vars:

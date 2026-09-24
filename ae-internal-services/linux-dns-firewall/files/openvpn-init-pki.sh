@@ -1,12 +1,13 @@
 #!/bin/bash
-# Build one CA and the server, admin, and user certificates.
+# Build one CA, the server certificate, and one client certificate per name.
 # A second run leaves existing files in place so both firewall nodes
 # keep presenting the same certificate after a VIP move.
 set -euo pipefail
 
 dest="${1:-}"
-if [[ -z "$dest" ]]; then
-  echo "Usage: openvpn-init-pki.sh DEST_DIR" >&2
+shift || true
+if [[ -z "$dest" || $# -lt 1 ]]; then
+  echo "Usage: openvpn-init-pki.sh DEST_DIR CLIENT [CLIENT...]" >&2
   exit 1
 fi
 
@@ -16,11 +17,12 @@ if ! command -v openssl >/dev/null 2>&1; then
 fi
 
 install -d -m 0700 "$dest"
-
-if [[ -f "$dest/ca.crt" && -f "$dest/server.crt" && -f "$dest/admin.crt" && -f "$dest/user.crt" ]]; then
-  echo "present"
-  exit 0
-fi
+for client_name in "$@"; do
+  if [[ ! "$client_name" =~ ^[A-Za-z][A-Za-z0-9_-]{0,31}$ ]]; then
+    echo "VPN client name '$client_name' must start with a letter and use only letters, digits, _ or -." >&2
+    exit 1
+  fi
+done
 
 ext_dir="$(mktemp -d)"
 trap 'rm -rf "$ext_dir"' EXIT
@@ -45,6 +47,7 @@ issue() {
   chmod 0600 "$dest/${name}.key"
 }
 
+created=0
 if [[ ! -f "$dest/ca.crt" ]]; then
   openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout "$dest/ca.key" \
@@ -52,9 +55,20 @@ if [[ ! -f "$dest/ca.crt" ]]; then
     -days 3650 \
     -subj "/CN=idops-firewall-ca"
   chmod 0600 "$dest/ca.key"
+  created=1
 fi
-
-[[ -f "$dest/server.crt" ]] || issue server "$ext_dir/server.ext"
-[[ -f "$dest/admin.crt" ]] || issue admin "$ext_dir/client.ext"
-[[ -f "$dest/user.crt" ]] || issue user "$ext_dir/client.ext"
-echo "created"
+if [[ ! -f "$dest/server.crt" ]]; then
+  issue server "$ext_dir/server.ext"
+  created=1
+fi
+for client_name in "$@"; do
+  if [[ ! -f "$dest/${client_name}.crt" ]]; then
+    issue "$client_name" "$ext_dir/client.ext"
+    created=1
+  fi
+done
+if [[ "$created" -eq 1 || ! -f "$dest/ca.crt" ]]; then
+  echo "created"
+else
+  echo "present"
+fi

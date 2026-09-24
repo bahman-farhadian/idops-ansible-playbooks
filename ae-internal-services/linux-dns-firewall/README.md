@@ -9,11 +9,24 @@ The first NIC is the WAN and keeps the default route. The extra NIC
 is the isolated LAN and has no gateway. named listens on every IPv4
 address, so both NICs answer DNS. Clients use the VIPs.
 
-OpenVPN has two profiles. `admin` can reach `10.32.0.0/24` and
-`192.168.32.0/24`. `user` can reach `192.168.32.0/24` only. Client
-files are written to `/root/openvpn-clients/` on each node. The
-private keys are created on the control node under `artifacts/openvpn/`
-and are not committed.
+OpenVPN has two profiles. An admin client can reach `10.32.0.0/24`
+and `192.168.32.0/24`. A user client can reach `192.168.32.0/24`
+only. The client file installs those routes and nothing else. It does
+not change DNS, and it ignores a full-tunnel push.
+
+Add a name to `openvpn_admin_clients` or `openvpn_user_clients` in
+the local settings file, then run `make deploy` again. One name is
+one certificate. The same name cannot be in both lists.
+
+After deploy, import the profile from the control node:
+
+`artifacts/openvpn/clients/<name>.ovpn`
+
+The same file is also on each node at
+`/root/openvpn-clients/<name>.ovpn`. Point the client at that file.
+Leave "redirect all traffic" and "block DNS" turned off in the
+client program. The private keys under `artifacts/openvpn/` are not
+committed.
 
 WireGuard is a later addition on this same pair.
 

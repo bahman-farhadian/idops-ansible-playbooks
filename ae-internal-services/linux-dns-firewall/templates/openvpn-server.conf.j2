@@ -1,4 +1,4 @@
-# {{ openvpn_profile.name }} clients receive only the routes listed here.
+# {{ openvpn_profile.name }} pushes only the routes below.
 local {{ firewall_ha_vip_wan }}
 port {{ openvpn_profile.port }}
 proto udp
@@ -9,6 +9,8 @@ cert /etc/openvpn/server/server.crt
 key /etc/openvpn/server/server.key
 server {{ openvpn_profile.network }} {{ openvpn_profile.netmask }}
 topology subnet
+script-security 2
+tls-verify "/etc/openvpn/server/tls-verify.sh /etc/openvpn/server/allowed-{{ openvpn_profile.name }}"
 {% for route in openvpn_profile.routes %}
 push "route {{ route.address }} {{ route.netmask }}"
 {% endfor %}

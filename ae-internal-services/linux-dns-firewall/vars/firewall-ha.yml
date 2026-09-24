@@ -27,3 +27,11 @@ openvpn_admin_routes: # Networks an admin client may reach. Values: list of {add
 openvpn_user_routes: # Networks a user client may reach. Values: list of {address, netmask}.
   - address: "192.168.32.0"
     netmask: "255.255.255.0"
+
+# One certificate per name. Admin names connect to the admin profile.
+# User names connect to the user profile. The same name cannot be in both.
+# Add a name here, or in the local settings file, then run make deploy.
+openvpn_admin_clients: # Values: list of client names. Example: ["admin"].
+  - admin
+openvpn_user_clients: # Values: list of client names. Example: ["user"].
+  - user
