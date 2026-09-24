@@ -628,10 +628,8 @@
     instance_runtime_targets: []
 
 # Runtime keeps a small dict so passwords and keys stay out of logs.
-# instance_ipv4_address and cloud_init_user are required for the SSH
-# fallback that installs qemu-guest-agent when the virtio channel stays down.
-# Ansible templates delegate_to even on skipped tasks, so those keys
-# must exist on every runtime target.
+# instance_ipv4_address and ssh_port feed the readiness checks. Those
+# checks poll the guest agent with virsh on the hypervisor.
 - name: Build sanitized runtime target list
   ansible.builtin.set_fact:
     instance_runtime_targets: >-

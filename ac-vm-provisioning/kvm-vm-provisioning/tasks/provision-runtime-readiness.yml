@@ -1,15 +1,14 @@
 ---
-- name: "Readiness | Require guest SSH target fields | {{ runtime_readiness_instance.instance_name }}"
+- name: "Readiness | Require guest address fields | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.assert:
     that:
       - runtime_readiness_instance.instance_ipv4_address is defined
       - runtime_readiness_instance.instance_ipv4_address | length > 0
-      - runtime_readiness_instance.cloud_init_user is defined
-      - runtime_readiness_instance.cloud_init_user | length > 0
+      - runtime_readiness_instance.ssh_port is defined
     fail_msg: >-
       Runtime target {{ runtime_readiness_instance.instance_name }} is missing
-      instance_ipv4_address or cloud_init_user. The SSH fallback that
-      installs qemu-guest-agent needs both fields on instance_runtime_targets.
+      instance_ipv4_address or ssh_port. Readiness polls the guest agent
+      with virsh on the hypervisor.
 
 - name: "Readiness | Build guest checkpoints | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.set_fact:
@@ -68,101 +67,67 @@
       Waiting up to {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds per checkpoint.
       Checkpoints: {{ runtime_readiness_checkpoints | map(attribute='label') | list | join(', ') }}.
 
+# One poll on the hypervisor. A missing agent is normal while first boot
+# is still in apt, so that case stays inside this task. SSH from the
+# control node is not used: that session is a different path from virsh,
+# and an unreachable result there ends the play before the agent answers.
 - name: "Readiness | Wait for QEMU Guest Agent | {{ runtime_readiness_instance.instance_name }}"
-  ansible.builtin.command:
-    argv:
-      - virsh
-      - qemu-agent-command
-      - "{{ runtime_readiness_instance.instance_name }}"
-      - '{"execute":"guest-ping"}'
+  ansible.builtin.shell: |
+    set -euo pipefail
+    deadline=$((SECONDS + QGA_TIMEOUT))
+    last_error="guest agent has not answered"
+    while true; do
+      if ! state="$(virsh domstate "$QGA_DOMAIN" 2>&1)"; then
+        printf '%s\n' "$state" >&2
+        exit 2
+      fi
+      if [[ "$state" != "running" ]]; then
+        printf 'domain %s is %s\n' "$QGA_DOMAIN" "$state" >&2
+        exit 2
+      fi
+      if ping_out="$(virsh qemu-agent-command "$QGA_DOMAIN" '{"execute":"guest-ping"}' 2>&1)"; then
+        printf '%s\n' "$ping_out"
+        exit 0
+      fi
+      last_error="$ping_out"
+      if (( SECONDS >= deadline )); then
+        printf '%s\n' "$last_error" >&2
+        exit 1
+      fi
+      sleep "$QGA_INTERVAL"
+    done
+  args:
+    executable: /bin/bash
+  environment:
+    QGA_DOMAIN: "{{ runtime_readiness_instance.instance_name }}"
+    QGA_TIMEOUT: "{{ kvm_qemu_guest_agent_wait_timeout_seconds | int }}"
+    QGA_INTERVAL: "{{ kvm_qemu_guest_agent_poll_interval_seconds | int }}"
   register: runtime_qga_ping_result
-  until: (runtime_qga_ping_result.rc | int) == 0
-  retries: >-
-    {{
-      (
-        (kvm_qemu_guest_agent_wait_timeout_seconds | int)
-        + (kvm_qemu_guest_agent_poll_interval_seconds | int)
-        - 1
-      )
-      // (kvm_qemu_guest_agent_poll_interval_seconds | int)
-    }}
-  delay: "{{ kvm_qemu_guest_agent_poll_interval_seconds | int }}"
   changed_when: false
   failed_when: false
 
-- name: "Readiness | Wait for SSH when the guest agent is down | {{ runtime_readiness_instance.instance_name }}"
-  ansible.builtin.wait_for:
-    host: "{{ runtime_readiness_instance.instance_ipv4_address }}"
-    port: "{{ runtime_readiness_instance.ssh_port | default(22) }}"
-    timeout: "{{ kvm_qemu_guest_agent_wait_timeout_seconds | int }}"
-    state: started
-  when: (runtime_qga_ping_result.rc | int) != 0
-
-- name: "Readiness | Install qemu-guest-agent over SSH | {{ runtime_readiness_instance.instance_name }}"
-  ansible.builtin.apt:
-    name: qemu-guest-agent
-    state: present
-    update_cache: true
-  become: true
-  delegate_to: "{{ runtime_readiness_instance.instance_ipv4_address }}"
-  vars:
-    ansible_connection: ssh
-    ansible_user: "{{ runtime_readiness_instance.cloud_init_user }}"
-    ansible_port: "{{ runtime_readiness_instance.ssh_port | default(22) }}"
-    ansible_python_interpreter: /usr/bin/python3
-    ansible_ssh_common_args: "-o StrictHostKeyChecking=accept-new"
-  when: (runtime_qga_ping_result.rc | int) != 0
-
-- name: "Readiness | Start qemu-guest-agent over SSH | {{ runtime_readiness_instance.instance_name }}"
-  ansible.builtin.systemd:
-    name: qemu-guest-agent
-    enabled: true
-    state: started
-  become: true
-  delegate_to: "{{ runtime_readiness_instance.instance_ipv4_address }}"
-  vars:
-    ansible_connection: ssh
-    ansible_user: "{{ runtime_readiness_instance.cloud_init_user }}"
-    ansible_port: "{{ runtime_readiness_instance.ssh_port | default(22) }}"
-    ansible_python_interpreter: /usr/bin/python3
-    ansible_ssh_common_args: "-o StrictHostKeyChecking=accept-new"
-  when: (runtime_qga_ping_result.rc | int) != 0
-
-- name: "Readiness | Wait for QEMU Guest Agent after SSH install | {{ runtime_readiness_instance.instance_name }}"
-  ansible.builtin.command:
-    argv:
-      - virsh
-      - qemu-agent-command
-      - "{{ runtime_readiness_instance.instance_name }}"
-      - '{"execute":"guest-ping"}'
-  register: runtime_qga_ping_after_ssh
-  until: (runtime_qga_ping_after_ssh.rc | int) == 0
-  retries: 24
-  delay: 5
-  changed_when: false
-  failed_when: false
-  when: (runtime_qga_ping_result.rc | int) != 0
-
-- name: "Readiness | Record guest-agent result after SSH install | {{ runtime_readiness_instance.instance_name }}"
-  ansible.builtin.set_fact:
-    runtime_qga_ping_result: "{{ runtime_qga_ping_after_ssh }}"
-  when:
-    - (runtime_qga_ping_result.rc | int) != 0
-    - runtime_qga_ping_after_ssh is defined
+- name: "Readiness | Fail when the domain is not running | {{ runtime_readiness_instance.instance_name }}"
+  ansible.builtin.fail:
+    msg: >-
+      {{ runtime_readiness_instance.instance_name }} is not running, so the
+      guest agent cannot answer.
+      Last error: {{ runtime_qga_ping_result.stderr | default('no stderr') }}.
+      Inspect: virsh domstate {{ runtime_readiness_instance.instance_name }};
+      tail -n 200 /var/log/libvirt/qemu/{{ runtime_readiness_instance.instance_name }}.log
+  when: (runtime_qga_ping_result.rc | int) == 2
 
 - name: "Readiness | Fail when QEMU Guest Agent is unavailable | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.fail:
     msg: >-
-      QEMU Guest Agent did not become available for
+      QEMU Guest Agent did not answer for
       {{ runtime_readiness_instance.instance_name }} within
       {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds.
-      Last error: {{ runtime_qga_ping_result.stderr | default('no stderr') }}.
-      SSH on {{ runtime_readiness_instance.instance_ipv4_address }}:{{ runtime_readiness_instance.ssh_port | default(22) }}
-      was used to install qemu-guest-agent when the virtio channel stayed down.
-      Confirm the org.qemu.guest_agent.0 channel and first-boot APT.
-      Inspect: virsh dumpxml {{ runtime_readiness_instance.instance_name }};
-      tail -n 200 /var/log/libvirt/qemu/{{ runtime_readiness_instance.instance_name }}.log
-  when: (runtime_qga_ping_result.rc | int) != 0
+      The domain is still running. Last error:
+      {{ runtime_qga_ping_result.stderr | default('no stderr') }}.
+      First boot installs qemu-guest-agent and does not dist-upgrade.
+      Run the same make provision again. It will not recreate this domain.
+      Inspect: virsh qemu-agent-command {{ runtime_readiness_instance.instance_name }} '{"execute":"guest-ping"}'
+  when: (runtime_qga_ping_result.rc | int) not in [0, 2]
 
 - name: "Readiness | Run guest checkpoints | {{ runtime_readiness_instance.instance_name }}"
   ansible.builtin.shell: |

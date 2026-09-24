@@ -151,8 +151,10 @@ Edit the real values in that file, not in the tracked files:
    `kvm_default_cloud_init_extra_hosts` (cloud-init `write_files` on the
    hosts templates). Optional
    `kvm_default_cloud_init_disable_multicast_dns` turns mDNS/LLMNR off.
-   If the virtio guest agent stays down, provision installs
-   `qemu-guest-agent` over SSH on port 22 and starts the service.
+   Provision polls `guest-ping` with virsh on the hypervisor until the
+   guest agent answers. It does not SSH to the guest to install the
+   agent. First boot installs `qemu-guest-agent` and does not
+   dist-upgrade. The hardening playbook runs the dist-upgrade.
    Ubuntu 26.04 uses `virt_install_os_variant:
    ubuntu25.10` until libosinfo ships `ubuntu26.04`. `nocloud` is blocked
    by default; override only if intentional with
