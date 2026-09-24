@@ -1,0 +1,225 @@
+#!/bin/bash
+# Add, deactivate, or remove an OpenVPN client on this firewall pair.
+# Run it over SSH. It updates this node and the peer.
+set -euo pipefail
+export PATH="/usr/bin:/bin:/usr/local/sbin"
+
+conf=/etc/openvpn/server/vpn-client.conf
+if [[ ! -f "$conf" ]]; then
+  echo "Missing $conf. Deploy the linux-firewall playbook first." >&2
+  exit 1
+fi
+# shellcheck disable=SC1090
+source "$conf"
+
+local_only=0
+if [[ "${1:-}" == "--local" ]]; then
+  local_only=1
+  shift
+fi
+
+usage() {
+  cat <<'EOF'
+Usage:
+  vpn-client add admin NAME
+  vpn-client add user NAME
+  vpn-client deactivate NAME
+  vpn-client remove NAME
+
+admin reaches 10.32.0.0/24 and 192.168.32.0/24.
+user reaches 192.168.32.0/24 only.
+The connection file is /root/openvpn-clients/NAME.ovpn
+The guide is /usr/local/share/doc/linux-firewall/vpn-client-guide.md
+EOF
+}
+
+valid_name() {
+  [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_-]{0,31}$ ]]
+}
+
+allow_file() {
+  case "$1" in
+    admin) printf '%s\n' /etc/openvpn/server/allowed-admin ;;
+    user) printf '%s\n' /etc/openvpn/server/allowed-user ;;
+    *) echo "Profile must be admin or user." >&2; exit 1 ;;
+  esac
+}
+
+other_allow_file() {
+  case "$1" in
+    admin) printf '%s\n' /etc/openvpn/server/allowed-user ;;
+    user) printf '%s\n' /etc/openvpn/server/allowed-admin ;;
+  esac
+}
+
+has_name() {
+  grep -qx -- "$2" "$1"
+}
+
+restart_if_master() {
+  if ip -4 -o addr show dev "$WAN_IF" | grep -q -- "$VIP_WAN"; then
+    systemctl restart openvpn-server@admin openvpn-server@user
+  fi
+}
+
+sync_file() {
+  if [[ "$local_only" -eq 1 ]]; then
+    return 0
+  fi
+  scp -q "$1" "vpn-peer:$1"
+}
+
+peer_restart() {
+  if [[ "$local_only" -eq 1 ]]; then
+    return 0
+  fi
+  ssh vpn-peer vpn-client --local restart
+}
+
+issue_cert() {
+  local name="$1"
+  local work
+  work="$(mktemp -d)"
+  trap 'rm -rf "$work"' RETURN
+  printf 'extendedKeyUsage=clientAuth\nkeyUsage=digitalSignature\n' >"$work/client.ext"
+  openssl req -newkey rsa:2048 -nodes \
+    -keyout "$CLIENT_DIR/${name}.key" \
+    -out "$work/${name}.csr" \
+    -subj "/CN=${name}"
+  openssl x509 -req \
+    -in "$work/${name}.csr" \
+    -CA "$CA_CERT" \
+    -CAkey "$CA_KEY" \
+    -set_serial "$(date +%s%N)" \
+    -out "$CLIENT_DIR/${name}.crt" \
+    -days 3650 \
+    -extfile "$work/client.ext"
+  chmod 0600 "$CLIENT_DIR/${name}.key" "$CLIENT_DIR/${name}.crt"
+}
+
+write_ovpn() {
+  local name="$1"
+  local profile="$2"
+  local port routes route
+  local dest="$CLIENT_DIR/${name}.ovpn"
+  if [[ "$profile" == "admin" ]]; then
+    port="$ADMIN_PORT"
+    routes="$ADMIN_ROUTES"
+  else
+    port="$USER_PORT"
+    routes="$USER_ROUTES"
+  fi
+  {
+    cat <<EOF
+# ${name} — split tunnel. Only the route lines below are added.
+client
+dev tun
+proto udp
+remote ${VIP_WAN} ${port}
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+data-ciphers AES-256-GCM:AES-128-GCM
+auth SHA256
+verb 3
+route-nopull
+pull-filter ignore "redirect-gateway"
+pull-filter ignore "route-gateway"
+pull-filter ignore "dhcp-option"
+pull-filter ignore "block-outside-dns"
+EOF
+    IFS='|' read -r -a route_list <<< "$routes"
+    for route in "${route_list[@]}"; do
+      printf 'route %s\n' "$route"
+    done
+    printf '<ca>\n'
+    cat "$CA_CERT"
+    printf '</ca>\n<cert>\n'
+    cat "$CLIENT_DIR/${name}.crt"
+    printf '</cert>\n<key>\n'
+    cat "$CLIENT_DIR/${name}.key"
+    printf '</key>\n'
+  } >"$dest"
+  chmod 0600 "$dest"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  restart)
+    restart_if_master
+    exit 0
+    ;;
+  add|deactivate|remove) ;;
+  ""|-h|--help|help) usage; exit 0 ;;
+  *) usage >&2; exit 1 ;;
+esac
+
+if [[ "$cmd" == "add" ]]; then
+  profile="${2:-}"
+  name="${3:-}"
+  allow_file "$profile" >/dev/null
+else
+  name="${2:-}"
+  profile=""
+fi
+
+if ! valid_name "$name"; then
+  echo "Name '$name' must start with a letter and use only letters, digits, _ or -." >&2
+  exit 1
+fi
+
+install -d -m 0700 "$CLIENT_DIR"
+
+if [[ "$cmd" == "add" ]]; then
+  mine="$(allow_file "$profile")"
+  other="$(other_allow_file "$profile")"
+  if has_name "$other" "$name"; then
+    echo "$name is already on the other profile. Deactivate it there first." >&2
+    exit 1
+  fi
+  if [[ ! -f "$CLIENT_DIR/${name}.crt" || ! -f "$CLIENT_DIR/${name}.key" ]]; then
+    issue_cert "$name"
+  fi
+  write_ovpn "$name" "$profile"
+  if ! has_name "$mine" "$name"; then
+    printf '%s\n' "$name" >>"$mine"
+  fi
+  sync_file "$mine"
+  sync_file "$CLIENT_DIR/${name}.ovpn"
+  sync_file "$CLIENT_DIR/${name}.crt"
+  sync_file "$CLIENT_DIR/${name}.key"
+  restart_if_master
+  peer_restart
+  echo "$CLIENT_DIR/${name}.ovpn"
+  exit 0
+fi
+
+admin_file=/etc/openvpn/server/allowed-admin
+user_file=/etc/openvpn/server/allowed-user
+for allow in "$admin_file" "$user_file"; do
+  if [[ -f "$allow" ]] && has_name "$allow" "$name"; then
+    grep -vx -- "$name" "$allow" >"${allow}.tmp"
+    mv "${allow}.tmp" "$allow"
+    chmod 0644 "$allow"
+  fi
+done
+sync_file "$admin_file"
+sync_file "$user_file"
+
+if [[ "$cmd" == "remove" ]]; then
+  rm -f \
+    "$CLIENT_DIR/${name}.ovpn" \
+    "$CLIENT_DIR/${name}.crt" \
+    "$CLIENT_DIR/${name}.key"
+  if [[ "$local_only" -eq 0 ]]; then
+    ssh vpn-peer rm -f \
+      "$CLIENT_DIR/${name}.ovpn" \
+      "$CLIENT_DIR/${name}.crt" \
+      "$CLIENT_DIR/${name}.key"
+  fi
+fi
+
+restart_if_master
+peer_restart
+echo "$cmd $name"

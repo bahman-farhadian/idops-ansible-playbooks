@@ -230,7 +230,7 @@ Ping does not need full facts.
 ## Perimeter firewall
 
 The Linux perimeter firewall is a pair of DNS guests
-(`ae-internal-services/linux-dns-firewall`). Provision two guests.
+(`ae-internal-services/linux-firewall`). Provision two guests.
 keepalived moves a WAN VIP and a LAN VIP between them. It runs on
 Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04. OS hardening
 applies. Forwarding and SNAT are the hardening firewall role on

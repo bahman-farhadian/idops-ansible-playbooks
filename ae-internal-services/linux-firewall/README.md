@@ -1,4 +1,4 @@
-# linux-dns-firewall
+# linux-firewall
 
 Two Debian or Ubuntu guests are the DNS servers and the Linux
 firewall for one stack. keepalived moves one WAN VIP and one LAN VIP
@@ -14,10 +14,10 @@ and `192.168.32.0/24`. A user client can reach `192.168.32.0/24`
 only. The client file installs those routes and nothing else. It does
 not change DNS, and it ignores a full-tunnel push.
 
-Adding, deactivating, and removing a client is described in
-[README-vpn-clients.md](README-vpn-clients.md). Deploy writes
-`artifacts/openvpn/clients/<name>.ovpn` for each current name and
-deletes the files of a name you removed.
+Adding, deactivating, and removing a client is an SSH command on
+the firewall. The guide is
+[vpn-client-guide.md](vpn-client-guide.md). Deploy copies it to
+both nodes at `/usr/local/share/doc/linux-firewall/vpn-client-guide.md`.
 
 WireGuard is a later addition on this same pair.
 

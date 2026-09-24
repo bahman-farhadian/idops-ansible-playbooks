@@ -23,31 +23,13 @@
         network: "{{ openvpn_admin_network }}"
         netmask: "{{ openvpn_admin_netmask }}"
         routes: "{{ openvpn_admin_routes }}"
-        allowed: "{{ openvpn_admin_clients }}"
       - name: user
         port: "{{ openvpn_user_port | int }}"
         device: tun-user
         network: "{{ openvpn_user_network }}"
         netmask: "{{ openvpn_user_netmask }}"
         routes: "{{ openvpn_user_routes }}"
-        allowed: "{{ openvpn_user_clients }}"
     openvpn_pki_dir: "{{ playbook_dir }}/artifacts/openvpn"
-
-- name: Reset the VPN client profile list
-  ansible.builtin.set_fact:
-    openvpn_client_profiles: []
-
-- name: Record one profile per VPN client
-  ansible.builtin.set_fact:
-    openvpn_client_profiles: "{{ openvpn_client_profiles | default([]) + [openvpn_one_client] }}"
-  vars:
-    openvpn_one_client:
-      name: "{{ item.1 }}"
-      port: "{{ item.0.port }}"
-      routes: "{{ item.0.routes }}"
-  loop: "{{ openvpn_profiles | subelements('allowed') }}"
-  loop_control:
-    label: "{{ item.1 }}"
 
 - name: Install keepalived and OpenVPN
   ansible.builtin.apt:
@@ -70,7 +52,6 @@
           playbook_dir ~ '/files/openvpn-init-pki.sh',
           openvpn_pki_dir
         ]
-        + (openvpn_client_profiles | map(attribute='name') | list)
       }}
   delegate_to: localhost
   become: false
@@ -103,17 +84,19 @@
     group: root
     mode: "0755"
 
-- name: Write the OpenVPN client allow list
+- name: Create an empty OpenVPN allow list when missing
   ansible.builtin.copy:
-    dest: "/etc/openvpn/server/allowed-{{ item.name }}"
+    dest: "/etc/openvpn/server/allowed-{{ item }}"
     owner: root
     group: root
     mode: "0644"
-    content: "{{ item.allowed | join('\n') ~ '\n' }}"
-  loop: "{{ openvpn_profiles }}"
+    content: ""
+    force: false
+  loop:
+    - admin
+    - user
   loop_control:
-    label: "{{ item.name }}"
-  register: openvpn_allow_list
+    label: "{{ item }}"
 
 - name: Install OpenVPN CA and server certificate
   ansible.builtin.copy:
@@ -124,6 +107,7 @@
     mode: "{{ item.mode }}"
   loop:
     - {name: ca.crt, mode: "0644"}
+    - {name: ca.key, mode: "0600"}
     - {name: server.crt, mode: "0644"}
     - {name: server.key, mode: "0600"}
   loop_control:
@@ -165,33 +149,37 @@
   loop_control:
     label: "{{ item.source | default('openvpn-server') }}"
 
-- name: Create the client profile directory on the control node
+- name: Install the VPN client command
+  ansible.builtin.copy:
+    src: vpn-client
+    dest: /usr/local/sbin/vpn-client
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create the firewall documentation directory
   ansible.builtin.file:
-    path: "{{ openvpn_pki_dir }}/clients"
+    path: /usr/local/share/doc/linux-firewall
     state: directory
     owner: root
     group: root
-    mode: "0700"
-  delegate_to: localhost
-  become: false
-  run_once: true
+    mode: "0755"
 
-- name: Write OpenVPN client profiles on the control node
+- name: Install the VPN client guide
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/vpn-client-guide.md"
+    dest: /usr/local/share/doc/linux-firewall/vpn-client-guide.md
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Write the VPN client command settings
   ansible.builtin.template:
-    src: openvpn-client.ovpn.j2
-    dest: "{{ openvpn_pki_dir }}/clients/{{ item.name }}.ovpn"
+    src: vpn-client.conf.j2
+    dest: /etc/openvpn/server/vpn-client.conf
     owner: root
     group: root
     mode: "0600"
-  delegate_to: localhost
-  become: false
-  run_once: true
-  loop: "{{ openvpn_client_profiles }}"
-  loop_control:
-    label: "{{ item.name }}"
-  vars:
-    openvpn_profile: "{{ item }}"
-  no_log: true
 
 - name: Create the client profile directory
   ansible.builtin.file:
@@ -201,90 +189,61 @@
     group: root
     mode: "0700"
 
-- name: Write OpenVPN client profiles
-  ansible.builtin.template:
-    src: openvpn-client.ovpn.j2
-    dest: "/root/openvpn-clients/{{ item.name }}.ovpn"
+- name: Create the root SSH directory
+  ansible.builtin.file:
+    path: /root/.ssh
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Create this node's VPN sync key
+  ansible.builtin.command:
+    argv:
+      - ssh-keygen
+      - -t
+      - ed25519
+      - -N
+      - ""
+      - -f
+      - /root/.ssh/id_ed25519_vpn
+  args:
+    creates: /root/.ssh/id_ed25519_vpn
+
+- name: Read this node's VPN sync public key
+  ansible.builtin.slurp:
+    src: /root/.ssh/id_ed25519_vpn.pub
+  register: vpn_sync_pub
+
+- name: Record this node's VPN sync public key
+  ansible.builtin.set_fact:
+    vpn_sync_public_key: "{{ vpn_sync_pub.content | b64decode | trim }}"
+
+- name: Authorize the peer VPN sync key
+  ansible.builtin.lineinfile:
+    path: /root/.ssh/authorized_keys
+    create: true
     owner: root
     group: root
     mode: "0600"
-  loop: "{{ openvpn_client_profiles }}"
-  loop_control:
-    label: "{{ item.name }}"
-  vars:
-    openvpn_profile: "{{ item }}"
-  no_log: true
+    line: "{{ hostvars[firewall_ha_peer.name]['vpn_sync_public_key'] }}"
 
-- name: List client profiles kept on the control node
-  ansible.builtin.find:
-    paths: "{{ openvpn_pki_dir }}/clients"
-    patterns: "*.ovpn"
-    file_type: file
-  delegate_to: localhost
-  become: false
-  run_once: true
-  register: openvpn_kept_client_profiles
+- name: Include the VPN peer SSH settings
+  ansible.builtin.lineinfile:
+    path: /root/.ssh/config
+    create: true
+    owner: root
+    group: root
+    mode: "0600"
+    line: "Include /root/.ssh/vpn-peer.conf"
 
-- name: Remove retired client profiles on the control node
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  delegate_to: localhost
-  become: false
-  run_once: true
-  loop: "{{ openvpn_kept_client_profiles.files | default([]) }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  when: >-
-    (item.path | basename | splitext | first)
-    not in (openvpn_client_profiles | map(attribute='name') | list)
-
-- name: List client certificates on the control node
-  ansible.builtin.find:
-    paths: "{{ openvpn_pki_dir }}"
-    patterns:
-      - "*.crt"
-      - "*.key"
-    file_type: file
-    recurse: false
-  delegate_to: localhost
-  become: false
-  run_once: true
-  register: openvpn_kept_client_keys
-
-- name: Remove retired client certificates on the control node
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  delegate_to: localhost
-  become: false
-  run_once: true
-  loop: "{{ openvpn_kept_client_keys.files | default([]) }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  when:
-    - (item.path | basename) not in ['ca.crt', 'ca.key', 'server.crt', 'server.key']
-    - >-
-      (item.path | basename | splitext | first)
-      not in (openvpn_client_profiles | map(attribute='name') | list)
-
-- name: List client profiles on this firewall
-  ansible.builtin.find:
-    paths: /root/openvpn-clients
-    patterns: "*.ovpn"
-    file_type: file
-  register: openvpn_node_client_profiles
-
-- name: Remove retired client profiles on this firewall
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
-  loop: "{{ openvpn_node_client_profiles.files | default([]) }}"
-  loop_control:
-    label: "{{ item.path | basename }}"
-  when: >-
-    (item.path | basename | splitext | first)
-    not in (openvpn_client_profiles | map(attribute='name') | list)
+- name: Write the VPN peer SSH settings
+  ansible.builtin.template:
+    src: vpn-peer.conf.j2
+    dest: /root/.ssh/vpn-peer.conf
+    owner: root
+    group: root
+    mode: "0600"
 
 - name: Keep OpenVPN from starting at boot
   ansible.builtin.systemd:
@@ -327,10 +286,7 @@
     state: >-
       {{
         'restarted'
-        if (
-          (openvpn_server_config is changed)
-          or (openvpn_allow_list is changed)
-        )
+        if (openvpn_server_config is changed)
         else 'started'
       }}
   loop: "{{ openvpn_profiles }}"

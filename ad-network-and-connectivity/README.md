@@ -7,7 +7,7 @@ Domain status: the Linux firewall is the DNS guest. OPNsense is later.
 ## Firewall
 
 The Linux perimeter firewall is the guest from
-`ae-internal-services/linux-dns-firewall`. That guest is Debian 12,
+`ae-internal-services/linux-firewall`. That guest is Debian 12,
 Debian 13, Ubuntu 24.04, or Ubuntu 26.04. OS hardening applies.
 Forwarding and SNAT are the hardening firewall role on that guest.
 

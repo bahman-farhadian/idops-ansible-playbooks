@@ -1,0 +1,10 @@
+WAN_IF={{ firewall_wan_interface }}
+VIP_WAN={{ firewall_ha_vip_wan }}
+ADMIN_PORT={{ openvpn_admin_port }}
+USER_PORT={{ openvpn_user_port }}
+ADMIN_ROUTES="{% for route in openvpn_admin_routes %}{{ route.address }} {{ route.netmask }}{% if not loop.last %}|{% endif %}{% endfor %}"
+USER_ROUTES="{% for route in openvpn_user_routes %}{{ route.address }} {{ route.netmask }}{% if not loop.last %}|{% endif %}{% endfor %}"
+
+CA_CERT=/etc/openvpn/server/ca.crt
+CA_KEY=/etc/openvpn/server/ca.key
+CLIENT_DIR=/root/openvpn-clients

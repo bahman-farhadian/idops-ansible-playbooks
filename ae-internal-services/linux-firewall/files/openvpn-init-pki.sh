@@ -6,8 +6,8 @@ set -euo pipefail
 
 dest="${1:-}"
 shift || true
-if [[ -z "$dest" || $# -lt 1 ]]; then
-  echo "Usage: openvpn-init-pki.sh DEST_DIR CLIENT [CLIENT...]" >&2
+if [[ -z "$dest" ]]; then
+  echo "Usage: openvpn-init-pki.sh DEST_DIR [CLIENT ...]" >&2
   exit 1
 fi
 

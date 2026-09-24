@@ -101,25 +101,6 @@
           A single firewall is not deployed. Set the pair and both VIPs in
           {{ bind_selected_local_settings_file }}.
 
-    - name: Fail when a VPN client name is not usable
-      ansible.builtin.assert:
-        that:
-          - openvpn_admin_clients is sequence
-          - openvpn_admin_clients is not string
-          - openvpn_user_clients is sequence
-          - openvpn_user_clients is not string
-          - ((openvpn_admin_clients + openvpn_user_clients) | length) > 0
-          - (openvpn_admin_clients | intersect(openvpn_user_clients) | length) == 0
-          - item is match('^[A-Za-z][A-Za-z0-9_-]{0,31}$')
-        fail_msg: >-
-          Add VPN client names to openvpn_admin_clients or
-          openvpn_user_clients in {{ bind_selected_local_settings_file }}.
-          A name starts with a letter and uses letters, digits, underscore,
-          or hyphen. The same name cannot be in both lists.
-      loop: "{{ openvpn_admin_clients + openvpn_user_clients }}"
-      loop_control:
-        label: "{{ item }}"
-
     - name: Fail when the zone uses the multicast DNS TLD .local
       ansible.builtin.assert:
         that:

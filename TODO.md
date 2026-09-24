@@ -12,7 +12,7 @@ the branch/PR that picks the item up, not in this file.
 No open items. Ubuntu 24.04 and 26.04 catalog profiles live in
 `vars/04-images.yml` (`image_distro: ubuntu`).
 
-## ae-internal-services/linux-dns-firewall
+## ae-internal-services/linux-firewall
 
 The same guest is BIND and the Linux firewall. Recursive cache plus
 authoritative `idops-repository.idops`. Forwarding and SNAT stay in

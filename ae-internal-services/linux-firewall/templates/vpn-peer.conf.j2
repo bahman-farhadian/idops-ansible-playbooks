@@ -1,0 +1,7 @@
+Host vpn-peer
+    HostName {{ firewall_ha_peer.wan_address }}
+    Port {{ hostvars[firewall_ha_peer.name].ansible_port | default(2222) }}
+    User root
+    IdentityFile /root/.ssh/id_ed25519_vpn
+    IdentitiesOnly yes
+    StrictHostKeyChecking accept-new

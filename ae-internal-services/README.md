@@ -4,7 +4,8 @@ Domain for in-house platform services such as DNS.
 
 ## Implemented projects
 
-- `linux-dns-firewall/`
+- `linux-firewall/`
+  - Linux firewall pair. OPNsense is a later, separate project
   - Two guests with keepalived and a WAN VIP plus a LAN VIP
   - BIND 9 as a systemd service on both nodes
   - Recursive cache for internet names

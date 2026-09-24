@@ -18,7 +18,7 @@ SETTINGS_ARG := -e bind_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 help:
-	@printf "linux-dns-firewall - DNS and firewall pair\n\n"
+	@printf "linux-firewall - Linux firewall pair\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
 	@printf "  %-28s %s\n" "make settings" "create or update your local settings file"
