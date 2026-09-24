@@ -1,22 +1,22 @@
 # ad-network-and-connectivity
 
-Domain for routing, addressing, and the perimeter firewall.
+Domain for routing, addressing, and segmentation.
 
-Domain status: not started
+Domain status: the Linux firewall is the DNS guest. OPNsense is later.
 
 ## Firewall
 
-The operator runs one perimeter firewall. The two projects are independent.
+The Linux perimeter firewall is the guest from
+`ae-internal-services/linux-dns-firewall`. That guest is Debian 12,
+Debian 13, Ubuntu 24.04, or Ubuntu 26.04. OS hardening applies.
+Forwarding and SNAT are the hardening firewall role on that guest.
 
-- Debian or Ubuntu firewall. A normal cloud-init guest on Debian 12,
-  Debian 13, Ubuntu 24.04, or Ubuntu 26.04. The playbook configures
-  forwarding, SNAT, DNAT, address blocks, a DMZ, OpenVPN, and WireGuard.
-  OS hardening applies to this guest.
-- OPNsense. Its own install image and its own playbook. Configuration is
-  `config.xml` or the HTTPS API. It does not use cloud-init, and OS
-  hardening does not apply.
+OPNsense is a later project in this domain. It uses its own install
+image and its own playbook. Configuration is `config.xml` or the
+HTTPS API. It does not use cloud-init, and OS hardening does not
+apply.
 
 ## Status
 
-- Operator choice recorded: yes (run one project)
-- First playbook implemented: no
+- Linux firewall: the DNS guest
+- OPNsense playbook: not started

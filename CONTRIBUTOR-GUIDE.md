@@ -229,19 +229,19 @@ Ping does not need full facts.
 
 ## Perimeter firewall
 
-The operator chooses one perimeter firewall. Ship the two choices as
-independent projects under `ad-network-and-connectivity`. The operator
-runs one of them.
+The Linux perimeter firewall is the DNS guest
+(`ae-internal-services/linux-dns-firewall`). Provision that guest
+once. It runs on Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04.
+OS hardening applies. Forwarding and SNAT are the hardening firewall
+role on that guest (`firewall_forward_ipv4_enabled`,
+`firewall_nat_ipv4_enabled`).
 
-- Debian or Ubuntu firewall. A normal cloud-init guest on one of the
-  four supported releases. The playbook configures forwarding, SNAT,
-  DNAT, address blocks, a DMZ, OpenVPN, and WireGuard. The hardening
-  playbook applies to this guest.
-- OPNsense. Its own install image and its own playbook. Configuration
-  is `config.xml` or the HTTPS API. This guest does not use cloud-init,
-  and the hardening playbook does not apply.
+OPNsense is a later project under `ad-network-and-connectivity`.
+It uses its own install image and its own playbook. Configuration is
+`config.xml` or the HTTPS API. That guest does not use cloud-init,
+and the hardening playbook does not apply.
 
-Do not make one playbook install both.
+Do not install OPNsense on the Linux firewall guest.
 
 ## Large files
 

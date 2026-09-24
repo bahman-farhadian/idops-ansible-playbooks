@@ -5,18 +5,18 @@ the branch/PR that picks the item up, not in this file.
 
 ## ad-network-and-connectivity
 
-- Perimeter firewall. The operator runs one project:
-  - Debian/Ubuntu cloud-init guest (forward, NAT, DNAT, DMZ, OpenVPN, WireGuard)
-  - OPNsense (own image, config.xml or HTTPS API)
+- OPNsense perimeter firewall (later): own image, `config.xml` or HTTPS API.
 
 ## ac-vm-provisioning/kvm-vm-provisioning
 
 No open items. Ubuntu 24.04 and 26.04 catalog profiles live in
 `vars/04-images.yml` (`image_distro: ubuntu`).
 
-## ae-internal-services/bind9-dns
+## ae-internal-services/linux-dns-firewall
 
-No open items. Recursive cache plus authoritative `idops-repository.idops`.
+The same guest is BIND and the Linux firewall. Recursive cache plus
+authoritative `idops-repository.idops`. Forwarding and SNAT stay in
+the hardening firewall role.
 
 ## af-artifact-management/nexus-repository-systemd
 

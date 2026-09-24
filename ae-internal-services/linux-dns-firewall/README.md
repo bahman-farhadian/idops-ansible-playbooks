@@ -1,4 +1,7 @@
-# bind9-dns
+# linux-dns-firewall
+
+One Debian or Ubuntu guest is the DNS server and the Linux firewall
+for the stack. This playbook installs BIND 9 on that guest.
 
 Install BIND 9 as a systemd service. One process does two jobs:
 
