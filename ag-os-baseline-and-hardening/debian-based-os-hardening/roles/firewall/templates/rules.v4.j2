@@ -25,12 +25,28 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
+{% if (firewall_allowed_tcp_cidrs | default([])) | length > 0 %}
+{% for cidr in firewall_allowed_tcp_cidrs if ':' not in (cidr | string) %}
+{% for port in firewall_allowed_tcp_ports %}
+-A INPUT -p tcp -s {{ cidr }} --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% endfor %}
+{% else %}
 {% for port in firewall_allowed_tcp_ports %}
 -A INPUT -p tcp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
 {% endfor %}
+{% endif %}
+{% if (firewall_allowed_udp_cidrs | default([])) | length > 0 %}
+{% for cidr in firewall_allowed_udp_cidrs if ':' not in (cidr | string) %}
+{% for port in firewall_allowed_udp_ports %}
+-A INPUT -p udp -s {{ cidr }} --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
+{% endfor %}
+{% endfor %}
+{% else %}
 {% for port in firewall_allowed_udp_ports %}
 -A INPUT -p udp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
 {% endfor %}
+{% endif %}
 -A INPUT -j DROP
 
 {% if firewall_forward_ipv4_enabled | bool %}

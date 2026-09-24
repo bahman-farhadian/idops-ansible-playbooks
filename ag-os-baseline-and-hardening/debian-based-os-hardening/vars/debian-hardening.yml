@@ -313,8 +313,12 @@ firewall_allowed_ssh_cidrs: []              # SSH CIDR allow list when not open 
 firewall_allow_private_networks: true       # Accept all traffic (any port/protocol) from RFC1918 IPv4 / ULA IPv6 ranges. Values: true | false.
 firewall_allowed_tcp_ports: []              # Additional allowed TCP ports (IPv4). Values: [] | list of port numbers.
 firewall_allowed_udp_ports: []              # Additional allowed UDP ports (IPv4). Values: [] | list of port numbers.
+firewall_allowed_tcp_cidrs: []              # Sources for those TCP ports. Empty means any source. Values: [] | list of IPv4 CIDRs.
+firewall_allowed_udp_cidrs: []              # Sources for those UDP ports. Empty means any source. Values: [] | list of IPv4 CIDRs.
 firewall_allowed_tcp_ports_v6: []           # Additional allowed TCP ports (IPv6). Values: [] | list of port numbers.
 firewall_allowed_udp_ports_v6: []           # Additional allowed UDP ports (IPv6). Values: [] | list of port numbers.
+firewall_allowed_tcp_cidrs_v6: []           # Sources for those TCP ports. Empty means any source. Values: [] | list of IPv6 CIDRs.
+firewall_allowed_udp_cidrs_v6: []           # Sources for those UDP ports. Empty means any source. Values: [] | list of IPv6 CIDRs.
 firewall_forward_ipv4_enabled: false        # Enable IPv4 forwarding. Values: true | false.
 firewall_forward_ipv4_lan_interface: ""     # LAN interface for forwarding. Values: "" (disabled) | an interface name, e.g. "eth1".
 firewall_forward_ipv4_wan_interface: ""     # WAN interface for forwarding. Values: "" (disabled) | an interface name, e.g. "eth0".
