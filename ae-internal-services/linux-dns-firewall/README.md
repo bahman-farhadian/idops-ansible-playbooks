@@ -2,6 +2,9 @@
 
 One Debian or Ubuntu guest is the DNS server and the Linux firewall
 for the stack. This playbook installs BIND 9 on that guest.
+Hardening of this guest turns on IPv4 forwarding and SNAT. With one
+NIC, that NIC is both the LAN and the WAN. A VPN tunnel is added
+later on this same guest and becomes another LAN.
 
 Install BIND 9 as a systemd service. One process does two jobs:
 
