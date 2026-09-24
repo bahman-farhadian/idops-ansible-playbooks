@@ -82,3 +82,10 @@ docker_engine_live_restore: true # Default live-restore when a host does not set
 docker_engine_log_max_size: "10m" # json-file max size per container. Example: "10m".
 docker_engine_log_max_file: "3"   # json-file rotated files per container. Example: "3".
 docker_engine_daemon_log_dir: "/var/log/docker" # rsyslog destination for dockerd. Example: "/var/log/docker".
+
+# Docker Hub pulls go to this Nexus docker proxy (registry-mirrors).
+# An empty list fails deploy. HTTP mirrors are also written as
+# insecure-registries. Example:
+# docker_engine_registry_mirrors:
+#   - "http://docker.idops-repository.idops:8082"
+docker_engine_registry_mirrors: [] # Values: list of Nexus docker proxy URLs. Example: ["http://docker.example.idops:8082"].

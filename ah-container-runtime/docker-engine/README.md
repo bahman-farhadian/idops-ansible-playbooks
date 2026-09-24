@@ -45,6 +45,9 @@ Deploy also:
   engine was already installed somewhere else.
 - Writes `/etc/docker/daemon.json` (`overlay2`, `icc` false,
   `no-new-privileges` true, json-file logs `10m` / 3 files).
+  `registry-mirrors` is the Nexus Docker Hub proxy from
+  `docker_engine_registry_mirrors`. Docker Hub image pulls use that
+  proxy. An HTTP mirror is also added to `insecure-registries`.
 - Holds the five packages so a later apt upgrade cannot move them.
 - Sends dockerd syslog to `/var/log/docker`.
 

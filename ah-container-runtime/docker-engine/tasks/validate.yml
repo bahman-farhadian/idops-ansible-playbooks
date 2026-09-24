@@ -74,6 +74,44 @@
   register: docker_engine_holds
   changed_when: false
 
+- name: Read the running registry mirrors
+  ansible.builtin.command:
+    argv:
+      - docker
+      - info
+      - -f
+      - "{% raw %}{{json .RegistryConfig.Mirrors}}{% endraw %}"
+  register: docker_engine_mirrors_raw
+  changed_when: false
+
+- name: Normalize configured and running registry mirrors
+  ansible.builtin.set_fact:
+    docker_engine_running_mirrors: >-
+      {{
+        (docker_engine_mirrors_raw.stdout | trim | from_json | default([], true))
+        | map('regex_replace', '/+$', '')
+        | list
+      }}
+    docker_engine_expected_mirrors: >-
+      {{
+        docker_engine_registry_mirrors
+        | map('regex_replace', '/+$', '')
+        | list
+      }}
+
+- name: Fail when the engine is not using the Nexus mirror
+  ansible.builtin.assert:
+    that:
+      - item in docker_engine_running_mirrors
+    fail_msg: >-
+      Docker on {{ inventory_hostname }} is not using the Nexus mirror
+      {{ item }}. Running mirrors:
+      {{ docker_engine_running_mirrors | join(', ') }}.
+      Check /etc/docker/daemon.json and run make deploy again.
+  loop: "{{ docker_engine_expected_mirrors }}"
+  loop_control:
+    label: "{{ item }}"
+
 - name: Fail when a Docker package is not held
   ansible.builtin.assert:
     that:

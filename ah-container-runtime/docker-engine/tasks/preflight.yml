@@ -74,6 +74,45 @@
       Point it at the Nexus apt proxy that caches Docker CE stable for
       {{ docker_engine_suite }}. This playbook does not add download.docker.com.
 
+- name: Fail when Docker image pulls have no Nexus mirror
+  ansible.builtin.assert:
+    that:
+      - docker_engine_registry_mirrors is sequence
+      - docker_engine_registry_mirrors is not string
+      - (docker_engine_registry_mirrors | length) > 0
+    fail_msg: >-
+      docker_engine_registry_mirrors is empty in
+      {{ docker_engine_selected_local_settings_file | default('your local settings file') }}.
+      Set it to the Nexus Docker Hub proxy, for example
+      http://docker.idops-repository.idops:8082.
+      Image pulls would go to Docker Hub.
+
+- name: Fail when a registry mirror is not the Nexus proxy URL
+  ansible.builtin.assert:
+    that:
+      - item is match('^https?://[^/:]+:[0-9]+/?$')
+      - "'registry-1.docker.io' not in item"
+      - "'download.docker.com' not in item"
+      - "'docker.io' not in item"
+    fail_msg: >-
+      docker_engine_registry_mirrors entry {{ item }} must be the Nexus
+      proxy URL, for example http://docker.idops-repository.idops:8082.
+      This playbook does not send image pulls to Docker Hub.
+  loop: "{{ docker_engine_registry_mirrors }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Record HTTP mirrors as insecure registries
+  ansible.builtin.set_fact:
+    docker_engine_insecure_registries: >-
+      {{
+        docker_engine_registry_mirrors
+        | select('match', '^http://')
+        | map('regex_replace', '^https?://', '')
+        | map('regex_replace', '/+$', '')
+        | list
+      }}
+
 - name: Record the apt proxy URL and pinned package versions
   ansible.builtin.set_fact:
     docker_engine_apt_uri: "{{ docker_engine_apt_uris[docker_engine_suite] }}"

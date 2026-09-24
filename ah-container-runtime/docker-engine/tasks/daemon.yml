@@ -81,7 +81,9 @@
           'log-opts': {
             'max-size': docker_engine_log_max_size,
             'max-file': (docker_engine_log_max_file | string)
-          }
+          },
+          'registry-mirrors': docker_engine_registry_mirrors,
+          'insecure-registries': docker_engine_insecure_registries
         }
       }}
 
