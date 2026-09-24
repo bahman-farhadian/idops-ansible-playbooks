@@ -206,6 +206,11 @@ extra TCP and UDP ports to those sources. Leave them empty to allow the
 ports from any source. The IPv6 names are `firewall_allowed_tcp_cidrs_v6`
 and `firewall_allowed_udp_cidrs_v6`.
 
+`firewall_forward_ipv4_rules` replaces the single LAN-to-WAN rule when
+the list is not empty. `firewall_nat_ipv4_rules` does the same for
+masquerade. `firewall_allow_vrrp_sources` accepts VRRP from those
+addresses.
+
 ## Cloud-init and mail
 
 By default (`prep_disable_cloud_init: true`) the playbook turns cloud-init

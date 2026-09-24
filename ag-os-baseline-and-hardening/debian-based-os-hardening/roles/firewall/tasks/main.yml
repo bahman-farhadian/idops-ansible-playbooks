@@ -69,6 +69,22 @@
     fail_msg: >-
       firewall_forward_ipv4_enabled=true requires firewall_forward_ipv4_lan_interface
       and firewall_forward_ipv4_wan_interface to be set.
+  when:
+    - firewall_forward_ipv4_enabled | bool
+    - (firewall_forward_ipv4_rules | default([])) | length == 0
+
+- name: Validate listed IPv4 forward rules
+  ansible.builtin.assert:
+    that:
+      - item.in_interface | default('') | length > 0
+      - item.out_interface | default('') | length > 0
+      - item.source | default('') | length > 0
+    fail_msg: >-
+      Each firewall_forward_ipv4_rules entry needs in_interface, out_interface,
+      and source.
+  loop: "{{ firewall_forward_ipv4_rules | default([]) }}"
+  loop_control:
+    label: "{{ item.in_interface | default('in') }} -> {{ item.out_interface | default('out') }}"
   when: firewall_forward_ipv4_enabled | bool
 
 - name: Validate IPv4 NAT inputs
@@ -79,6 +95,22 @@
     fail_msg: >-
       firewall_nat_ipv4_enabled=true requires firewall_forward_ipv4_enabled=true
       and firewall_forward_ipv4_wan_interface to be set.
+  when:
+    - firewall_nat_ipv4_enabled | bool
+    - (firewall_nat_ipv4_rules | default([])) | length == 0
+
+- name: Validate listed IPv4 NAT rules
+  ansible.builtin.assert:
+    that:
+      - firewall_forward_ipv4_enabled | bool
+      - item.out_interface | default('') | length > 0
+      - item.source | default('') | length > 0
+    fail_msg: >-
+      Each firewall_nat_ipv4_rules entry needs out_interface and source.
+      NAT also requires firewall_forward_ipv4_enabled=true.
+  loop: "{{ firewall_nat_ipv4_rules | default([]) }}"
+  loop_control:
+    label: "{{ item.source | default('source') }} -> {{ item.out_interface | default('out') }}"
   when: firewall_nat_ipv4_enabled | bool
 
 - name: Deploy IPv4 firewall policy

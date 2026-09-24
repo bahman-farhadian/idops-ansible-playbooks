@@ -47,12 +47,19 @@
 -A INPUT -p udp --dport {{ port }} -m conntrack --ctstate NEW -j ACCEPT
 {% endfor %}
 {% endif %}
+{% for source in firewall_allow_vrrp_sources | default([]) %}
+-A INPUT -p 112 -s {{ source }} -j ACCEPT
+{% endfor %}
 -A INPUT -j DROP
 
 {% if firewall_forward_ipv4_enabled | bool %}
 -A FORWARD -m conntrack --ctstate INVALID -j DROP
 -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-{% if firewall_forward_ipv4_lan_cidr | length > 0 %}
+{% if (firewall_forward_ipv4_rules | default([])) | length > 0 %}
+{% for rule in firewall_forward_ipv4_rules %}
+-A FORWARD -i {{ rule.in_interface }} -o {{ rule.out_interface }} -s {{ rule.source }} -j ACCEPT
+{% endfor %}
+{% elif firewall_forward_ipv4_lan_cidr | length > 0 %}
 -A FORWARD -i {{ firewall_forward_ipv4_lan_interface }} -o {{ firewall_forward_ipv4_wan_interface }} -s {{ firewall_forward_ipv4_lan_cidr }} -j ACCEPT
 {% else %}
 -A FORWARD -i {{ firewall_forward_ipv4_lan_interface }} -o {{ firewall_forward_ipv4_wan_interface }} -j ACCEPT
@@ -68,7 +75,13 @@ COMMIT
 :OUTPUT ACCEPT [0:0]
 :POSTROUTING ACCEPT [0:0]
 
+{% if (firewall_nat_ipv4_rules | default([])) | length > 0 %}
+{% for rule in firewall_nat_ipv4_rules %}
+-A POSTROUTING -o {{ rule.out_interface }} -s {{ rule.source }} -j MASQUERADE
+{% endfor %}
+{% else %}
 -A POSTROUTING -o {{ firewall_forward_ipv4_wan_interface }} -j MASQUERADE
+{% endif %}
 
 COMMIT
 {% endif %}

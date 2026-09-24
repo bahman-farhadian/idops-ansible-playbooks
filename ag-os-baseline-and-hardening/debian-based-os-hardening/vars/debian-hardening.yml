@@ -324,6 +324,9 @@ firewall_forward_ipv4_lan_interface: ""     # LAN interface for forwarding. Valu
 firewall_forward_ipv4_wan_interface: ""     # WAN interface for forwarding. Values: "" (disabled) | an interface name, e.g. "eth0".
 firewall_forward_ipv4_lan_cidr: ""          # LAN CIDR for forwarding rules. Values: "" (disabled) | a CIDR, e.g. "192.168.1.0/24".
 firewall_nat_ipv4_enabled: false            # Enable IPv4 NAT masquerade. Values: true | false.
+firewall_forward_ipv4_rules: []             # Forward rules. Empty keeps the single LAN-to-WAN rule. Values: [] | list of {in_interface, out_interface, source}.
+firewall_nat_ipv4_rules: []                 # SNAT rules. Empty masquerades all traffic out the WAN. Values: [] | list of {out_interface, source}.
+firewall_allow_vrrp_sources: []             # IPv4 sources allowed to send VRRP (protocol 112). Values: [] | list of addresses.
 
 # -----------------------------------------------------------------------------
 # Fail2ban settings

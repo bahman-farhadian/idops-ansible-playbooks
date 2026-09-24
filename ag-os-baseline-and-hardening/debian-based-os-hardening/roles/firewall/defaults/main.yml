@@ -23,3 +23,6 @@ firewall_forward_ipv4_lan_interface: ""
 firewall_forward_ipv4_wan_interface: ""
 firewall_forward_ipv4_lan_cidr: ""
 firewall_nat_ipv4_enabled: false
+firewall_forward_ipv4_rules: []
+firewall_nat_ipv4_rules: []
+firewall_allow_vrrp_sources: []
