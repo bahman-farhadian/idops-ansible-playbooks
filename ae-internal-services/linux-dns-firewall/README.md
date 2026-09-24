@@ -14,19 +14,10 @@ and `192.168.32.0/24`. A user client can reach `192.168.32.0/24`
 only. The client file installs those routes and nothing else. It does
 not change DNS, and it ignores a full-tunnel push.
 
-Add a name to `openvpn_admin_clients` or `openvpn_user_clients` in
-the local settings file, then run `make deploy` again. One name is
-one certificate. The same name cannot be in both lists.
-
-After deploy, import the profile from the control node:
-
-`artifacts/openvpn/clients/<name>.ovpn`
-
-The same file is also on each node at
-`/root/openvpn-clients/<name>.ovpn`. Point the client at that file.
-Leave "redirect all traffic" and "block DNS" turned off in the
-client program. The private keys under `artifacts/openvpn/` are not
-committed.
+Adding, deactivating, and removing a client is described in
+[README-vpn-clients.md](README-vpn-clients.md). Deploy writes
+`artifacts/openvpn/clients/<name>.ovpn` for each current name and
+deletes the files of a name you removed.
 
 WireGuard is a later addition on this same pair.
 
