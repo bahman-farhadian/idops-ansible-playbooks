@@ -43,6 +43,7 @@ kvm_start_instances_after_snapshot: true                       # Start reconcile
 # destructive action and must be turned on deliberately, per run.
 # -----------------------------------------------------------------------------
 kvm_execute_mutation_phases_in_check_mode: false # Allow mutating stages in --check mode. Values: true | false.
-kvm_parallel_instance_workers: 10                # Max concurrent per-instance heavy operations during provision stage.
+kvm_parallel_instance_workers: 10                # Upper bound. The host CPU and disk budget can lower it.
+kvm_host_provision_io_slots: 1                   # Concurrent disk clones and first boots on one hypervisor.
 kvm_cleanup_confirmed: false                     # Safety flag for cleanup action. Values: true | false.
 kvm_cleanup_remove_instance_disks: false         # Remove declared instance disks, snapshot overlays, and stale seed disks during cleanup. Values: true | false.

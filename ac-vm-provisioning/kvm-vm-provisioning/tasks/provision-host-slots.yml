@@ -1,0 +1,153 @@
+---
+# Concurrent disk clones and first boots stay inside this host's budget.
+# CPU budget is usable host CPUs divided by the largest guest vCPU count.
+# Disk budget is kvm_host_provision_io_slots. The smaller one wins.
+# Every provision play on this hypervisor takes from the same pool.
+
+- name: Read host CPU count for the provision budget
+  ansible.builtin.shell: |
+    set -euo pipefail
+    virsh nodeinfo | awk -F':' '$1 ~ /^CPU\(s\)/ {gsub(/[[:space:]]/,"",$2); print $2}'
+  args:
+    executable: /bin/bash
+  register: kvm_host_provision_cpu_result
+  changed_when: false
+  check_mode: false
+
+- name: Calculate this host's provision slots
+  ansible.builtin.set_fact:
+    kvm_host_provision_guest_cost: >-
+      {{
+        [
+          1,
+          (
+            instances_to_create
+            | map(attribute='vcpu_count')
+            | map('int')
+            | max
+          )
+        ] | max
+      }}
+    kvm_host_provision_cpu_slots: >-
+      {{
+        [
+          1,
+          (
+            (
+              (kvm_host_provision_cpu_result.stdout | trim | int)
+              - (kvm_cpu_share_host_cpu_reserve | int)
+            ) // (
+              [
+                1,
+                (
+                  instances_to_create
+                  | map(attribute='vcpu_count')
+                  | map('int')
+                  | max
+                )
+              ] | max
+            )
+          )
+        ] | max
+      }}
+    kvm_host_provision_slots: >-
+      {{
+        [
+          1,
+          [
+            (
+              [
+                1,
+                (
+                  (
+                    (kvm_host_provision_cpu_result.stdout | trim | int)
+                    - (kvm_cpu_share_host_cpu_reserve | int)
+                  ) // (
+                    [
+                      1,
+                      (
+                        instances_to_create
+                        | map(attribute='vcpu_count')
+                        | map('int')
+                        | max
+                      )
+                    ] | max
+                  )
+                )
+              ] | max
+            ),
+            (kvm_host_provision_io_slots | int),
+            (kvm_parallel_instance_workers | default(4) | int)
+          ] | min
+        ] | max
+      }}
+
+- name: Report the host provision budget
+  ansible.builtin.debug:
+    msg: >-
+      host_cpus={{ kvm_host_provision_cpu_result.stdout | trim }}
+      guest_vcpus={{ kvm_host_provision_guest_cost }}
+      cpu_slots={{ kvm_host_provision_cpu_slots }}
+      io_slots={{ kvm_host_provision_io_slots }}
+      provision_slots={{ kvm_host_provision_slots }}
+
+- name: Keep disk and boot batches inside the host budget
+  ansible.builtin.set_fact:
+    kvm_effective_parallel_instance_workers: "{{ kvm_host_provision_slots | int }}"
+
+- name: Install the host provision slot helper
+  ansible.builtin.copy:
+    src: kvm-host-slot.sh
+    dest: /var/lib/idops/kvm-host-slot.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Name the slots this play will hold
+  ansible.builtin.set_fact:
+    kvm_host_provision_slot_paths: "{{ kvm_host_provision_slot_paths | default([]) + [kvm_host_provision_slot_path] }}"
+  vars:
+    kvm_host_provision_slot_path: >-
+      {{
+        '/run/lock/idops-kvm-provision/holder-'
+        ~ (lookup('pipe', 'date +%s'))
+        ~ '-'
+        ~ (item | string)
+      }}
+  loop: "{{ range(0, [kvm_host_provision_slots | int, instances_to_create | length] | min) | list }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Take host provision slots
+  ansible.builtin.command:
+    argv:
+      - bash
+      - /var/lib/idops/kvm-host-slot.sh
+      - "{{ kvm_host_provision_slots }}"
+      - acquire
+      - "{{ item }}"
+  loop: "{{ kvm_host_provision_slot_paths }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  async: 86400
+  poll: 0
+  changed_when: false
+
+- name: Wait until this play holds its host provision slots
+  ansible.builtin.command:
+    argv: "{{ ['bash', '-c', kvm_host_slot_wait_script, 'kvm-host-slot-wait'] + kvm_host_provision_slot_paths }}"
+  vars:
+    kvm_host_slot_wait_script: |
+      set -euo pipefail
+      for path in "$@"; do
+        ready=0
+        for _ in $(seq 1 1800); do
+          if [ -f "$path" ]; then
+            ready=1
+            break
+          fi
+          sleep 2
+        done
+        test "$ready" -eq 1
+      done
+  changed_when: false

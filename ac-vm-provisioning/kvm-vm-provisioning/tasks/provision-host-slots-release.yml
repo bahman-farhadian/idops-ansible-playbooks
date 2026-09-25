@@ -1,0 +1,15 @@
+---
+- name: Release host provision slots
+  ansible.builtin.command:
+    argv:
+      - bash
+      - /var/lib/idops/kvm-host-slot.sh
+      - "{{ kvm_host_provision_slots | default(1) }}"
+      - release
+      - "{{ item }}"
+  loop: "{{ kvm_host_provision_slot_paths | default([]) }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  when: kvm_host_provision_slot_paths is defined
+  failed_when: false
+  changed_when: false

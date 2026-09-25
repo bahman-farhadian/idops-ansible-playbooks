@@ -409,6 +409,7 @@ Core interface keys:
 - `kvm_cloud_image_catalog`
 - `kvm_instance_definitions`
 - `kvm_parallel_instance_workers`
+- `kvm_host_provision_io_slots`
 - `kvm_qemu_guest_agent_wait_timeout_seconds`
 - `kvm_qemu_guest_agent_poll_interval_seconds`
 - `kvm_force_single_socket_vcpu_topology`
@@ -635,6 +636,18 @@ make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml
 
 If a host or VM should not be touched by this job, it must not be in this
 file. The filename must match `*.local.yml`.
+
+## Host Provision Budget
+
+Disk clones and first boots share one budget on each hypervisor. The budget
+is the smaller of:
+
+- usable host CPUs divided by the largest guest `vcpu_count` in this run
+- `kvm_host_provision_io_slots` (default 1)
+
+`kvm_parallel_instance_workers` is only an upper bound. A second `provision`
+against the same hypervisor waits until a slot is free. A crashed play does
+not keep a slot: the holder process is gone, so the next run clears it.
 
 ## CPU Share And Controlled Overcommit
 

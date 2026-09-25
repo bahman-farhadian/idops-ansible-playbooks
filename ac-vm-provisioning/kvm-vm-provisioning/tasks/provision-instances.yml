@@ -580,6 +580,12 @@
     - instances_to_create | length > 0
     - kvm_run_mutation_phases | bool
 
+- name: Fit this provision inside the host CPU and disk budget
+  ansible.builtin.include_tasks: tasks/provision-host-slots.yml
+  when:
+    - kvm_run_mutation_phases | bool
+    - instances_to_create | length > 0
+
 - name: Build root-disk creation batches
   ansible.builtin.set_fact:
     root_disk_create_batches: >-

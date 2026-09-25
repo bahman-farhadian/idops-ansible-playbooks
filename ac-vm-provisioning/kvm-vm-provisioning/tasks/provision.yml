@@ -715,14 +715,22 @@
   ansible.builtin.include_tasks: tasks/provision-image-cache.yml
   when: kvm_run_stage_image_cache | bool
 
-- name: Run instance provisioning stage
-  ansible.builtin.include_tasks: tasks/provision-instances.yml
-  when: kvm_run_stage_provision | bool
+- name: Run instance provisioning, CPU share, and runtime inside the host budget
+  block:
+    - name: Run instance provisioning stage
+      ansible.builtin.include_tasks: tasks/provision-instances.yml
+      when: kvm_run_stage_provision | bool
 
-- name: Reconcile CPU share on declared domains
-  ansible.builtin.include_tasks: tasks/provision-cpu-share.yml
-  when: kvm_run_stage_provision | bool or kvm_run_stage_runtime | bool
+    - name: Reconcile CPU share on declared domains
+      ansible.builtin.include_tasks: tasks/provision-cpu-share.yml
+      when: kvm_run_stage_provision | bool or kvm_run_stage_runtime | bool
 
-- name: Run runtime stage
-  ansible.builtin.include_tasks: tasks/provision-runtime.yml
-  when: kvm_run_stage_runtime | bool
+    - name: Run runtime stage
+      ansible.builtin.include_tasks: tasks/provision-runtime.yml
+      when: kvm_run_stage_runtime | bool
+  always:
+    - name: Release this play's host provision slots
+      ansible.builtin.include_tasks: tasks/provision-host-slots-release.yml
+      when:
+        - kvm_run_mutation_phases | bool
+        - kvm_host_provision_slot_paths is defined
