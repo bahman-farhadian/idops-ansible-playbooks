@@ -95,6 +95,14 @@
   ansible.builtin.set_fact:
     kvm_effective_parallel_instance_workers: "{{ kvm_host_provision_slots | int }}"
 
+- name: Create the host provision helper directory
+  ansible.builtin.file:
+    path: /var/lib/idops
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Install the host provision slot helper
   ansible.builtin.copy:
     src: kvm-host-slot.sh
