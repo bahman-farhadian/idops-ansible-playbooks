@@ -25,7 +25,7 @@
       ansible.builtin.fail:
         msg: >-
           No local settings file was selected. There is no default.
-          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml
+          Run: make <target> LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
       when: bind_selected_local_settings_file | length == 0
 
     - name: Validate selected local settings file name
@@ -35,7 +35,7 @@
         fail_msg: >-
           bind_local_settings_file must end with .local.yml
           (got '{{ bind_selected_local_settings_file }}').
-          Example: LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml
+          Example: LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
 
     - name: Check for a local settings file
       ansible.builtin.stat:

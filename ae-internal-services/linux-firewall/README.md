@@ -59,7 +59,7 @@ TLD such as `.idops`.
 You must pass a `*.local.yml` file. There is no default.
 
 ```bash
-make settings LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml
+make settings LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
 ```
 
 Put the real host in `bind_targets`. Put A records in `bind_records`.
@@ -69,6 +69,6 @@ Do not put real addresses in tracked vars.
 
 ```bash
 make help
-make ping LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml
-make deploy LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml
+make ping LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
+make deploy LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
 ```
