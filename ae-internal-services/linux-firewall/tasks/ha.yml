@@ -228,14 +228,25 @@
     mode: "0600"
     line: "{{ hostvars[firewall_ha_peer.name]['vpn_sync_public_key'] }}"
 
-- name: Include the VPN peer SSH settings
-  ansible.builtin.lineinfile:
+# OpenSSH keeps the first value it finds. Hardening writes `Host *` / `Port 22`
+# into this file. The peer include has to stay above that block or `vpn-peer`
+# is reached on port 22, where sshd is not listening after harden.
+- name: Include the VPN peer SSH settings above the default Host block
+  ansible.builtin.blockinfile:
     path: /root/.ssh/config
     create: true
     owner: root
     group: root
     mode: "0600"
-    line: "Include /root/.ssh/vpn-peer.conf"
+    insertbefore: BOF
+    marker: "# {mark} IDOPS VPN PEER"
+    block: "Include /root/.ssh/vpn-peer.conf"
+
+- name: Remove a VPN peer include that was appended below Host *
+  ansible.builtin.replace:
+    path: /root/.ssh/config
+    regexp: '(?m)(^# END ANSIBLE SSH CLIENT DEFAULTS\n)Include /root/\.ssh/vpn-peer\.conf\n?'
+    replace: '\1'
 
 - name: Write the VPN peer SSH settings
   ansible.builtin.template:
