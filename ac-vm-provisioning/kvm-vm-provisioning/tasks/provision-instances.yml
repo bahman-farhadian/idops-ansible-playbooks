@@ -967,7 +967,10 @@
         idops{{ loop.index }}:
           match:
             macaddress: "{{ nic.mac_address | lower }}"
+      {# Debian 12 set-name stalls networkd-wait-online before cloud-init. pci.2 is already enp2s0. #}
+      {% if item.image_profile_id != 'debian-12' %}
           set-name: "{{ nic.interface_name }}"
+      {% endif %}
           dhcp4: false
           dhcp6: false
           optional: true
