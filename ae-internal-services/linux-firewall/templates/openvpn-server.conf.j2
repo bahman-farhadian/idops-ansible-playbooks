@@ -9,6 +9,8 @@ cert /etc/openvpn/server/server.crt
 key /etc/openvpn/server/server.key
 server {{ openvpn_profile.network }} {{ openvpn_profile.netmask }}
 topology subnet
+# ECDH is negotiated. OpenVPN 2.6 exits at startup when this line is absent.
+dh none
 script-security 2
 tls-verify "/etc/openvpn/server/tls-verify.sh /etc/openvpn/server/allowed-{{ openvpn_profile.name }}"
 {% for route in openvpn_profile.routes %}
