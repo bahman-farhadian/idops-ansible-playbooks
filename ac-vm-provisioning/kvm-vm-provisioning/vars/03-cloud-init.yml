@@ -37,7 +37,7 @@ kvm_default_cloud_init_disable_root: true # Disable direct root login via cloud-
 # -----------------------------------------------------------------------------
 kvm_default_cloud_init_manage_etc_hosts: true           # Manage /etc/hosts entries. Values: true | false.
 kvm_default_cloud_init_timezone: "UTC"                  # Guest timezone.
-kvm_default_cloud_init_locale: "en_US.UTF-8"            # Guest locale.
+kvm_default_cloud_init_locale: "C.UTF-8"               # Present on the cloud image. en_US.UTF-8 makes update-locale exit 255.
 kvm_default_cloud_init_package_update: true             # Run apt update during first boot. Values: true | false.
 kvm_default_cloud_init_package_upgrade: false           # First boot does not dist-upgrade. Hardening does, and it retries apt. A first-boot upgrade holds the guest agent until apt finishes. Values: true | false.
 kvm_default_cloud_init_package_reboot_if_required: true # Reboot automatically if upgrades require it. Values: true | false.
