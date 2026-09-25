@@ -42,4 +42,4 @@ wheelhouse/
 # Local runtime artifacts (Lynis scan reports, downloaded archives, etc.)
 ag-os-baseline-and-hardening/debian-based-os-hardening/artifacts/
 af-artifact-management/nexus-repository-systemd/artifacts/
-ae-internal-services/linux-dns-firewall/artifacts/
+ae-internal-services/linux-firewall/artifacts/
