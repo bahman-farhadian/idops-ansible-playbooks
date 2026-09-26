@@ -11,7 +11,7 @@ address, so both NICs answer DNS. Clients use the VIPs.
 
 OpenVPN has two TCP profiles. Admin listens on port 1213 and its
 client can reach `10.32.0.0/24` and `192.168.32.0/24`. User listens
-on port 1195 and its client can reach `192.168.32.0/24` only. The
+on port 1314 and its client can reach `192.168.32.0/24` only. The
 client file installs those routes and nothing else. It does not
 change DNS, and it ignores a full-tunnel push.
 

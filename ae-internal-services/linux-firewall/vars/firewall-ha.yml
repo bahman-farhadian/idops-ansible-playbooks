@@ -16,7 +16,7 @@ firewall_ha_vip_prefix: 24     # Prefix length of both VIPs. Example: 24.
 # User clients are pushed only the user list. Do not put 10.32.0.0/24
 # on the user list.
 openvpn_admin_port: 1213
-openvpn_user_port: 1195
+openvpn_user_port: 1314
 openvpn_admin_network: "10.8.0.0"    # Admin tunnel pool. Example: "10.8.0.0".
 openvpn_admin_netmask: "255.255.255.0"
 openvpn_user_network: "10.9.0.0"     # User tunnel pool. Example: "10.9.0.0".
