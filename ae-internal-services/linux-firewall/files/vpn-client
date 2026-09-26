@@ -129,11 +129,12 @@ pull-filter ignore "route-gateway"
 pull-filter ignore "dhcp-option"
 pull-filter ignore "block-outside-dns"
 EOF
-    # Metric 50 beats a pre-existing metric 100 route for the same prefix.
-    # Without it, Silenus keeps sending 10.32.0.0/24 via the hypervisor.
+    # route-gateway is ignored above, so the vpn_gateway keyword is undefined.
+    # Metric 50 is preferred over an existing metric 100 route for the same prefix.
+    printf 'route-metric 50\n'
     IFS='|' read -r -a route_list <<< "$routes"
     for route in "${route_list[@]}"; do
-      printf 'route %s vpn_gateway 50\n' "$route"
+      printf 'route %s\n' "$route"
     done
     printf '<ca>\n'
     cat "$CA_CERT"
