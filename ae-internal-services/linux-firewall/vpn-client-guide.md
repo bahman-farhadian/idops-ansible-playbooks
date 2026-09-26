@@ -21,9 +21,11 @@ The guide on the firewall is `/usr/local/share/doc/linux-firewall/vpn-client-gui
 
 ## Profiles
 
-`admin` reaches `10.32.0.0/24` and `192.168.32.0/24`.
+`admin` connects with TCP to port 1213 and reaches `10.32.0.0/24`
+and `192.168.32.0/24`.
 
-`user` reaches `192.168.32.0/24` only.
+`user` connects with TCP to port 1195 and reaches `192.168.32.0/24`
+only.
 
 The connection file adds only those routes. It does not change DNS,
 and it does not send the rest of the person's traffic through the

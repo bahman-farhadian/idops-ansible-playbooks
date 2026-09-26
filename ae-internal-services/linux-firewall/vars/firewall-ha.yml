@@ -11,9 +11,11 @@ firewall_ha_vip_lan: ""        # LAN address clients use. Example: "10.32.0.11".
 firewall_ha_vrid: 51           # VRRP id, 1-255, unique on that L2 network. Example: 51.
 firewall_ha_vip_prefix: 24     # Prefix length of both VIPs. Example: 24.
 
-# Admin clients are pushed every route below. User clients are pushed
-# only the user list. Do not put 10.32.0.0/24 on the user list.
-openvpn_admin_port: 1194
+# Both profiles listen on TCP. The ports differ so the two processes
+# can bind on the same VIP. Admin clients are pushed every route below.
+# User clients are pushed only the user list. Do not put 10.32.0.0/24
+# on the user list.
+openvpn_admin_port: 1213
 openvpn_user_port: 1195
 openvpn_admin_network: "10.8.0.0"    # Admin tunnel pool. Example: "10.8.0.0".
 openvpn_admin_netmask: "255.255.255.0"

@@ -1,7 +1,7 @@
 # {{ openvpn_profile.name }} pushes only the routes below.
 local {{ firewall_ha_vip_wan }}
 port {{ openvpn_profile.port }}
-proto udp
+proto tcp-server
 dev {{ openvpn_profile.device }}
 dev-type tun
 ca /etc/openvpn/server/ca.crt
@@ -23,6 +23,5 @@ user nobody
 group nogroup
 persist-key
 persist-tun
-explicit-exit-notify 1
 remote-cert-tls client
 verb 3

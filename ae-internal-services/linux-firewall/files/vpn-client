@@ -120,7 +120,7 @@ write_ovpn() {
 # ${name} — split tunnel. Only the route lines below are added.
 client
 dev tun
-proto udp
+proto tcp-client
 remote ${VIP_WAN} ${port}
 nobind
 persist-key
