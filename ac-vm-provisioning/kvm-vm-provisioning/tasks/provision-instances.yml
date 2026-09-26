@@ -822,25 +822,20 @@
       {% endfor %}
       {% endif %}
       {% set generated_write_files = [] %}
+      {# Debian 12 cloud-init does not emit RequiredForOnline=no for optional
+         interfaces. systemd 252 then waits for every NIC, including the second
+         NIC whose IPv6 never finishes, and wait-online exits non-zero.
+         bootcmd runs before network-online, so the drop-in is in place for
+         this boot. --any --ipv4 succeeds when the primary address is up. #}
+      {% set effective_bootcmd = item.cloud_init_bootcmd | default([]) %}
       {% if (item.cloud_init_tune_networkd_wait_online | default(true) | bool) and ((item.image_profile_id | default('')) == 'debian-12') %}
-      {% set generated_write_files = generated_write_files + [
-        {
-          'path': '/etc/systemd/system/systemd-networkd-wait-online.service.d/10-idops-timeout.conf',
-          'owner': 'root:root',
-          'permissions': '0644',
-          'content': (
-            '[Service]\n'
-            ~ 'ExecStart=\n'
-            ~ 'ExecStart=/lib/systemd/systemd-networkd-wait-online --timeout='
-            ~ (
-              item.cloud_init_networkd_wait_online_timeout_seconds
-              | default(30)
-              | int
-              | string
-            )
-            ~ '\n'
-          )
-        }
+      {% set networkd_wait_online_timeout = item.cloud_init_networkd_wait_online_timeout_seconds | default(15) | int %}
+      {% set effective_bootcmd = effective_bootcmd + [
+        'mkdir -p /etc/systemd/system/systemd-networkd-wait-online.service.d',
+        'printf "%s\\n" "[Service]" "ExecStart=" "ExecStart=/lib/systemd/systemd-networkd-wait-online --any --ipv4 --timeout='
+        ~ (networkd_wait_online_timeout | string)
+        ~ '" > /etc/systemd/system/systemd-networkd-wait-online.service.d/10-idops-wait-online.conf',
+        'systemctl daemon-reload'
       ] %}
       {% endif %}
       {% if item.cloud_init_disable_multicast_dns | default(false) | bool %}
@@ -883,9 +878,9 @@
       write_files:
       {{ effective_write_files | to_nice_yaml(indent=2) | indent(2, true) }}
       {% endif %}
-      {% if (item.cloud_init_bootcmd | default([])) | length > 0 %}
+      {% if effective_bootcmd | length > 0 %}
       bootcmd:
-      {% for boot_command in item.cloud_init_bootcmd %}
+      {% for boot_command in effective_bootcmd %}
         - {{ boot_command | to_json }}
       {% endfor %}
       {% endif %}
