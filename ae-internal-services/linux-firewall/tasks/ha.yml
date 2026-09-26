@@ -292,10 +292,11 @@
   delay: 2
   until: >-
     ansible_play_hosts
-    | map('extract', hostvars)
-    | selectattr('firewall_ha_wan_addr', 'defined')
-    | map(attribute='firewall_ha_wan_addr.stdout')
-    | select('search', firewall_ha_vip_wan)
+    | map('extract', hostvars, 'firewall_ha_wan_addr')
+    | select('mapping')
+    | map(attribute='stdout')
+    | select('string')
+    | select('search', firewall_ha_vip_wan | regex_escape)
     | list
     | length > 0
 
