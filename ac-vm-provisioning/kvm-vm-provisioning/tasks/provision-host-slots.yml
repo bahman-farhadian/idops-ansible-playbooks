@@ -111,6 +111,27 @@
     group: root
     mode: "0755"
 
+- name: Record the controller play pid
+  ansible.builtin.set_fact:
+    kvm_host_provision_controller_pid: "{{ lookup('pipe', kvm_controller_pid_script) | trim }}"
+  vars:
+    kvm_controller_pid_script: |
+      pid="${PPID:-1}"
+      while [ "$pid" -gt 1 ]; do
+        args="$(ps -o args= -p "$pid" 2>/dev/null || true)"
+        case "$args" in
+          *ansible-playbook*)
+            printf '%s\n' "$pid"
+            exit 0
+            ;;
+        esac
+        pid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
+        if [ -z "$pid" ]; then
+          pid=1
+        fi
+      done
+      printf '%s\n' "${PPID:-1}"
+
 - name: Name the slots this play will hold
   ansible.builtin.set_fact:
     kvm_host_provision_slot_paths: "{{ kvm_host_provision_slot_paths | default([]) + [kvm_host_provision_slot_path] }}"
@@ -118,7 +139,7 @@
     kvm_host_provision_slot_path: >-
       {{
         '/run/lock/idops-kvm-provision/holder-'
-        ~ (lookup('pipe', 'date +%s'))
+        ~ (lookup('pipe', 'printf %s-%s "$(date +%s%N)" "$$"') | trim)
         ~ '-'
         ~ (item | string)
       }}
@@ -134,6 +155,7 @@
       - "{{ kvm_host_provision_slots }}"
       - acquire
       - "{{ item }}"
+      - "{{ kvm_host_provision_controller_pid }}"
   loop: "{{ kvm_host_provision_slot_paths }}"
   loop_control:
     label: "{{ item | basename }}"
@@ -141,21 +163,10 @@
   poll: 0
   changed_when: false
 
+# Runs on the controller so it can see which ansible-playbook pid is dead.
 - name: Wait until this play holds its host provision slots
+  delegate_to: localhost
+  become: false
   ansible.builtin.command:
-    argv: "{{ ['bash', '-c', kvm_host_slot_wait_script, 'kvm-host-slot-wait'] + kvm_host_provision_slot_paths }}"
-  vars:
-    kvm_host_slot_wait_script: |
-      set -euo pipefail
-      for path in "$@"; do
-        ready=0
-        for _ in $(seq 1 1800); do
-          if [ -f "$path" ]; then
-            ready=1
-            break
-          fi
-          sleep 2
-        done
-        test "$ready" -eq 1
-      done
+    argv: "{{ ['bash', playbook_dir ~ '/files/kvm-host-slot-wait.sh', ansible_host, (ansible_port | default(22) | string), (ansible_user | default('', true))] + kvm_host_provision_slot_paths }}"
   changed_when: false
