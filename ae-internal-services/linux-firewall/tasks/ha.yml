@@ -274,6 +274,8 @@
 - name: Flush keepalived restart before the VIP check
   ansible.builtin.meta: flush_handlers
 
+# The standby never owns the VIP. Wait until it is present on either node
+# so the standby does not exhaust its retries and log a task error.
 - name: Check whether this node holds the WAN VIP
   ansible.builtin.command:
     argv:
@@ -286,10 +288,16 @@
       - "{{ firewall_wan_interface }}"
   register: firewall_ha_wan_addr
   changed_when: false
-  failed_when: false
   retries: 8
   delay: 2
-  until: firewall_ha_vip_wan in (firewall_ha_wan_addr.stdout | default(''))
+  until: >-
+    ansible_play_hosts
+    | map('extract', hostvars)
+    | selectattr('firewall_ha_wan_addr', 'defined')
+    | map(attribute='firewall_ha_wan_addr.stdout')
+    | select('search', firewall_ha_vip_wan)
+    | list
+    | length > 0
 
 - name: Start OpenVPN on the node that holds the WAN VIP
   ansible.builtin.systemd:
