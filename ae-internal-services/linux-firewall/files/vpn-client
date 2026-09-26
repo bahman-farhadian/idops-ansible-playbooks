@@ -100,14 +100,20 @@ issue_cert() {
 write_ovpn() {
   local name="$1"
   local profile="$2"
-  local port routes route
+  local port routes route tun_gw
   local dest="$CLIENT_DIR/${name}.ovpn"
   if [[ "$profile" == "admin" ]]; then
     port="$ADMIN_PORT"
     routes="$ADMIN_ROUTES"
+    tun_gw="${ADMIN_GATEWAY:-}"
   else
     port="$USER_PORT"
     routes="$USER_ROUTES"
+    tun_gw="${USER_GATEWAY:-}"
+  fi
+  if [[ -z "$tun_gw" ]]; then
+    echo "Missing tunnel gateway in $conf. Deploy the linux-firewall playbook again." >&2
+    exit 1
   fi
   {
     cat <<EOF
@@ -129,12 +135,11 @@ pull-filter ignore "route-gateway"
 pull-filter ignore "dhcp-option"
 pull-filter ignore "block-outside-dns"
 EOF
-    # route-gateway is ignored above, so the vpn_gateway keyword is undefined.
-    # Metric 50 is preferred over an existing metric 100 route for the same prefix.
-    printf 'route-metric 50\n'
+    # route-gateway is ignored, and subnet ifconfig has no peer address,
+    # so each route names the tunnel gateway. Metric 50 beats metric 100.
     IFS='|' read -r -a route_list <<< "$routes"
     for route in "${route_list[@]}"; do
-      printf 'route %s\n' "$route"
+      printf 'route %s %s 50\n' "$route" "$tun_gw"
     done
     printf '<ca>\n'
     cat "$CA_CERT"

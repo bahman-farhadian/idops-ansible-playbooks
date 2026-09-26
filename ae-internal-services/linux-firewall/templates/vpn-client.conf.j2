@@ -2,6 +2,9 @@ WAN_IF={{ firewall_wan_interface }}
 VIP_WAN={{ firewall_ha_vip_wan }}
 ADMIN_PORT={{ openvpn_admin_port }}
 USER_PORT={{ openvpn_user_port }}
+# topology subnet: the server owns the first address of each pool.
+ADMIN_GATEWAY={{ (openvpn_admin_network.split('.')[:3] + ['1']) | join('.') }}
+USER_GATEWAY={{ (openvpn_user_network.split('.')[:3] + ['1']) | join('.') }}
 ADMIN_ROUTES="{% for route in openvpn_admin_routes %}{{ route.address }} {{ route.netmask }}{% if not loop.last %}|{% endif %}{% endfor %}"
 USER_ROUTES="{% for route in openvpn_user_routes %}{{ route.address }} {{ route.netmask }}{% if not loop.last %}|{% endif %}{% endfor %}"
 
