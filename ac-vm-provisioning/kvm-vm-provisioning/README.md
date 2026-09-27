@@ -327,9 +327,9 @@ checking `virsh dumpxml`, `domblklist`, or the QEMU domain log manually.
 `virsh domifaddr --source agent` is available only after the guest agent connects.
 
 Debian 12 note: the playbook avoids forced interface `set-name` during Debian 12
-network rendering. Bookworm cloud-init does not mark `optional: true` interfaces
-as `RequiredForOnline=no`, so `systemd-networkd-wait-online` fails on the second
-NIC. A bootcmd drop-in runs it with `--any --ipv4` before `network-online`.
+network rendering. On systemd 252, `systemd-networkd-wait-online --any` still
+times out when the configured links are optional, even after those links are
+routable. A bootcmd drop-in waits only for the primary NIC.
 Guest readiness uses the same QEMU Guest Agent checkpoints and timeout policy
 for all supported Debian and Ubuntu guests.
 

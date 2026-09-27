@@ -822,20 +822,24 @@
       {% endfor %}
       {% endif %}
       {% set generated_write_files = [] %}
-      {# Debian 12 cloud-init does not emit RequiredForOnline=no for optional
-         interfaces. systemd 252 then waits for every NIC, including the second
-         NIC whose IPv6 never finishes, and wait-online exits non-zero.
-         bootcmd runs before network-online, so the drop-in is in place for
-         this boot. --any --ipv4 succeeds when the primary address is up. #}
+      {# systemd 252 --any still times out when every configured link is
+         optional, even after the addresses are up. Waiting on the primary
+         NIC returns as soon as that link is configured. bootcmd also
+         restarts the unit so this boot does not keep the early timeout. #}
       {% set effective_bootcmd = item.cloud_init_bootcmd | default([]) %}
       {% if (item.cloud_init_tune_networkd_wait_online | default(true) | bool) and ((item.image_profile_id | default('')) == 'debian-12') %}
       {% set networkd_wait_online_timeout = item.cloud_init_networkd_wait_online_timeout_seconds | default(15) | int %}
+      {% set networkd_wait_online_iface = item.guest_network_interface | default('enp1s0') %}
       {% set effective_bootcmd = effective_bootcmd + [
         'mkdir -p /etc/systemd/system/systemd-networkd-wait-online.service.d',
-        'printf "%s\\n" "[Service]" "ExecStart=" "ExecStart=/lib/systemd/systemd-networkd-wait-online --any --ipv4 --timeout='
+        'printf "%s\\n" "[Service]" "ExecStart=" "ExecStart=/lib/systemd/systemd-networkd-wait-online --interface='
+        ~ networkd_wait_online_iface
+        ~ ' --timeout='
         ~ (networkd_wait_online_timeout | string)
         ~ '" > /etc/systemd/system/systemd-networkd-wait-online.service.d/10-idops-wait-online.conf',
-        'systemctl daemon-reload'
+        'systemctl daemon-reload',
+        'systemctl reset-failed systemd-networkd-wait-online.service',
+        'systemctl restart systemd-networkd-wait-online.service'
       ] %}
       {% endif %}
       {% if item.cloud_init_disable_multicast_dns | default(false) | bool %}

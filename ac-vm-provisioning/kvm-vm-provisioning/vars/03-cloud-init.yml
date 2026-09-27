@@ -61,6 +61,6 @@ kvm_default_cloud_init_extra_hosts: []                                          
 kvm_default_cloud_init_disable_multicast_dns: false                               # systemd-resolved drop-in that turns off mDNS/LLMNR. Values: true | false.
 kvm_default_cloud_init_runcmd: []                                                 # cloud-init runcmd list. Values: [] | list of shell command strings.
 kvm_default_cloud_init_write_files: []                                            # cloud-init write_files list. Values: [] | list of cloud-init write_files entries.
-kvm_default_cloud_init_tune_networkd_wait_online: true                            # Debian 12: wait-online --any --ipv4 so a second NIC cannot fail the unit. Values: true | false.
+kvm_default_cloud_init_tune_networkd_wait_online: true                            # Debian 12: wait-online watches the primary NIC only. Values: true | false.
 kvm_default_cloud_init_networkd_wait_online_timeout_seconds: 15                   # Debian 12 systemd-networkd-wait-online timeout in seconds.
 kvm_default_cloud_init_final_message: "cloud-init finished after $UPTIME seconds" # Final cloud-init completion message.
