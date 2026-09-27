@@ -823,9 +823,10 @@
       {% endif %}
       {% set generated_write_files = [] %}
       {# systemd 252 --any still times out when every configured link is
-         optional, even after the addresses are up. Waiting on the primary
-         NIC returns as soon as that link is configured. bootcmd also
-         restarts the unit so this boot does not keep the early timeout. #}
+         optional. Waiting on the primary NIC returns once that link is
+         configured. Do not restart the unit here: cloud-init.service is
+         ordered after it, so systemctl restart from bootcmd never returns
+         and qemu-guest-agent is never installed. #}
       {% set effective_bootcmd = item.cloud_init_bootcmd | default([]) %}
       {% if (item.cloud_init_tune_networkd_wait_online | default(true) | bool) and ((item.image_profile_id | default('')) == 'debian-12') %}
       {% set networkd_wait_online_timeout = item.cloud_init_networkd_wait_online_timeout_seconds | default(15) | int %}
@@ -837,9 +838,7 @@
         ~ ' --timeout='
         ~ (networkd_wait_online_timeout | string)
         ~ '" > /etc/systemd/system/systemd-networkd-wait-online.service.d/10-idops-wait-online.conf',
-        'systemctl daemon-reload',
-        'systemctl reset-failed systemd-networkd-wait-online.service',
-        'systemctl restart systemd-networkd-wait-online.service'
+        'systemctl daemon-reload'
       ] %}
       {% endif %}
       {% if item.cloud_init_disable_multicast_dns | default(false) | bool %}
