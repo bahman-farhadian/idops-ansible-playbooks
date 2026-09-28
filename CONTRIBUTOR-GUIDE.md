@@ -810,3 +810,93 @@ becomes `feat/kvm-<description>`.
 1. Commit after each coherent change set.
 2. Keep commit messages short and explicit.
 3. Prefer one intent per commit.
+
+## Debug notes
+
+These are failures that came back more than once on the Linux firewall
+lab runs, and the fix that stopped each one.
+
+1. Ansible prints `FAILED - RETRYING`. That line is one `until` poll that
+   is not true yet. The task failed only when the retries run out, or the
+   recap has `failed=` greater than 0.
+
+2. `systemd-networkd-wait-online` stays failed on Debian 12. systemd 252
+   `--any` still times out when every configured link is optional, even
+   after the addresses are up. The cloud-init `bootcmd` drop-in must wait
+   for the primary NIC only (`--interface=enp1s0`). Do not use `--any`.
+   Do not `systemctl restart` that unit from `bootcmd`.
+   `cloud-init.service` is ordered after it, so the restart never returns
+   and `qemu-guest-agent` is never installed. Write the drop-in and run
+   `daemon-reload` only.
+
+3. QEMU guest agent does not answer within 300 seconds. The domain can
+   still be running and SSH can already be open. Read
+   `/var/log/cloud-init-output.log` on the guest. Two causes seen here:
+   the `bootcmd` restart in item 2, and `apt-get` unable to reach
+   `deb.debian.org` (`Connection refused`). On Dionysus, sshuttle sends
+   guest TCP into the tunnel. After sshuttle is up, exempt the guest WAN.
+   The chain name is that process's port and changes on each start:
+
+   `iptables -t nat -I sshuttle-12300 1 -s 192.168.32.0/24 -j RETURN`
+
+   Cloud-init does not retry a failed package install on the same disk.
+   Delete the guest and provision again.
+
+4. Debian 12 `set-name` on a NIC stalls `networkd`. Skip `set-name` for
+   the Debian 12 primary and extra NIC. They are already `enp1s0` and
+   `enp2s0`.
+
+5. OpenVPN exits with `You must define DH file`. Set `dh none`.
+
+6. `vpn-client` peer copy uses port 22 and the connection closes.
+   Hardening appends `Host *` / `Port 22` to `/root/.ssh/config`.
+   OpenSSH keeps the first value. `Include /root/.ssh/vpn-peer.conf` must
+   stay above that block.
+
+7. The client reports `vpn_gateway` undefined, or `OpenVPN needs a
+   gateway parameter`. The client ignores the pushed `route-gateway`.
+   Each `route` line must name the gateway: admin `10.8.0.1`, user
+   `10.9.0.1`, metric 50.
+
+8. The admin tunnel is up but the LAN VIP does not answer, or SSH to a
+   firewall node times out. The tunnel `/24` swallows the VPN server.
+   Before OpenVPN starts, pin the WAN VIP and both firewall node
+   addresses as `/32` on the underlay. The firewall does not allow SSH
+   from `10.8.0.0/24`.
+
+9. `vpn-client deactivate` or `remove` exits 1 when that client is the
+   only name in the allow file. `grep -vx` exits 1 when it selects no
+   lines. That empty result is the file you want. Also drop the local
+   tunnel before those commands. They restart OpenVPN and cut an SSH
+   session that is still inside the tunnel. The script then stops, so
+   later distros never start.
+
+10. `sshuttle -l 0.0.0.0` on Dionysus captures the SSH session used to
+    start it. After that session drops there is no way back. Run this
+    on Dionysus, with no `-l`:
+
+    `sshuttle --dns -r bahmanfarhadian@192.168.124.2 0.0.0.0/0 -x 10.0.0.0/8 -x 172.16.0.0/12 -x 192.168.0.0/16`
+
+    `--dns` does not take guest queries to the lab DNS. Those
+    destinations are in the excluded ranges.
+
+11. `sudo ./bringup-stacks.sh` makes Ansible connect as root and SSH
+    fails with `publickey`. The script must switch back to the invoking
+    user and restore `SSH_AUTH_SOCK`. sudo is only for the VPN route and
+    OpenVPN.
+
+12. A killed provision keeps the only host slot. The holder is an async
+    sleeper, and two plays started in the same second can share one
+    holder name. Store the controller `ansible-playbook` pid in the
+    holder file and include nanoseconds in the name. The waiting play
+    releases the holder when that pid is gone.
+
+13. `update-locale` exits 255 for `en_US.UTF-8`. Use `C.UTF-8`.
+
+14. Do not use a `.local` DNS zone. `systemd-resolved` sends `.local` to
+    mDNS and will not ask unicast BIND. Use a unicast name such as
+    `.idops`.
+
+15. A successful oneshot is `inactive (dead)` with `Result=success`.
+    `systemctl --failed` empty is the check. `inactive` alone is not a
+    failure.
