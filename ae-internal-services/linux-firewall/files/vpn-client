@@ -206,7 +206,9 @@ admin_file=/etc/openvpn/server/allowed-admin
 user_file=/etc/openvpn/server/allowed-user
 for allow in "$admin_file" "$user_file"; do
   if [[ -f "$allow" ]] && has_name "$allow" "$name"; then
-    grep -vx -- "$name" "$allow" >"${allow}.tmp"
+    # grep exits 1 when the name was the only line. That empty result is
+    # the allow file we want, not a failure.
+    grep -vx -- "$name" "$allow" >"${allow}.tmp" || [[ $? -eq 1 ]]
     mv "${allow}.tmp" "$allow"
     chmod 0644 "$allow"
   fi
