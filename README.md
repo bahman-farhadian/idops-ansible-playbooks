@@ -43,9 +43,9 @@ A service in this list is open source, self-hosted, and production-ready. A paid
 
 Each domain has the playbooks below. A name with no directory yet is a decision, not an implementation. Copy `playbook-template/` only after that name is accepted.
 
-A normal service guest is created by `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`, hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook. Most new services are one guest. A second guest for high availability is a later change inside the same playbook. The size exceptions are in the table: `debian-based-perimeter` is a pair, `kafka` is three brokers, `kubernetes` is three control planes plus workers, and `elk` and `efk` are three guests each. `ah-openstack` deploys an OpenStack cluster. It is not a hypervisor and it does not create guests. The project defines the servers and the nodes. It does not use the KVM or ESXi playbooks. `ceph` is distributed storage. The project defines the monitor and OSD guests. `ilo-4-management` and `ilo-5-management` are separate playbooks on the HPE servers the project names. The iLO license, IP address, and user are set by hand first. The user supplies the SPP ISO for that generation. iLO 6 and iLO 7 are later playbooks.
+A normal service guest is created by `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`, hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook. Most new services are one guest. A second guest for high availability is a later change inside the same playbook. The size exceptions are in the table: `debian-based-perimeter` is a pair, `opnsense-firewall` is a pair, `kafka` is three brokers, `kubernetes` is three control planes plus workers, and `elk` and `efk` are three guests each. `ah-openstack` deploys an OpenStack cluster. It is not a hypervisor and it does not create guests. The project defines the servers and the nodes. It does not use the KVM or ESXi playbooks. `ceph` is distributed storage. The project defines the monitor and OSD guests. `ilo-4-management` and `ilo-5-management` are separate playbooks on the HPE servers the project names. The iLO license, IP address, and user are set by hand first. The user supplies the SPP ISO for that generation. iLO 6 and iLO 7 are later playbooks.
 
-Playbooks in this table are separate. They can be used together. The Alternatives column lists products that are not playbooks here.
+Playbooks in this table are separate. They can be used together. Where a playbook is placed is the admin's decision. Guest counts in this table stay as written. The Alternatives column lists products that are not playbooks here.
 
 | Domain | Playbook | Where it runs | Alternatives |
 | --- | --- | --- | --- |
@@ -57,7 +57,7 @@ Playbooks in this table are separate. They can be used together. The Alternative
 | `ab-hypervisor-host-platform` | `esxi-host` (no files yet) | Final playbook in this directory. Installs ESXi from the ISO the project supplies, then host setup and hardening. The Makefile checks the image against the server generation. | — |
 | `ac-vm-provisioning` | `kvm-vm-provisioning` | KVM guests from Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 cloud images. No application services. | — |
 | `ac-vm-provisioning` | `esxi-vm-provisioning` (no files yet) | The same four guest releases on ESXi. No application services. | — |
-| `ad-network-and-connectivity` | `opnsense-firewall` (later) | Its own install image. No files yet. | — |
+| `ad-network-and-connectivity` | `opnsense-firewall` (later) | Pair. Firewall, DNS, time, and OpenVPN on the OPNsense image. The admin decides where the pair runs. No files yet. | — |
 | `ae-internal-services` | `debian-based-perimeter` | Debian or Ubuntu pair. Firewall, BIND, chrony, OpenVPN. chrony is not installed yet. | — |
 | `ae-internal-services` | `ceph` (no files yet) | Monitor and OSD guests. The project defines how many. | MinIO is archived |
 | `ae-internal-services` | `mattermost` (no files yet) | One guest. Server and its database on that guest. Install the AGPL-3.0 build. | Zulip |
@@ -93,7 +93,7 @@ Playbooks in this table are separate. They can be used together. The Alternative
 
 There is no storage domain in the `aa`–`av` list, so `ceph` sits in `ae-internal-services` with the other platform services. There is no chat or mail domain in that list, so `mattermost` and `stalwart` sit there too. `ah-openstack` deploys an OpenStack cluster. It is not a hypervisor and it does not create guests. It does not use `kvm-vm-provisioning` or `esxi-vm-provisioning`.
 
-Left out of this decision: MinIO, a hosted Docker registry, DHCP, MySQL, JFrog, Veeam, Valkey, and Memcached. MinIO's community repository was archived in 2026. Object storage is the Ceph object gateway. WireGuard stays a later addition on the `debian-based-perimeter` pair. OpenVPN certificates stay in that playbook. Backup has no playbook name until that research is accepted. Disk and RAID layout is not its own playbook. Each physical server's role defines it, and that work is added when the project reaches that server.
+Left out of this decision: MinIO, a hosted Docker registry, DHCP, MySQL, JFrog, Veeam, Valkey, and Memcached. MinIO's community repository was archived in 2026. Object storage is the Ceph object gateway. WireGuard stays a later addition on the `debian-based-perimeter` pair and on the `opnsense-firewall` pair. OpenVPN certificates stay on the pair that runs that playbook. Backup has no playbook name until that research is accepted. Disk and RAID layout is not its own playbook. Each physical server's role defines it, and that work is added when the project reaches that server.
 
 ## Why This Order
 

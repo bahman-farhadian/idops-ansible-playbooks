@@ -238,10 +238,12 @@ SNAT are the hardening firewall role on that guest
 OpenVPN on the pair has an admin profile and a user profile.
 
 OPNsense is a separate playbook,
-`ad-network-and-connectivity/opnsense-firewall`. It uses its own
-install image. Configuration is `config.xml` or the HTTPS API. That
-guest does not use cloud-init, and the hardening playbook does not
-apply. The two playbooks can be used together.
+`ad-network-and-connectivity/opnsense-firewall`. It is always a pair.
+The admin decides where the pair runs. It uses its own install image.
+Configuration is `config.xml` or the HTTPS API. It does not use
+cloud-init, and the hardening playbook does not apply. The playbook
+covers firewall, DNS, time, and OpenVPN. The two playbooks can be
+used together.
 
 Do not install OPNsense on the Debian or Ubuntu perimeter guest.
 

@@ -5,4 +5,4 @@ the branch/PR that picks the item up, not in this file.
 
 ## ad-network-and-connectivity
 
-- `opnsense-firewall` (later): own image, `config.xml` or HTTPS API.
+- `opnsense-firewall` (later): pair, own image, `config.xml` or HTTPS API.
