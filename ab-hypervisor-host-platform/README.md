@@ -25,7 +25,7 @@ Prepare an already-installed hypervisor. KVM and ESXi are both required. Each ha
 
 ## Left out
 
-- `ilo-management` in `aa-physical-server-foundation` (one playbook: BIOS settings, BIOS update, and iLO)
+- `ilo-4-management` and `ilo-5-management` in `aa-physical-server-foundation` (BIOS settings, BIOS update, and iLO). iLO 6 and iLO 7 are later playbooks there.
 - Disk and RAID layout. That follows the role of each physical server and is added when the project reaches that server.
 - Guest creation (`ac-vm-provisioning/kvm-vm-provisioning` and `ac-vm-provisioning/esxi-vm-provisioning`)
 

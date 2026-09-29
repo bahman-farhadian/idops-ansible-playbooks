@@ -42,13 +42,14 @@ A service in this list is open source, self-hosted, and production-ready. A paid
 
 Each domain has the playbooks below. A name with no directory yet is a decision, not an implementation. Copy `playbook-template/` only after that name is accepted.
 
-A normal service guest is created by `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`, hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook. Most new services are one guest. A second guest for high availability is a later change inside the same playbook. The size exceptions are in the table: `debian-based-perimeter` is a pair, `kafka` is three brokers, `kubernetes` is three control planes plus workers, and `elk` and `efk` are three guests each. `openstack` deploys an OpenStack cluster, and `ceph` is distributed storage. The project defines the servers and the nodes for both. OpenStack does not use the KVM or ESXi playbooks. `ilo-management` is one playbook on the HPE servers the project names. The iLO license, IP address, and user are set by hand first. The user supplies the SPP ISO.
+A normal service guest is created by `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`, hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook. Most new services are one guest. A second guest for high availability is a later change inside the same playbook. The size exceptions are in the table: `debian-based-perimeter` is a pair, `kafka` is three brokers, `kubernetes` is three control planes plus workers, and `elk` and `efk` are three guests each. `openstack` deploys an OpenStack cluster, and `ceph` is distributed storage. The project defines the servers and the nodes for both. OpenStack does not use the KVM or ESXi playbooks. `ilo-4-management` and `ilo-5-management` are separate playbooks on the HPE servers the project names. The iLO license, IP address, and user are set by hand first. The user supplies the SPP ISO for that generation. iLO 6 and iLO 7 are later playbooks.
 
 Playbooks in this table are separate. They can be used together. The Alternatives column lists products that are not playbooks here.
 
 | Domain | Playbook | Where it runs | Alternatives |
 | --- | --- | --- | --- |
-| `aa-physical-server-foundation` | `ilo-management` (no files yet) | HPE servers the project names. iLO over HTTP after the license, IP, and user exist. User supplies the SPP ISO. | Dell, Supermicro |
+| `aa-physical-server-foundation` | `ilo-4-management` (no files yet) | iLO 4 servers the project names. iLO over HTTP after the license, IP, and user exist. User supplies that generation's SPP ISO. | Dell, Supermicro |
+| `aa-physical-server-foundation` | `ilo-5-management` (no files yet) | iLO 5 servers the project names. Same HTTP path and the same hand setup. User supplies that generation's SPP ISO. | Dell, Supermicro |
 | `ab-hypervisor-host-platform` | `kvm-host` (no files yet) | Installed Debian or Ubuntu host. libvirt, pools, bridges. No guest. | — |
 | `ab-hypervisor-host-platform` | `esxi-host` (no files yet) | Installed ESXi host. Datastores and port groups. No guest. | — |
 | `ac-vm-provisioning` | `kvm-vm-provisioning` | Creates KVM guests. | — |
