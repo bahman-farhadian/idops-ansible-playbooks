@@ -1,30 +1,42 @@
 # ar-centralized-logging
 
-Domain status: empty (not started)
+Domain status: decision only (no playbook files yet)
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ar-centralized-logging domain.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+Log collection for the stack. rsyslog, ELK, and EFK are separate playbooks. They can be used together. The Elasticsearch guests here are the logging clusters. The application database is `ak-databases/elasticsearch`.
+
+## Playbook
+
+- `rsyslog/`
+  - One guest
+  - rsyslog as a systemd service, receiving remote syslog
+  - Shipping from other guests is a later task in this same playbook
+- `elk/`
+  - Elasticsearch, Logstash, and Kibana
+  - One guest each
+  - A three-node Elasticsearch cluster is a later change inside this playbook
+- `efk/`
+  - Elasticsearch, Fluent Bit, and Kibana
+  - One guest each
+  - Its own Elasticsearch and Kibana, separate from `elk/`
+  - Fluent Bit is the collector. Fluentd is still maintained, and new production collectors use Fluent Bit
+  - A three-node Elasticsearch cluster is a later change inside this playbook
+
+## Alternatives
+
+- Loki and OpenSearch. Fluentd is the collector EFK does not use.
+
+## Left out
+
+- Loki and OpenSearch
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
 
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
+- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
+- Downstream: guests that forward logs
 
 ## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+
+- Playbook files: no
+- Guests: one for `rsyslog`, three for `elk`, three for `efk`, created by `kvm-vm-provisioning`
