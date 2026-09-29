@@ -1,30 +1,35 @@
 # al-data-caching
 
-Domain status: empty (not started)
+Domain status: decision only (no playbook files yet)
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the al-data-caching domain.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+An in-memory cache for applications.
+
+## Playbook
+
+- `redis/`
+  - One guest
+  - Redis as a systemd service
+  - Kept because production here still runs Redis
+  - Redis 8 is tri-licensed (AGPL, SSPL, or RSAL). AGPL is the open-source terms
+
+## Alternatives
+
+- Valkey and Memcached.
+
+## Left out
+
+- Valkey
+- Memcached
+- A Redis cluster, until a later change inside this playbook
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
 
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
+- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
+- Downstream: applications that want a cache
 
 ## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+
+- Playbook files: no
+- Guest: one, created by `kvm-vm-provisioning`
