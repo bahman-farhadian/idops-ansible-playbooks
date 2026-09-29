@@ -13,11 +13,24 @@ Provider-specific VM provisioning implementations.
 
 - Legacy guest provisioning source: `old_playbooks/kvm-clone-ansible/`
 - Current implementation target: `ac-vm-provisioning/kvm-vm-provisioning/`
-- `ab-hypervisor-host-platform/` is reserved for host-platform automation and is currently empty.
+- `ab-hypervisor-host-platform/` has no playbook files yet. The decided host playbooks are `kvm-host` and `esxi-host`.
 
 ## Planned Providers
 
-- `esxi-vm-provisioning/` (planned)
+- `esxi-vm-provisioning/` is required. No files yet.
+
+## Scope decision
+
+- `kvm-vm-provisioning/`, `esxi-vm-provisioning/`, and `openstack/` are separate playbooks. They can be used together.
+- `kvm-vm-provisioning/` creates KVM guests from Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 cloud images. It does not install application services.
+- `esxi-vm-provisioning/` creates the same four guest releases on ESXi. It does not install application services. No files yet.
+- A normal Debian or Ubuntu service guest is created by one of those two playbooks, then hardened, then handed to its own playbook.
+- `openstack/` deploys an OpenStack cluster. No files yet. The project defines how many servers and nodes. This playbook does not use `kvm-vm-provisioning/` or `esxi-vm-provisioning/`.
+- When that project uses Ceph for images or volumes, those addresses belong in the OpenStack local settings.
+
+## Alternatives
+
+- None named.
 
 ## Dependencies
 
