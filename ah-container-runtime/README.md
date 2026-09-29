@@ -26,3 +26,12 @@ Docker Engine on a guest, with Swarm left off.
 Run `docker-engine` after the guest exists and the apt proxies answer.
 A Swarm member is installed here first, then joined from
 `ai-container-orchestration`.
+
+## Alternatives
+
+- Podman, and a containerd-only playbook.
+
+## Scope decision
+
+- This domain is `docker-engine/` only.
+- Podman and a containerd-only playbook are left out.
