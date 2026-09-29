@@ -55,8 +55,8 @@ Playbooks in this table are separate. They can be used together. The Alternative
 | `ab-hypervisor-host-platform` | `kvm-host` (no files yet) | After that install. Distro comes from `gather_facts`. libvirt, pools, bridges. No guest. | — |
 | `ab-hypervisor-host-platform` | `kvm-host-hardening` (no files yet) | Hardening for the KVM host. Guest hardening stays in `ag`. | — |
 | `ab-hypervisor-host-platform` | `esxi-host` (no files yet) | Final playbook in this directory. Installs ESXi from the ISO the project supplies, then host setup and hardening. The Makefile checks the image against the server generation. | — |
-| `ac-vm-provisioning` | `kvm-vm-provisioning` | Creates KVM guests. | — |
-| `ac-vm-provisioning` | `esxi-vm-provisioning` (no files yet) | Creates the same four guest releases on ESXi. | — |
+| `ac-vm-provisioning` | `kvm-vm-provisioning` | KVM guests from Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 cloud images. No application services. | — |
+| `ac-vm-provisioning` | `esxi-vm-provisioning` (no files yet) | The same four guest releases on ESXi. No application services. | — |
 | `ad-network-and-connectivity` | `opnsense-firewall` (later) | Its own install image. No files yet. | — |
 | `ae-internal-services` | `debian-based-perimeter` | Debian or Ubuntu pair. Firewall, BIND, chrony, OpenVPN. chrony is not installed yet. | — |
 | `ae-internal-services` | `ceph` (no files yet) | Monitor and OSD guests. The project defines how many. | MinIO is archived |

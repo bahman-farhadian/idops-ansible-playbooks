@@ -1,45 +1,52 @@
 # ac-vm-provisioning
 
-Domain status: in use
+Domain status: `kvm-vm-provisioning` is in use. `esxi-vm-provisioning` is decision only (no files yet).
 
 ## Purpose
-Provider-specific VM provisioning implementations.
 
-## Current Providers
+Create a Debian or Ubuntu guest on KVM or on ESXi. The admin picks the playbook when the guest is deployed. This domain does not install application services.
 
-- `kvm-vm-provisioning/`: create KVM guests from Debian 12/13 and Ubuntu 24.04/26.04 cloud images
+## Order
 
-## Migration Notes
+1. `kvm-vm-provisioning/`
+2. `esxi-vm-provisioning/`
 
-- Legacy guest provisioning source: `old_playbooks/kvm-clone-ansible/`
-- Current implementation target: `ac-vm-provisioning/kvm-vm-provisioning/`
-- `ab-hypervisor-host-platform/` has no playbook files yet. The decided host playbooks, in directory order, are `debian-based-os-install`, `kvm-host`, `kvm-host-hardening`, and `esxi-host`.
+The two are separate playbooks. They can be used together.
 
-## Planned Providers
+## Playbook
 
-- `esxi-vm-provisioning/` is required. No files yet.
+- `kvm-vm-provisioning/`
+  - KVM guests from Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 cloud images
+  - Cloud images. The installer ISO stays with `ab-hypervisor-host-platform/debian-based-os-install`
+  - UEFI for every guest
+  - The hypervisor, the image cache, the instance disk pool, and the libvirt network stay in local settings
+  - Does not install application services
+  - Files are in the repo
+- `esxi-vm-provisioning/`
+  - The same four guest releases on ESXi
+  - Does not install application services
+  - No files yet
+  - How the guest disk is built, and how the playbook talks to the ESXi host, are added when this playbook is written
 
-## Scope decision
-
-- Directory order is `kvm-vm-provisioning/`, then `esxi-vm-provisioning/`.
-- The two are separate playbooks. They can be used together. The admin picks the playbook when a guest is deployed.
-- `kvm-vm-provisioning/` creates KVM guests from Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 cloud images. It does not install application services.
-- `esxi-vm-provisioning/` creates the same four guest releases on ESXi. It does not install application services. No files yet.
-- A normal Debian or Ubuntu service guest is created by one of those two playbooks, then hardened, then handed to its own playbook.
-- OpenStack is `ah-openstack`. It is not part of this directory.
+A normal service guest is created by one of these two playbooks, then hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook.
 
 ## Alternatives
 
-- None named.
+- None named. The KVM playbook and the ESXi playbook can be used together.
+
+## Left out
+
+- OpenStack. That cluster is `ah-openstack`. It does not create guests
+- Hypervisor install (`ab-hypervisor-host-platform`)
+- Guest hardening (`ag-os-baseline-and-hardening/debian-based-os-hardening`)
+- Application services
 
 ## Dependencies
 
-- Upstream domains: `aa-physical-server-foundation`, `ab-hypervisor-host-platform`
-- Downstream domains: `ag-os-baseline-and-hardening`, `ai-container-runtime`, and higher layers
+- Upstream: `aa-physical-server-foundation`, `ab-hypervisor-host-platform`
+- Downstream: `ag-os-baseline-and-hardening`, then the service playbook
 
-## Consistency Contract
+## Status
 
-- Each provider directory has one playbook: `playbook.yml`.
-- Workflow logic should be organized in `tasks/` and included by `playbook.yml`.
-- Operator docs go in local `README.md`.
-- Contributor rules are centralized in root `CONTRIBUTOR-GUIDE.md`.
+- `kvm-vm-provisioning`: files in the repo
+- `esxi-vm-provisioning`: no files yet
