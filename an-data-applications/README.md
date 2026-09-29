@@ -1,30 +1,36 @@
 # an-data-applications
 
-Domain status: empty (not started)
+Domain status: decision only (no playbook files yet)
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the an-data-applications domain.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+Internal data applications. Each application is its own playbook and its own guest.
+
+## Playbook
+
+- `metabase/`
+  - One guest
+  - Metabase as a systemd service
+  - Its application database stays on that guest
+- `superset/`
+  - One guest
+  - Apache Superset as a systemd service
+  - Its metadata database stays on that guest
+
+## Alternatives
+
+- None named. Metabase and Superset are separate playbooks and can be used together.
+
+## Left out
+
+- A requirement that either guest use `ak-databases/postgresql`
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
 
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
+- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
+- Downstream: people querying data through the web UI
 
 ## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+
+- Playbook files: no
+- Guests: one per playbook, created by `kvm-vm-provisioning`
