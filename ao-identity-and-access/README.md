@@ -1,30 +1,33 @@
 # ao-identity-and-access
 
-Domain status: empty (not started)
+Domain status: decision only (no playbook files yet)
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the ao-identity-and-access domain.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+Sign-in and access for applications.
+
+## Playbook
+
+- `keycloak/`
+  - One guest
+  - Keycloak as a systemd service
+  - Its database stays on that guest
+
+## Alternatives
+
+- Authentik and FreeIPA.
+
+## Left out
+
+- FreeIPA and a separate LDAP directory. DNS stays on the `debian-based-perimeter` pair.
+- Authentik
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
 
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
+- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
+- Downstream: applications that delegate login to this guest
 
 ## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+
+- Playbook files: no
+- Guest: one, created by `kvm-vm-provisioning`
