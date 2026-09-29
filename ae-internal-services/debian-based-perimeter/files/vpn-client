@@ -6,7 +6,7 @@ export PATH="/usr/bin:/bin:/usr/local/sbin"
 
 conf=/etc/openvpn/server/vpn-client.conf
 if [[ ! -f "$conf" ]]; then
-  echo "Missing $conf. Deploy the linux-firewall playbook first." >&2
+  echo "Missing $conf. Deploy the debian-based-perimeter playbook first." >&2
   exit 1
 fi
 # shellcheck disable=SC1090
@@ -29,7 +29,7 @@ Usage:
 admin reaches 10.32.0.0/24 and 192.168.32.0/24.
 user reaches 192.168.32.0/24 only.
 The connection file is /root/openvpn-clients/NAME.ovpn
-The guide is /usr/local/share/doc/linux-firewall/vpn-client-guide.md
+The guide is /usr/local/share/doc/debian-based-perimeter/vpn-client-guide.md
 EOF
 }
 
@@ -112,7 +112,7 @@ write_ovpn() {
     tun_gw="${USER_GATEWAY:-}"
   fi
   if [[ -z "$tun_gw" ]]; then
-    echo "Missing tunnel gateway in $conf. Deploy the linux-firewall playbook again." >&2
+    echo "Missing tunnel gateway in $conf. Deploy the debian-based-perimeter playbook again." >&2
     exit 1
   fi
   {

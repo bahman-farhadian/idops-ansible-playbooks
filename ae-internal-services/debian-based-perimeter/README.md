@@ -1,9 +1,13 @@
-# linux-firewall
+# debian-based-perimeter
 
-Two Debian or Ubuntu guests are the DNS servers and the Linux
-firewall for one stack. keepalived moves one WAN VIP and one LAN VIP
-between them. This playbook installs BIND 9, keepalived, and OpenVPN
-on that pair. A single firewall node is refused.
+This playbook deploys the perimeter on two Debian or Ubuntu guests.
+The guest OS is Debian or Ubuntu. OPNsense is a separate playbook,
+`ad-network-and-connectivity/opnsense-firewall`. The two can be used
+together.
+
+keepalived moves one WAN VIP and one LAN VIP between the guests.
+This playbook installs BIND 9, keepalived, and OpenVPN on that pair.
+A single node is refused.
 
 The first NIC is the WAN and keeps the default route. The extra NIC
 is the isolated LAN and has no gateway. named listens on every IPv4
@@ -18,7 +22,7 @@ change DNS, and it ignores a full-tunnel push.
 Adding, deactivating, and removing a client is an SSH command on
 the firewall. The guide is
 [vpn-client-guide.md](vpn-client-guide.md). Deploy copies it to
-both nodes at `/usr/local/share/doc/linux-firewall/vpn-client-guide.md`.
+both nodes at `/usr/local/share/doc/debian-based-perimeter/vpn-client-guide.md`.
 
 WireGuard is a later addition on this same pair.
 
@@ -60,7 +64,7 @@ TLD such as `.idops`.
 You must pass a `*.local.yml` file. There is no default.
 
 ```bash
-make settings LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
+make settings LOCAL_SETTINGS_FILE=vars/settings.debian-based-perimeter.local.yml
 ```
 
 Put the real host in `bind_targets`. Put A records in `bind_records`.
@@ -70,6 +74,6 @@ Do not put real addresses in tracked vars.
 
 ```bash
 make help
-make ping LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
-make deploy LOCAL_SETTINGS_FILE=vars/settings.linux-firewall.local.yml
+make ping LOCAL_SETTINGS_FILE=vars/settings.debian-based-perimeter.local.yml
+make deploy LOCAL_SETTINGS_FILE=vars/settings.debian-based-perimeter.local.yml
 ```

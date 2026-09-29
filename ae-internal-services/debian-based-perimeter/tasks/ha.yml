@@ -159,7 +159,7 @@
 
 - name: Create the firewall documentation directory
   ansible.builtin.file:
-    path: /usr/local/share/doc/linux-firewall
+    path: /usr/local/share/doc/debian-based-perimeter
     state: directory
     owner: root
     group: root
@@ -168,7 +168,7 @@
 - name: Install the VPN client guide
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/vpn-client-guide.md"
-    dest: /usr/local/share/doc/linux-firewall/vpn-client-guide.md
+    dest: /usr/local/share/doc/debian-based-perimeter/vpn-client-guide.md
     owner: root
     group: root
     mode: "0644"

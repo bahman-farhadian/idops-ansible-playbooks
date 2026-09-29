@@ -18,7 +18,7 @@ SETTINGS_ARG := -e bind_local_settings_file="$(LOCAL_SETTINGS_FILE)"
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 help:
-	@printf "linux-firewall - Linux firewall pair\n\n"
+	@printf "debian-based-perimeter - Debian or Ubuntu perimeter pair\n\n"
 	@printf "Available targets:\n"
 	@printf "  %-28s %s\n" "make help" "show this help"
 	@printf "  %-28s %s\n" "make settings" "create or update your local settings file"
@@ -29,7 +29,7 @@ help:
 	@printf "  %-28s %s\n" "make deps-bundle" "download Python wheels into wheelhouse/"
 	@printf "  %-28s %s\n" "make check" "check playbook.yml syntax"
 	@printf "  %-28s %s\n" "make lint" "run ansible-lint"
-	@printf "  %-28s %s\n" "make ping" "test SSH to both firewall nodes"
+	@printf "  %-28s %s\n" "make ping" "test SSH to both nodes"
 	@printf "  %-28s %s\n" "make deploy" "install BIND, keepalived, and OpenVPN on the pair"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
@@ -63,9 +63,8 @@ require-local-settings:
 	@if [ -z "$(strip $(LOCAL_SETTINGS_FILE))" ]; then \
 		printf '%s\n' \
 			"LOCAL_SETTINGS_FILE is required. There is no default." \
-			"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml" \
-			"     or: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.lab.local.yml" \
-			"Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml"; \
+			"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.debian-based-perimeter.local.yml" \
+			"Create one with: make settings LOCAL_SETTINGS_FILE=vars/settings.debian-based-perimeter.local.yml"; \
 		exit 1; \
 	fi
 	@case "$(LOCAL_SETTINGS_FILE)" in \
@@ -73,7 +72,7 @@ require-local-settings:
 		*) \
 			printf '%s\n' \
 				"LOCAL_SETTINGS_FILE must end with .local.yml (got $(LOCAL_SETTINGS_FILE))." \
-				"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.bind9.local.yml"; \
+				"Example: make $(MAKE_GOAL) LOCAL_SETTINGS_FILE=vars/settings.debian-based-perimeter.local.yml"; \
 			exit 1 ;; \
 	esac
 

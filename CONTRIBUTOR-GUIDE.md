@@ -227,24 +227,23 @@ Where a path or a unit name differs, pick it from the gathered facts.
 
 Ping does not need full facts.
 
-## Perimeter firewall
+## Debian-based perimeter
 
-The Linux perimeter firewall is a pair of DNS guests
-(`ae-internal-services/linux-firewall`). Provision two guests.
-keepalived moves a WAN VIP and a LAN VIP between them. It runs on
-Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04. OS hardening
-applies. Forwarding and SNAT are the hardening firewall role on
-that guest (`firewall_forward_ipv4_enabled`,
-`firewall_nat_ipv4_enabled`). OpenVPN on the pair has an admin
-profile and a user profile.
+`ae-internal-services/debian-based-perimeter` deploys the perimeter
+on a Debian or Ubuntu pair. Provision two guests. keepalived moves a
+WAN VIP and a LAN VIP between them. It runs on Debian 12, Debian 13,
+Ubuntu 24.04, or Ubuntu 26.04. OS hardening applies. Forwarding and
+SNAT are the hardening firewall role on that guest
+(`firewall_forward_ipv4_enabled`, `firewall_nat_ipv4_enabled`).
+OpenVPN on the pair has an admin profile and a user profile.
 
-OPNsense is a later project,
+OPNsense is a separate playbook,
 `ad-network-and-connectivity/opnsense-firewall`. It uses its own
 install image. Configuration is `config.xml` or the HTTPS API. That
 guest does not use cloud-init, and the hardening playbook does not
-apply.
+apply. The two playbooks can be used together.
 
-Do not install OPNsense on the Linux firewall guest.
+Do not install OPNsense on the Debian or Ubuntu perimeter guest.
 
 ## Large files
 

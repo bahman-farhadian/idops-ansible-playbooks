@@ -17,7 +17,7 @@ vpn-client add user alice
 
 `<wan-address>` is the WAN address of either node, or the WAN VIP once
 keepalived is up.
-The guide on the firewall is `/usr/local/share/doc/linux-firewall/vpn-client-guide.md`.
+The guide on the firewall is `/usr/local/share/doc/debian-based-perimeter/vpn-client-guide.md`.
 
 ## Profiles
 
