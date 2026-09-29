@@ -1,11 +1,12 @@
 # ae-internal-services
 
-Domain for in-house platform services: the Debian-based perimeter pair, Ceph, and Mattermost. The playbooks are separate and can be used together.
+Domain for in-house platform services: the Debian-based perimeter pair, Ceph, Mattermost, and Stalwart. The playbooks are separate and can be used together.
 
 ## Alternatives
 
 - MinIO. The community repository was archived in 2026.
 - Zulip, for team chat.
+- A Postfix and Dovecot stack, for mail.
 
 ## Implemented projects
 
@@ -31,3 +32,4 @@ Domain for in-house platform services: the Debian-based perimeter pair, Ceph, an
 - OpenVPN certificates stay on this pair. They are not moved to `ap-secrets-and-pki`.
 - `ceph/` is distributed storage. The project defines how many monitor guests and how many OSD guests. No files yet. Block and image storage for OpenStack, and S3-compatible object storage through the Ceph object gateway, come from this cluster. MinIO is out of scope: the community edition repository was archived in 2026. Glance and Cinder addresses belong in the OpenStack local settings.
 - `mattermost/` is team chat. One guest. The server and its PostgreSQL database stay on that guest. No files yet. This playbook installs the AGPL-3.0 source build. The official Team Edition binary is MIT, for under 250 users, and it has no SSO. The paid Enterprise edition is out of scope. It does not use `ak-databases/postgresql`.
+- `stalwart/` is the mail server. One guest. SMTP, IMAP, JMAP, calendar, and contacts stay on that guest. No files yet. This playbook installs the AGPL-3.0 community edition. The paid Enterprise edition is out of scope. Mailbox data stays on that guest. It does not use `ak-databases/postgresql`. MX, SPF, DKIM, and DMARC records stay on the `debian-based-perimeter` pair.

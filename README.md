@@ -58,6 +58,7 @@ Playbooks in this table are separate. They can be used together. The Alternative
 | `ae-internal-services` | `debian-based-perimeter` | Debian or Ubuntu pair. Firewall, BIND, chrony, OpenVPN. chrony is not installed yet. | — |
 | `ae-internal-services` | `ceph` (no files yet) | Monitor and OSD guests. The project defines how many. | MinIO is archived |
 | `ae-internal-services` | `mattermost` (no files yet) | One guest. Server and its database on that guest. Install the AGPL-3.0 build. | Zulip |
+| `ae-internal-services` | `stalwart` (no files yet) | One guest. Mail, calendar, and contacts. Community edition is AGPL-3.0. | A Postfix and Dovecot stack |
 | `af-artifact-management` | `nexus-repository-systemd` | One guest. APT and Docker Hub proxies. | Harbor, Pulp, apt-cacher. JFrog is paid |
 | `ag-os-baseline-and-hardening` | `debian-based-os-hardening` | Guests that already exist. Lynis stays here. | No second OS family |
 | `ah-container-runtime` | `docker-engine` | One guest. Swarm stays off. | Podman, containerd alone |
@@ -86,7 +87,7 @@ Playbooks in this table are separate. They can be used together. The Alternative
 | `at-security-and-compliance` | `wazuh` (no files yet) | One manager guest. Agents on existing guests come later in this playbook. | OpenSCAP, Security Onion |
 | `au-ci-cd-automation` | `gitlab` (no files yet) | One guest. Git, CI, and its database stay on that guest. | Forgejo, Jenkins |
 
-There is no storage domain in the `aa`–`au` list, so `ceph` sits in `ae-internal-services` with the other platform services. There is no chat domain in that list, so `mattermost` sits there too. `openstack` sits in `ac-vm-provisioning` and deploys an OpenStack cluster. It does not use `kvm-vm-provisioning` or `esxi-vm-provisioning`.
+There is no storage domain in the `aa`–`au` list, so `ceph` sits in `ae-internal-services` with the other platform services. There is no chat or mail domain in that list, so `mattermost` and `stalwart` sit there too. `openstack` sits in `ac-vm-provisioning` and deploys an OpenStack cluster. It does not use `kvm-vm-provisioning` or `esxi-vm-provisioning`.
 
 Left out of this decision: MinIO, a hosted Docker registry, DHCP, MySQL, JFrog, Veeam, Valkey, and Memcached. MinIO's community repository was archived in 2026. Object storage is the Ceph object gateway. WireGuard stays a later addition on the `debian-based-perimeter` pair. OpenVPN certificates stay in that playbook. Backup has no playbook name until that research is accepted. RAID is not a playbook.
 
