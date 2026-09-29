@@ -4,7 +4,7 @@ Domain status: decision only. `opnsense-firewall` is later (no files yet).
 
 ## Purpose
 
-Provide the perimeter on OPNsense. The Debian or Ubuntu perimeter stays `ae-internal-services/debian-based-perimeter`. The two playbooks can be used together.
+Provide the perimeter on OPNsense. The Debian or Ubuntu perimeter is `ae-internal-services/debian-based-perimeter`. A project uses one of these two. The repository keeps both playbooks.
 
 Where this pair runs is the admin's decision. The repository provides the playbook.
 
@@ -15,6 +15,7 @@ Where this pair runs is the admin's decision. The repository provides the playbo
   - Always a pair. CARP moves one WAN VIP and one LAN VIP. A single node is refused
   - Firewall, NAT, and routing
   - DNS on both nodes. Recursive cache for internet names, and authoritative DNS for the local names in that project's settings. Clients use the VIP
+  - When the project uses this perimeter, MX, SPF, DKIM, and DMARC for Stalwart are published on this pair
   - Time service on both nodes. Clients use the same VIP
   - OpenVPN on the pair: an admin profile and a user profile. Certificates stay on this pair
   - WireGuard is a later addition on this same pair
@@ -25,7 +26,7 @@ Where this pair runs is the admin's decision. The repository provides the playbo
 
 ## Alternatives
 
-- None named. This playbook and `debian-based-perimeter` can be used together.
+- None named. A project uses this playbook or `ae-internal-services/debian-based-perimeter`.
 
 ## Left out
 

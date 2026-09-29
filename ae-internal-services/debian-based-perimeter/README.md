@@ -2,8 +2,8 @@
 
 This playbook deploys the perimeter on two Debian or Ubuntu guests.
 The guest OS is Debian or Ubuntu. OPNsense is a separate playbook,
-`ad-network-and-connectivity/opnsense-firewall`. The two can be used
-together.
+`ad-network-and-connectivity/opnsense-firewall`. A project uses one
+of these two perimeters.
 
 keepalived moves one WAN VIP and one LAN VIP between the guests.
 This playbook installs BIND 9, keepalived, and OpenVPN on that pair.

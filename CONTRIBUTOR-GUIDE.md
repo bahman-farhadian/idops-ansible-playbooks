@@ -242,8 +242,8 @@ OPNsense is a separate playbook,
 The admin decides where the pair runs. It uses its own install image.
 Configuration is `config.xml` or the HTTPS API. It does not use
 cloud-init, and the hardening playbook does not apply. The playbook
-covers firewall, DNS, time, and OpenVPN. The two playbooks can be
-used together.
+covers firewall, DNS, time, and OpenVPN. A project uses one of
+these two perimeters.
 
 Do not install OPNsense on the Debian or Ubuntu perimeter guest.
 
