@@ -42,13 +42,13 @@ A service in this list is open source, self-hosted, and production-ready. A paid
 
 Each domain has the playbooks below. A name with no directory yet is a decision, not an implementation. Copy `playbook-template/` only after that name is accepted.
 
-A normal service guest is created by `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`, hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook. Most new services are one guest. A second guest for high availability is a later change inside the same playbook. The size exceptions are in the table: `debian-based-perimeter` is a pair, `kafka` is three brokers, `kubernetes` is three control planes plus workers, and `elk` and `efk` are three guests each. `openstack` deploys an OpenStack cluster, and `ceph` is distributed storage. The project defines the servers and the nodes for both. OpenStack does not use the KVM or ESXi playbooks. `ilo-management` is one playbook on the physical servers the project names.
+A normal service guest is created by `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`, hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook. Most new services are one guest. A second guest for high availability is a later change inside the same playbook. The size exceptions are in the table: `debian-based-perimeter` is a pair, `kafka` is three brokers, `kubernetes` is three control planes plus workers, and `elk` and `efk` are three guests each. `openstack` deploys an OpenStack cluster, and `ceph` is distributed storage. The project defines the servers and the nodes for both. OpenStack does not use the KVM or ESXi playbooks. `ilo-management` is one playbook on the HPE servers the project names. The iLO license, IP address, and user are set by hand first. The user supplies the SPP ISO.
 
 Playbooks in this table are separate. They can be used together. The Alternatives column lists products that are not playbooks here.
 
 | Domain | Playbook | Where it runs | Alternatives |
 | --- | --- | --- | --- |
-| `aa-physical-server-foundation` | `ilo-management` (no files yet) | One playbook. BIOS settings, BIOS update, and HPE iLO on the physical servers the project names. | — |
+| `aa-physical-server-foundation` | `ilo-management` (no files yet) | HPE servers the project names. iLO over HTTP after the license, IP, and user exist. User supplies the SPP ISO. | Dell, Supermicro |
 | `ab-hypervisor-host-platform` | `kvm-host` (no files yet) | Installed Debian or Ubuntu host. libvirt, pools, bridges. No guest. | — |
 | `ab-hypervisor-host-platform` | `esxi-host` (no files yet) | Installed ESXi host. Datastores and port groups. No guest. | — |
 | `ac-vm-provisioning` | `kvm-vm-provisioning` | Creates KVM guests. | — |
@@ -89,7 +89,7 @@ Playbooks in this table are separate. They can be used together. The Alternative
 
 There is no storage domain in the `aa`–`au` list, so `ceph` sits in `ae-internal-services` with the other platform services. There is no chat or mail domain in that list, so `mattermost` and `stalwart` sit there too. `openstack` sits in `ac-vm-provisioning` and deploys an OpenStack cluster. It does not use `kvm-vm-provisioning` or `esxi-vm-provisioning`.
 
-Left out of this decision: MinIO, a hosted Docker registry, DHCP, MySQL, JFrog, Veeam, Valkey, and Memcached. MinIO's community repository was archived in 2026. Object storage is the Ceph object gateway. WireGuard stays a later addition on the `debian-based-perimeter` pair. OpenVPN certificates stay in that playbook. Backup has no playbook name until that research is accepted. RAID is not a playbook.
+Left out of this decision: MinIO, a hosted Docker registry, DHCP, MySQL, JFrog, Veeam, Valkey, and Memcached. MinIO's community repository was archived in 2026. Object storage is the Ceph object gateway. WireGuard stays a later addition on the `debian-based-perimeter` pair. OpenVPN certificates stay in that playbook. Backup has no playbook name until that research is accepted. Disk and RAID layout is not its own playbook. Each physical server's role defines it, and that work is added when the project reaches that server.
 
 ## Why This Order
 
