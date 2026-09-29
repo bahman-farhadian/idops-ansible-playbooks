@@ -1,30 +1,38 @@
 # aq-observability
 
-Domain status: empty (not started)
+Domain status: decision only (no playbook files yet)
 
 ## Purpose
-This directory will contain Ansible playbooks, roles, inventories, and docs for the aq-observability domain.
 
-## Scope
-- In scope: TBD
-- Out of scope: TBD
+Metrics and alerts for the stack. `prometheus/` and `zabbix/` are separate playbooks. They can be used together.
+
+## Playbook
+
+- `prometheus/`
+  - One guest
+  - Prometheus, Alertmanager, and Grafana as systemd services
+  - Exporters on other guests are a later task in this same playbook
+- `zabbix/`
+  - One guest
+  - Zabbix server, the web UI, and its database on that guest
+  - Agents on other guests are a later task in this same playbook
+  - GPL, self-hosted, and used in production
+
+## Alternatives
+
+- A separate Grafana playbook. Tempo and Jaeger for tracing.
+
+## Left out
+
+- A separate Grafana playbook
+- Tracing (Tempo or Jaeger)
 
 ## Dependencies
-- Upstream domains: TBD
-- Downstream domains: TBD
 
-## Execution Notes
-- This domain follows the stack model described in the project root README.
-- Execution is wave-based and iterative, not a strict single-pass order.
-
-## Planned Contents
-- playbooks/
-- roles/
-- inventories/
-- group_vars/
-- docs/
+- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
+- Downstream: dashboards and alert routes
 
 ## Status
-- Architecture finalized: no
-- First playbook implemented: no
-- Validation pipeline added: no
+
+- Playbook files: no
+- Guests: one per playbook, created by `kvm-vm-provisioning`
