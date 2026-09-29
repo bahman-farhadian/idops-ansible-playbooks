@@ -4,7 +4,7 @@ Domain status: in use
 
 ## Purpose
 
-Docker Swarm on guests that already run Docker Engine.
+Container orchestration. `kubernetes/` and `docker-swarm/` are separate playbooks. They can be used together. New clusters use `kubernetes/`. `docker-swarm/` is the playbook already in the repo.
 
 ## Implemented projects
 
@@ -26,3 +26,17 @@ Docker Swarm on guests that already run Docker Engine.
 Install the engine first. Then run `docker-swarm`. A later engine
 deploy on a member keeps the Swarm membership if live-restore stays
 false.
+
+## Alternatives
+
+- None named.
+
+## Scope decision
+
+- `kubernetes/` is the production cluster. No files yet.
+  - kubeadm, the upstream install path
+  - Three control-plane guests, with etcd on those guests
+  - Worker guests from local settings, at least three
+  - containerd on those guests. This playbook does not use `docker-engine`
+  - Cilium is the network plugin
+- `docker-swarm/` stays. It is already implemented. Docker's own docs say Swarm mode still works and development has slowed in favor of Kubernetes. New clusters use `kubernetes/`. The two playbooks can be used together.
