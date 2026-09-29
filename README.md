@@ -50,8 +50,10 @@ Playbooks in this table are separate. They can be used together. The Alternative
 | --- | --- | --- | --- |
 | `aa-physical-server-foundation` | `ilo-4-management` (no files yet) | iLO 4 servers the project names. iLO over HTTP after the license, IP, and user exist. User supplies that generation's SPP ISO. | Dell, Supermicro |
 | `aa-physical-server-foundation` | `ilo-5-management` (no files yet) | iLO 5 servers the project names. Same HTTP path and the same hand setup. User supplies that generation's SPP ISO. | Dell, Supermicro |
-| `ab-hypervisor-host-platform` | `kvm-host` (no files yet) | Installed Debian or Ubuntu host. libvirt, pools, bridges. No guest. | — |
-| `ab-hypervisor-host-platform` | `esxi-host` (no files yet) | Installed ESXi host. Datastores and port groups. No guest. | — |
+| `ab-hypervisor-host-platform` | `debian-based-os-install` (no files yet) | One playbook. Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04 from the ISO the project supplies. | — |
+| `ab-hypervisor-host-platform` | `kvm-host` (no files yet) | After that install. Distro comes from `gather_facts`. libvirt, pools, bridges. No guest. | — |
+| `ab-hypervisor-host-platform` | `kvm-host-hardening` (no files yet) | Hardening for the KVM host. Guest hardening stays in `ag`. | — |
+| `ab-hypervisor-host-platform` | `esxi-host` (no files yet) | Final playbook in this directory. Installs ESXi from the ISO the project supplies, then host setup and hardening. The Makefile checks the image against the server generation. | — |
 | `ac-vm-provisioning` | `kvm-vm-provisioning` | Creates KVM guests. | — |
 | `ac-vm-provisioning` | `esxi-vm-provisioning` (no files yet) | Creates the same four guest releases on ESXi. | — |
 | `ac-vm-provisioning` | `openstack` (no files yet) | Deploys an OpenStack cluster. The project defines the servers and the nodes. | — |
@@ -117,7 +119,7 @@ Left out of this decision: MinIO, a hosted Docker registry, DHCP, MySQL, JFrog, 
 
 - Each top-level directory will become a dedicated playbook domain.
 - Guest provisioning was migrated from the legacy `kvm-clone-ansible` playbook into `ac-vm-provisioning/kvm-vm-provisioning/`; the legacy `old_playbooks/` directory has since been removed now that every project it held has an adopted replacement.
-- `ab-hypervisor-host-platform/` has no playbook files yet. The decided playbooks are `kvm-host` and `esxi-host`.
+- `ab-hypervisor-host-platform/` has no playbook files yet. Directory order is `debian-based-os-install`, `kvm-host`, `kvm-host-hardening`, then `esxi-host`.
 - Copy `playbook-template/` when you start a new project.
 - Repository contributor standards: `CONTRIBUTOR-GUIDE.md`.
 - Repository-wide work queue: `TODO.md`.

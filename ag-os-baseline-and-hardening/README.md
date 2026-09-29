@@ -19,5 +19,6 @@ Domain for operating-system baseline configuration and hardening workflows.
 
 - This domain is `debian-based-os-hardening/` only.
 - It runs on guests that already exist. It does not provision a guest.
+- The KVM host has its own hardening playbook, `ab-hypervisor-host-platform/kvm-host-hardening`. ESXi host hardening stays inside `ab-hypervisor-host-platform/esxi-host`.
 - No second operating-system family.
 - Lynis stays here. The security platform is `at-security-and-compliance/wazuh`.

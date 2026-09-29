@@ -13,7 +13,7 @@ Provider-specific VM provisioning implementations.
 
 - Legacy guest provisioning source: `old_playbooks/kvm-clone-ansible/`
 - Current implementation target: `ac-vm-provisioning/kvm-vm-provisioning/`
-- `ab-hypervisor-host-platform/` has no playbook files yet. The decided host playbooks are `kvm-host` and `esxi-host`.
+- `ab-hypervisor-host-platform/` has no playbook files yet. The decided host playbooks, in directory order, are `debian-based-os-install`, `kvm-host`, `kvm-host-hardening`, and `esxi-host`.
 
 ## Planned Providers
 

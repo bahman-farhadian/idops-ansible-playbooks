@@ -37,7 +37,7 @@ The user supplies the HPE SPP ISO for that generation. The playbook does not dow
 
 ## After these playbooks
 
-The server is ready for whatever operating system or hypervisor the project installs next. `kvm-host` and `esxi-host` both start from a host that already has that software installed.
+The server is ready for `ab-hypervisor-host-platform`. That directory installs Debian, Ubuntu, or ESXi.
 
 ## Later, on the server the project is working on
 
