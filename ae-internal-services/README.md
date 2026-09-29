@@ -1,11 +1,15 @@
 # ae-internal-services
 
-Domain for in-house platform services such as DNS.
+Domain for in-house platform services: the Debian-based perimeter pair, and Ceph. The playbooks are separate and can be used together.
+
+## Alternatives
+
+- MinIO. The community repository was archived in 2026.
 
 ## Implemented projects
 
-- `linux-firewall/`
-  - Linux firewall pair. OPNsense is a later, separate project
+- `debian-based-perimeter/`
+  - Deploys the perimeter on Debian or Ubuntu. OPNsense is a separate playbook and can be used together with this one.
   - Two guests with keepalived and a WAN VIP plus a LAN VIP
   - BIND 9 as a systemd service on both nodes
   - Recursive cache for internet names
@@ -14,3 +18,14 @@ Domain for in-house platform services such as DNS.
   - UDP/TCP 53 on both NICs
   - OpenVPN admin profile and user profile
   - Forwarding and SNAT come from the hardening firewall role on this guest
+
+## Scope decision
+
+- The pair is the Debian-based perimeter: firewall, BIND, chrony, and OpenVPN on Debian or Ubuntu.
+- Playbook directory: `debian-based-perimeter/`.
+- OPNsense is `ad-network-and-connectivity/opnsense-firewall`. That playbook is separate. The two can be used together.
+- chrony runs on both nodes of this pair. Clients use the same VIP they already use for DNS. This playbook does not install chrony yet.
+- WireGuard stays a later addition on the same pair.
+- No DHCP playbook. Addresses stay static in the provisioning settings.
+- OpenVPN certificates stay on this pair. They are not moved to `ap-secrets-and-pki`.
+- `ceph/` is distributed storage. The project defines how many monitor guests and how many OSD guests. No files yet. Block and image storage for OpenStack, and S3-compatible object storage through the Ceph object gateway, come from this cluster. MinIO is out of scope: the community edition repository was archived in 2026. Glance and Cinder addresses belong in the OpenStack local settings.
