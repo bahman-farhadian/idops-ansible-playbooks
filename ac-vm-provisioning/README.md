@@ -21,12 +21,12 @@ Provider-specific VM provisioning implementations.
 
 ## Scope decision
 
-- `kvm-vm-provisioning/`, `esxi-vm-provisioning/`, and `openstack/` are separate playbooks. They can be used together.
+- Directory order is `kvm-vm-provisioning/`, then `esxi-vm-provisioning/`.
+- The two are separate playbooks. They can be used together. The admin picks the playbook when a guest is deployed.
 - `kvm-vm-provisioning/` creates KVM guests from Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 cloud images. It does not install application services.
 - `esxi-vm-provisioning/` creates the same four guest releases on ESXi. It does not install application services. No files yet.
 - A normal Debian or Ubuntu service guest is created by one of those two playbooks, then hardened, then handed to its own playbook.
-- `openstack/` deploys an OpenStack cluster. No files yet. The project defines how many servers and nodes. This playbook does not use `kvm-vm-provisioning/` or `esxi-vm-provisioning/`.
-- When that project uses Ceph for images or volumes, those addresses belong in the OpenStack local settings.
+- OpenStack is `ah-openstack`. It is not part of this directory.
 
 ## Alternatives
 
@@ -35,7 +35,7 @@ Provider-specific VM provisioning implementations.
 ## Dependencies
 
 - Upstream domains: `aa-physical-server-foundation`, `ab-hypervisor-host-platform`
-- Downstream domains: `ag-os-baseline-and-hardening`, `ah-container-runtime`, and higher layers
+- Downstream domains: `ag-os-baseline-and-hardening`, `ai-container-runtime`, and higher layers
 
 ## Consistency Contract
 
