@@ -62,7 +62,7 @@ Playbooks in this table are separate. They can be used together. Where a playboo
 | `ae-internal-services` | `debian-based-perimeter` | Debian or Ubuntu pair. Firewall, BIND, chrony, OpenVPN. chrony is not installed yet. | — |
 | `ae-internal-services` | `mattermost` (no files yet) | One guest. Server and its database on that guest. Install the AGPL-3.0 build. | Zulip |
 | `ae-internal-services` | `stalwart` (no files yet) | One guest. Mail, calendar, and contacts. Community edition is AGPL-3.0. | A Postfix and Dovecot stack |
-| `af-artifact-management` | `nexus-repository-systemd` | One guest. APT and Docker Hub proxies. | Harbor, Pulp, apt-cacher. JFrog is paid |
+| `af-artifact-management` | `nexus-repository-systemd` | One guest. APT and Docker Hub proxies. More repository types are added later in this playbook. | Harbor, Pulp, apt-cacher. JFrog is paid |
 | `ag-os-baseline-and-hardening` | `debian-based-os-hardening` | Guests that already exist. Lynis stays here. | No second OS family |
 | `ah-distributed-storage` | `ceph` (no files yet) | Monitor and OSD guests. The project defines how many. OpenStack and Kubernetes use this cluster. | MinIO is archived |
 | `ai-openstack` | `openstack` (no files yet) | An OpenStack cluster. The project defines the servers and the nodes. Not a hypervisor and not guest creation. | — |

@@ -19,7 +19,8 @@ gathers host facts, prints that release, and refuses any other guest.
   (`docker-ce-debian-bookworm`, `docker-ce-debian-trixie`,
   `docker-ce-ubuntu-noble`, `docker-ce-ubuntu-resolute`)
 - Cleanup policies on those **proxy caches only**: keep up to 30 days.
-  A hosted/private Docker registry is out of scope.
+  A hosted/private Docker registry is out of scope. More repository
+  types are added later in this same playbook, one type at a time.
 
 The version is pinned in `vars/nexus.yml` (`nexus_version` and
 `nexus_download_checksum`). The pin is `3.95.4-01`, a generally
