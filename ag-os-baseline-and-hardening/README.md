@@ -13,7 +13,7 @@ Domain for operating-system baseline configuration and hardening workflows.
 
 ## Alternatives
 
-- No second operating-system family. Wazuh is a separate playbook in `au-security-and-compliance`. The two can be used together.
+- No second operating-system family. Wazuh is a separate playbook in `av-security-and-compliance`. The two can be used together.
 
 ## Scope decision
 
@@ -21,4 +21,4 @@ Domain for operating-system baseline configuration and hardening workflows.
 - It runs on guests that already exist. It does not provision a guest.
 - The KVM host has its own hardening playbook, `ab-hypervisor-host-platform/kvm-host-hardening`. ESXi host hardening stays inside `ab-hypervisor-host-platform/esxi-host`.
 - No second operating-system family.
-- Lynis stays here. The security platform is `au-security-and-compliance/wazuh`.
+- Lynis stays here. The security platform is `av-security-and-compliance/wazuh`.

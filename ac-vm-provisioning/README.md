@@ -36,7 +36,7 @@ A normal service guest is created by one of these two playbooks, then hardened b
 
 ## Left out
 
-- OpenStack. That cluster is `ah-openstack`. It does not create guests
+- OpenStack. That cluster is `ai-openstack`. It does not create guests
 - Hypervisor install (`ab-hypervisor-host-platform`)
 - Guest hardening (`ag-os-baseline-and-hardening/debian-based-os-hardening`)
 - Application services

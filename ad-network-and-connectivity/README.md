@@ -33,7 +33,7 @@ Where this pair runs is the admin's decision. The repository provides the playbo
 - DHCP. Addresses stay in the provisioning settings
 - Installing OPNsense on the Debian or Ubuntu perimeter guest
 - A second playbook for DNS, time, or VPN
-- OpenVPN certificates in `aq-secrets-and-pki`
+- OpenVPN certificates in `ar-secrets-and-pki`
 
 ## Dependencies
 
