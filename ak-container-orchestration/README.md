@@ -16,9 +16,7 @@ Container orchestration. `kubernetes/` and `docker-swarm/` are separate playbook
 
 ## Dependencies
 
-- Upstream: `aj-container-runtime/docker-engine` with `live_restore: false`
-  on every member, and a host firewall that already allows TCP 2377,
-  TCP 7946, UDP 7946, and UDP 4789 between members
+- Upstream: the administrator runs `aj-container-runtime/docker-engine` first, with `live_restore: false` on every member. This playbook does not call it. The host firewall already allows TCP 2377, TCP 7946, UDP 7946, and UDP 4789 between members
 - Downstream: workloads that schedule onto the cluster
 
 ## Execution Notes
@@ -46,5 +44,9 @@ false.
   - The administrator provides the HAProxy guests. `al-traffic-management/haproxy` installs HAProxy. This playbook configures HAProxy for the API and sets up keepalived on those guests
   - Make requires at least 2 HAProxy guests. A single HAProxy is refused
   - containerd on the control-plane and worker guests. This playbook does not use `docker-engine`
+  - Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04, x86_64
+  - Application pods run on the workers. This playbook does not install an ingress controller
   - This playbook does not deploy Ceph. When the administrator provides a Ceph cluster, this playbook installs the volume drivers and uses those addresses
+  - Stacked minimum: 3 control-plane guests, 3 workers, and 2 HAProxy guests, plus the bastion the administrator provides
+  - External minimum: 2 control-plane guests, 3 etcd guests, 3 workers, and 2 HAProxy guests, plus the bastion the administrator provides
 - `docker-swarm/` stays. It is already implemented. Docker's own docs say Swarm mode still works and development has slowed in favor of Kubernetes. New clusters use `kubernetes/`. The two playbooks can be used together.
