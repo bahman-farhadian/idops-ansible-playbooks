@@ -22,7 +22,8 @@ When the project needs TLS, the engine terminates it. The administrator provides
   - External etcd: the administrator provides the guests. They are not the PostgreSQL guests. This playbook installs etcd on them and does not create the guests. Make requires at least 3, and that count must be odd. A single etcd is refused. The PostgreSQL set is at least 2
   - An existing etcd cluster: the addresses stay in local settings. Make requires at least 3 addresses, and that count must be odd. This playbook does not install etcd. The PostgreSQL set is at least 2
   - One guest is a local-settings choice. That choice runs PostgreSQL only. Patroni and etcd stay off
-  - Sharding is still open. How applications reach the current primary is still open
+  - This playbook does not install or configure a proxy. A project that wants one uses `al-traffic-management`
+  - Sharding is still open
 - `mariadb/`
   - MariaDB as a systemd service
   - Layout minimums are still open
