@@ -12,7 +12,8 @@ Docker Engine on a guest, with Swarm left off.
   - Docker Engine on Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04
   - CPU must be x86_64
   - Dedicated XFS data-root, pinned Docker CE packages from a Nexus apt proxy
-  - Does not initialize Swarm
+  - `live_restore` stays on. A Swarm member is installed with `live_restore` off
+  - Does not initialize Swarm. Joining a Swarm is `ak-container-orchestration/docker-swarm`. This playbook does not call it
 
 ## Dependencies
 
@@ -34,3 +35,4 @@ A Swarm member is installed here first, then joined from
 
 - This domain is `docker-engine/` only.
 - Podman and a containerd-only playbook are left out.
+- Kubernetes uses containerd inside `ak-container-orchestration/kubernetes`.
