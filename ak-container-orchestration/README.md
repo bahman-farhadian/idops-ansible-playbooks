@@ -37,11 +37,13 @@ false.
   - kubeadm, the upstream install path
   - Two etcd layouts. The project picks one in local settings
   - Stacked etcd runs on the control-plane guests. Make requires at least 3 control-plane guests, and that count must be odd
-  - External etcd runs on its own guests. Make requires at least 3 control-plane guests and at least 3 etcd guests. The etcd count must be odd
-  - Worker guests from local settings. Make requires at least 3
+  - External etcd runs on its own guests. The control plane holds no cluster state, so Make requires at least 2 control-plane guests. Make also requires at least 3 etcd guests, and that count must be odd
+  - Worker guests from local settings. Make requires at least 3, so one worker can fail and pods still have a place to run
   - vCPU, RAM, and disk size stay in local settings. Make does not fix them
-  - Firewall guests and a bastion are not part of this playbook. A project can omit them
-  - A single HAProxy in front of the API is refused
+  - The project picks Calico or Cilium in local settings. This playbook supports both
+  - Firewall guests are not part of this playbook. A project can omit them
+  - The bastion stays. It is not the API proxy
+  - The API is fronted by HAProxy. Make requires at least 2 HAProxy guests. A single HAProxy is refused
   - containerd on the control-plane and worker guests. This playbook does not use `docker-engine`
   - This playbook does not deploy Ceph. When the project uses Ceph, the operator provides that cluster and puts the addresses in local settings
 - `docker-swarm/` stays. It is already implemented. Docker's own docs say Swarm mode still works and development has slowed in favor of Kubernetes. New clusters use `kubernetes/`. The two playbooks can be used together.
