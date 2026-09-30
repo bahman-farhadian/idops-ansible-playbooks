@@ -64,7 +64,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ae-internal-services` | `stalwart` (no files yet) | One guest. Mail, calendar, and contacts. Community edition is AGPL-3.0. | A Postfix and Dovecot stack |
 | `af-artifact-management` | `nexus-repository-systemd` | One guest. APT and Docker Hub proxies. More repository types are added later in this playbook. | Harbor, Pulp, apt-cacher. JFrog is paid |
 | `ag-os-baseline-and-hardening` | `debian-based-os-hardening` | Guests that already exist. Lynis stays here. | No second OS family |
-| `ah-distributed-storage` | `ceph` (no files yet) | Monitor and OSD guests. The project defines how many. OpenStack and Kubernetes use this cluster. | MinIO is archived |
+| `ah-distributed-storage` | `ceph` (no files yet) | Monitors, OSDs, and CephFS. At least 2 HAProxy in front of the object gateway. OpenStack and Kubernetes consume the cluster. | MinIO is archived |
 | `ai-openstack` | `openstack` (no files yet) | On the KVM hosts the operator prepared. Separate runs. Not guest creation. | — |
 | `aj-container-runtime` | `docker-engine` | One guest. Swarm stays off. | Podman, containerd alone |
 | `ak-container-orchestration` | `kubernetes` (no files yet) | kubeadm. Calico or Cilium. Stacked or external etcd. At least 2 HAProxy. Make checks the counts. Does not deploy Ceph. | — |

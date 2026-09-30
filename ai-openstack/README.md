@@ -16,7 +16,7 @@ Deploy an OpenStack cluster. This domain is not a hypervisor, and it does not cr
   - This playbook does not call those playbooks
   - It does not use `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`
   - Those guest playbooks can still be used in the same project
-  - This playbook does not deploy Ceph. When the project uses Ceph for images or volumes, the operator provides that cluster and puts the addresses in local settings
+  - This playbook does not deploy Ceph. When the project uses Ceph for images, volumes, or CephFS, the operator provides that cluster and puts the addresses in local settings
   - The deployment tool and the service list are added when a project deploys a cluster
   - No files yet
 

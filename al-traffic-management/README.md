@@ -10,8 +10,8 @@ Application traffic in front of services. Each proxy is its own playbook and its
 
 - `haproxy/`
   - HAProxy as a systemd service
-  - One guest, except the Kubernetes API. The administrator provides at least 2 guests for that API. This playbook installs HAProxy on them. `ak-container-orchestration/kubernetes` configures HAProxy and sets up keepalived on those guests
-  - A single HAProxy in front of the Kubernetes API is refused
+  - One guest, except where a pair is required. The administrator provides at least 2 guests for the Kubernetes API and for the Ceph object gateway. This playbook installs HAProxy on them. `ak-container-orchestration/kubernetes` configures the API pair. `ah-distributed-storage/ceph` configures the gateway pair. Each of those playbooks sets up keepalived on its pair
+  - A single HAProxy in front of the Kubernetes API or the Ceph object gateway is refused
   - Backends come from that project's local settings
 - `nginx/`
   - One guest
@@ -36,4 +36,4 @@ Application traffic in front of services. Each proxy is its own playbook and its
 ## Status
 
 - Playbook files: no
-- Guests: the administrator provides them. One HAProxy guest, or at least two when they front the Kubernetes API. One Nginx guest
+- Guests: the administrator provides them. One HAProxy guest, or at least two in front of the Kubernetes API or the Ceph object gateway. One Nginx guest

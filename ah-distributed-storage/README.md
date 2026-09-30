@@ -11,12 +11,13 @@ Provide the Ceph cluster. OpenStack and Kubernetes do not deploy it. When a proj
 - `ceph/`
   - One playbook
   - The project defines how many monitor guests and how many OSD guests
+  - The monitor count must be odd. Make checks a change against the cluster that is already running. A set of 3 monitors cannot be raised to 4. The next valid count is 5
   - Block and image storage for OpenStack
+  - CephFS is in this playbook. OpenStack is one consumer. Make requires at least 2 metadata-server guests
   - OpenStack and Kubernetes consume this cluster. They do not deploy it
-  - S3-compatible object storage through the Ceph object gateway
+  - S3 through the object gateway. The administrator provides at least 2 HAProxy guests in front of it. `al-traffic-management/haproxy` installs HAProxy. This playbook configures HAProxy and sets up keepalived on those guests. A single HAProxy is refused
   - MinIO is out of scope. The community edition repository was archived in 2026
-  - Glance and Cinder addresses belong in the `ai-openstack` local settings
-  - How Kubernetes attaches volumes, and where the object gateway runs, are added when this playbook is written
+  - Glance, Cinder, and CephFS addresses belong in the `ai-openstack` local settings
   - No files yet
 
 ## Alternatives
@@ -37,4 +38,4 @@ Provide the Ceph cluster. OpenStack and Kubernetes do not deploy it. When a proj
 ## Status
 
 - Playbook files: no
-- Guests: the project defines the monitor count and the OSD count
+- Guests: the project defines the monitor count and the OSD count. At least 2 metadata servers. At least 2 HAProxy guests in front of the object gateway

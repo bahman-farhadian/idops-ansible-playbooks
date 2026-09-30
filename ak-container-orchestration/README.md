@@ -46,5 +46,5 @@ false.
   - The administrator provides the HAProxy guests. `al-traffic-management/haproxy` installs HAProxy. This playbook configures HAProxy for the API and sets up keepalived on those guests
   - Make requires at least 2 HAProxy guests. A single HAProxy is refused
   - containerd on the control-plane and worker guests. This playbook does not use `docker-engine`
-  - This playbook does not deploy Ceph. When the project uses Ceph, the operator provides that cluster and puts the addresses in local settings
+  - This playbook does not deploy Ceph. When the administrator provides a Ceph cluster, this playbook installs the volume drivers and uses those addresses
 - `docker-swarm/` stays. It is already implemented. Docker's own docs say Swarm mode still works and development has slowed in favor of Kubernetes. New clusters use `kubernetes/`. The two playbooks can be used together.
