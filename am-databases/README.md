@@ -4,34 +4,35 @@ Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Database services for the stack. Each engine is its own playbook and its own guest. The playbooks are separate and can be used together.
+Database services for the stack. Each engine is its own playbook. The playbooks are separate and can be used together.
+
+Each playbook can run as one guest, as a replicated set, or as a sharded set. A project can use replication and sharding together. The project picks the layout in local settings. The minimum guest count for each layout is decided one playbook at a time.
+
+Debian 12, Debian 13, Ubuntu 24.04, or Ubuntu 26.04. The playbook pins the database version. The repository URL stays in local settings. That pin is the same on each of those releases. Each guest has an extra disk for its data directory. vCPU, RAM, and disk size stay in local settings.
+
+When the project needs TLS, the engine terminates it. The administrator provides the certificate and the key. They stay in local settings. Accounts and passwords stay in local settings.
 
 ## Playbook
 
 - `postgresql/`
-  - One guest
   - PostgreSQL as a systemd service
-  - An extra disk for the data directory
-  - This guest is for applications that want a shared database. A playbook that keeps its own database does not use this guest.
+  - For applications that want a shared database. Mattermost, Stalwart, Metabase, Superset, Keycloak, GitLab, and Zabbix keep their own data and do not use this playbook
+  - Layout minimums are still open
 - `mariadb/`
-  - One guest
   - MariaDB as a systemd service
-  - An extra disk for the data directory
+  - Layout minimums are still open
 - `clickhouse/`
-  - One guest
-  - ClickHouse as a systemd service
-  - An extra disk for the data directory
+  - ClickHouse as a systemd service. The database code is Apache 2.0
+  - Layout minimums are still open
 - `elasticsearch/`
-  - One guest
   - Elasticsearch as a systemd service, for applications
-  - An extra disk for the data directory
   - This guest is not the Elasticsearch in `at-centralized-logging`. ELK and EFK keep their own clusters
   - The source is available under AGPL, SSPL, or the Elastic License. AGPL is the open-source terms. The usual Elastic download is the Elastic License, so when this playbook is written it installs the AGPL terms on purpose
+  - Layout minimums are still open
 - `mongodb/`
-  - One guest
   - MongoDB Community Server as a systemd service
-  - An extra disk for the data directory
   - Community Server is SSPL. That is not an OSI open-source license. It is in this domain because the stack asked for MongoDB
+  - Layout minimums are still open
 
 ## Alternatives
 
@@ -41,14 +42,14 @@ Database services for the stack. Each engine is its own playbook and its own gue
 ## Left out
 
 - MySQL
-- A replica or a failover manager, until a later change inside that same playbook
+- ClickHouse Cloud and the paid ClickHouse self-managed addendum
 
 ## Dependencies
 
-- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
+- Upstream: the guests the administrator provides. This playbook does not create them and does not call provisioning or hardening
 - Downstream: applications that choose this database in their own local settings
 
 ## Status
 
 - Playbook files: no
-- Guests: one per playbook, created by `kvm-vm-provisioning`
+- Review: `postgresql/` is the open playbook. MariaDB, ClickHouse, Elasticsearch, and MongoDB follow one at a time
