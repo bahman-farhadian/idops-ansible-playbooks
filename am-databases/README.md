@@ -17,10 +17,11 @@ When the project needs TLS, the engine terminates it. The administrator provides
 - `postgresql/`
   - PostgreSQL as a systemd service. Patroni runs on the PostgreSQL guests and promotes a standby when the primary fails
   - For applications that want a shared database. Mattermost, Stalwart, Metabase, Superset, Keycloak, GitLab, and Zabbix keep their own data and do not use this playbook
-  - Two etcd layouts. The project picks one in local settings
-  - External etcd: the administrator provides the guests. They are not the PostgreSQL guests. This playbook installs etcd on them and does not create the guests. Make requires at least 3, and that count must be odd. A single etcd is refused
-  - An existing etcd cluster: the addresses stay in local settings. Make requires at least 3 addresses, and that count must be odd. This playbook does not install etcd
-  - PostgreSQL guests: Make requires at least 2, so one guest can fail and a standby remains. One guest is a local-settings choice. That choice runs PostgreSQL only. Patroni and etcd stay off
+  - Three etcd layouts. The project picks one in local settings
+  - etcd on the PostgreSQL guests. This playbook installs etcd there, beside PostgreSQL and Patroni. Make requires at least 3 PostgreSQL guests, and that count must be odd, so one guest can fail and etcd still has a quorum. Two guests are refused
+  - External etcd: the administrator provides the guests. They are not the PostgreSQL guests. This playbook installs etcd on them and does not create the guests. Make requires at least 3, and that count must be odd. A single etcd is refused. The PostgreSQL set is at least 2
+  - An existing etcd cluster: the addresses stay in local settings. Make requires at least 3 addresses, and that count must be odd. This playbook does not install etcd. The PostgreSQL set is at least 2
+  - One guest is a local-settings choice. That choice runs PostgreSQL only. Patroni and etcd stay off
   - Sharding is still open. How applications reach the current primary is still open
 - `mariadb/`
   - MariaDB as a systemd service
