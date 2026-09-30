@@ -15,7 +15,8 @@ Provide the Ceph cluster. OpenStack and Kubernetes do not deploy it. When a proj
   - Block and image storage for OpenStack
   - CephFS is in this playbook. OpenStack is one consumer. Make requires at least 2 metadata-server guests
   - OpenStack and Kubernetes consume this cluster. They do not deploy it
-  - S3 through the object gateway. The administrator provides at least 2 HAProxy guests in front of it. `al-traffic-management/haproxy` installs HAProxy. This playbook configures HAProxy and sets up keepalived on those guests. A single HAProxy is refused
+  - The object gateway runs on its own guests. The project sets how many. Make requires at least 2. The monitors and the OSDs stay on their own guests
+  - The administrator provides at least 2 HAProxy guests in front of the gateway. `al-traffic-management/haproxy` installs HAProxy. This playbook configures HAProxy and sets up keepalived on those guests. A single HAProxy is refused
   - MinIO is out of scope. The community edition repository was archived in 2026
   - Glance, Cinder, and CephFS addresses belong in the `ai-openstack` local settings
   - No files yet
@@ -38,4 +39,4 @@ Provide the Ceph cluster. OpenStack and Kubernetes do not deploy it. When a proj
 ## Status
 
 - Playbook files: no
-- Guests: the project defines the monitor count and the OSD count. At least 2 metadata servers. At least 2 HAProxy guests in front of the object gateway
+- Guests: the project defines the monitor count, the OSD count, and the object-gateway count. At least 2 object gateways. At least 2 metadata servers. At least 2 HAProxy guests in front of the gateway
