@@ -69,8 +69,9 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `aj-container-runtime` | `docker-engine` | One guest. Swarm stays off. | Podman, containerd alone |
 | `ak-container-orchestration` | `kubernetes` (no files yet) | kubeadm. Calico or Cilium. Stacked or external etcd. At least 2 HAProxy. Make checks the counts. Does not deploy Ceph. | — |
 | `ak-container-orchestration` | `docker-swarm` | Already in the repo. Swarm mode still runs. | — |
-| `al-traffic-management` | `haproxy` (no files yet) | One guest. HTTP and TCP reverse proxy. | Traefik |
-| `al-traffic-management` | `nginx` (no files yet) | One guest. HTTP and TCP reverse proxy. | Traefik |
+| `al-traffic-management` | `haproxy` (no files yet) | Systemd service. One guest, or at least two for the Kubernetes API or the Ceph object gateway. | — |
+| `al-traffic-management` | `nginx` (no files yet) | One guest, beside the service it proxies. TLS when the project supplies the keys. | — |
+| `al-traffic-management` | `traefik` (no files yet) | Container on one Docker host or on Swarm. | — |
 | `am-databases` | `postgresql` (no files yet) | One guest. Extra disk for data. | MySQL |
 | `am-databases` | `mariadb` (no files yet) | One guest. Extra disk for data. | MySQL |
 | `am-databases` | `clickhouse` (no files yet) | One guest. Extra disk for data. | — |
