@@ -16,8 +16,7 @@ Docker Engine on a guest, with Swarm left off.
 
 ## Dependencies
 
-- Upstream: guest provisioning, OS hardening, and Nexus apt proxies for
-  Docker CE stable (bookworm, trixie, noble, resolute)
+- Upstream: a Debian or Ubuntu host. Docker CE package URLs stay in local settings. This playbook does not call provisioning or hardening
 - Downstream: `ak-container-orchestration/docker-swarm` on hosts that
   were installed with live-restore off
 

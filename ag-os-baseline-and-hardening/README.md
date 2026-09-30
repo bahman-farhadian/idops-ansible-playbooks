@@ -10,7 +10,7 @@ Harden Debian and Ubuntu guests that already exist. This domain does not create 
 
 - `debian-based-os-hardening/`
   - One playbook for Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04
-  - A normal guest is created by `ac-vm-provisioning`, hardened here, then handed to its service playbook
+  - The operator may run this playbook after `ac-vm-provisioning`, or harden the guest another way. Provisioning does not call this playbook, and this playbook does not call the service playbook
   - Firewall is iptables. Lynis stays here. The minimum score is 86
   - SSH listens on port 2222. The first user is `idops`
   - `dist-upgrade` runs here

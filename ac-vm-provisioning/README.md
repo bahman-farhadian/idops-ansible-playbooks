@@ -28,7 +28,7 @@ The two are separate playbooks. They can be used together.
   - No files yet
   - How the guest disk is built, and how the playbook talks to the ESXi host, are added when this playbook is written
 
-A normal service guest is created by one of these two playbooks, then hardened by `ag-os-baseline-and-hardening/debian-based-os-hardening`, then handed to its service playbook.
+A service guest is created by one of these two playbooks. The operator may then run `ag-os-baseline-and-hardening/debian-based-os-hardening`, or harden the guest another way. This playbook does not call the next one.
 
 ## Alternatives
 

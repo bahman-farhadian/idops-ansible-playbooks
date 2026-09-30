@@ -10,7 +10,10 @@ Deploy an OpenStack cluster. This domain is not a hypervisor, and it does not cr
 
 - `openstack/`
   - One playbook
-  - The project defines the servers and the nodes
+  - Several servers. The project defines the servers and the nodes
+  - The operator prepares each server as a KVM host, then runs this playbook. The runs stay separate
+  - `ab-hypervisor-host-platform/debian-based-os-install`, then `kvm-host`, then `kvm-host-hardening`
+  - This playbook does not call those playbooks
   - It does not use `ac-vm-provisioning/kvm-vm-provisioning` or `ac-vm-provisioning/esxi-vm-provisioning`
   - Those guest playbooks can still be used in the same project
   - When the project uses Ceph for images or volumes, the cluster is `ah-distributed-storage/ceph` and those addresses belong in this playbook's local settings
@@ -28,7 +31,7 @@ Deploy an OpenStack cluster. This domain is not a hypervisor, and it does not cr
 
 ## Dependencies
 
-- Upstream: the servers the project names
+- Upstream: the KVM hosts the operator prepared. This playbook does not call the host playbooks
 - Downstream: the workloads that project places on the cluster
 
 ## Status
