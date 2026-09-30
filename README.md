@@ -67,7 +67,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ah-distributed-storage` | `ceph` (no files yet) | Monitor and OSD guests. The project defines how many. OpenStack and Kubernetes use this cluster. | MinIO is archived |
 | `ai-openstack` | `openstack` (no files yet) | On the KVM hosts the operator prepared. Separate runs. Not guest creation. | — |
 | `aj-container-runtime` | `docker-engine` | One guest. Swarm stays off. | Podman, containerd alone |
-| `ak-container-orchestration` | `kubernetes` (no files yet) | Three control-plane guests plus workers (at least three). kubeadm and Cilium. | — |
+| `ak-container-orchestration` | `kubernetes` (no files yet) | kubeadm. Stacked or external etcd. Make checks the minimum guest count. Does not deploy Ceph. | — |
 | `ak-container-orchestration` | `docker-swarm` | Already in the repo. Swarm mode still runs. | — |
 | `al-traffic-management` | `haproxy` (no files yet) | One guest. HTTP and TCP reverse proxy. | Traefik |
 | `al-traffic-management` | `nginx` (no files yet) | One guest. HTTP and TCP reverse proxy. | Traefik |

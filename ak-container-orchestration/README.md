@@ -35,9 +35,10 @@ false.
 
 - `kubernetes/` is the production cluster. No files yet.
   - kubeadm, the upstream install path
-  - Three control-plane guests, with etcd on those guests
-  - Worker guests from local settings, at least three
-  - containerd on those guests. This playbook does not use `docker-engine`
-  - Cilium is the network plugin
-  - When the project uses Ceph, that storage is `ah-distributed-storage/ceph`
+  - Two etcd layouts. The project picks one in local settings
+  - Stacked etcd runs on the control-plane guests. Make requires at least 3 control-plane guests, and that count must be odd
+  - External etcd runs on its own guests. Make requires at least 3 control-plane guests and at least 3 etcd guests. The etcd count must be odd
+  - Worker guests from local settings. Make requires at least 3
+  - containerd on the control-plane and worker guests. This playbook does not use `docker-engine`
+  - This playbook does not deploy Ceph. When the project uses Ceph, the operator provides that cluster and puts the addresses in local settings
 - `docker-swarm/` stays. It is already implemented. Docker's own docs say Swarm mode still works and development has slowed in favor of Kubernetes. New clusters use `kubernetes/`. The two playbooks can be used together.
