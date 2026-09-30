@@ -1,24 +1,39 @@
 # ag-os-baseline-and-hardening
 
-Domain for operating-system baseline configuration and hardening workflows.
+Domain status: in use
 
-## Implemented Projects
+## Purpose
+
+Harden Debian and Ubuntu guests that already exist. This domain does not create the guest.
+
+## Playbook
 
 - `debian-based-os-hardening/`
-  - Migrated from `old_playbooks/debian-based-hardening-ansible`
-  - One playbook: `playbook.yml`
-  - Hardens Debian 12/13 and Ubuntu 24.04/26.04
-  - Lynis scan must score at least 86
-  - Firewall is iptables, not UFW
+  - One playbook for Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04
+  - A normal guest is created by `ac-vm-provisioning`, hardened here, then handed to its service playbook
+  - Firewall is iptables. Lynis stays here. The minimum score is 86
+  - SSH listens on port 2222. The first user is `idops`
+  - `dist-upgrade` runs here
+  - APT URLs stay in that guest's local settings. The project points them at Nexus when that cache exists
+  - Files are in the repo
 
 ## Alternatives
 
-- No second operating-system family. Wazuh is a separate playbook in `av-security-and-compliance`. The two can be used together.
+- None named. Wazuh is `av-security-and-compliance/wazuh`. The two can be used together.
 
-## Scope decision
+## Left out
 
-- This domain is `debian-based-os-hardening/` only.
-- It runs on guests that already exist. It does not provision a guest.
-- The KVM host has its own hardening playbook, `ab-hypervisor-host-platform/kvm-host-hardening`. ESXi host hardening stays inside `ab-hypervisor-host-platform/esxi-host`.
-- No second operating-system family.
-- Lynis stays here. The security platform is `av-security-and-compliance/wazuh`.
+- A second operating-system family
+- Creating the guest
+- KVM host hardening (`ab-hypervisor-host-platform/kvm-host-hardening`)
+- ESXi host hardening (`ab-hypervisor-host-platform/esxi-host`)
+- OPNsense (`ad-network-and-connectivity/opnsense-firewall`)
+
+## Dependencies
+
+- Upstream: the guest. `ac-vm-provisioning` creates it when the project uses those playbooks
+- Downstream: the service playbook for that guest
+
+## Status
+
+- Playbook files: yes
