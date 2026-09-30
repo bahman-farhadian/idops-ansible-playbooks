@@ -17,7 +17,7 @@ When the project needs TLS, the engine terminates it. The administrator provides
 - `postgresql/`
   - PostgreSQL as a systemd service
   - For applications that want a shared database. Mattermost, Stalwart, Metabase, Superset, Keycloak, GitLab, and Zabbix keep their own data and do not use this playbook
-  - Layout minimums are still open
+  - One guest is a local-settings choice. The deployment is a replicated set, a sharded set, or both. The failover method is still open
 - `mariadb/`
   - MariaDB as a systemd service
   - Layout minimums are still open
