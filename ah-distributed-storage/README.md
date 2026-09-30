@@ -17,6 +17,8 @@ Provide the Ceph cluster. OpenStack and Kubernetes do not deploy it. When a proj
   - OpenStack and Kubernetes consume this cluster. They do not deploy it
   - The object gateway runs on its own guests. The project sets how many. Make requires at least 2. The monitors and the OSDs stay on their own guests
   - The administrator provides at least 2 HAProxy guests in front of the gateway. `al-traffic-management/haproxy` installs HAProxy. This playbook configures HAProxy and sets up keepalived on those guests. A single HAProxy is refused
+  - That HAProxy pair load-balances the object gateways only. Monitors, OSDs, and metadata servers are not behind it
+  - When the project needs TLS, HAProxy terminates it. The certificate stays in local settings
   - MinIO is out of scope. The community edition repository was archived in 2026
   - Glance, Cinder, and CephFS addresses belong in the `ai-openstack` local settings
   - No files yet

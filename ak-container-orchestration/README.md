@@ -39,7 +39,7 @@ false.
   - Worker guests from local settings. Make requires at least 3, so one worker can fail and pods still have a place to run
   - vCPU, RAM, and disk size stay in local settings. Make does not fix them
   - The project picks Calico or Cilium in local settings. This playbook supports both
-  - Firewall guests are not part of this playbook. A project can omit them
+  - Firewall guests are optional. When the administrator provides them, this playbook supports that layout. It does not install the firewall
   - The administrator provides the bastion. It is the jump host: SSH to the bastion, then SSH to the cluster guests. This playbook does not install services on it, and it is not an API proxy
   - The administrator provides the HAProxy guests. `al-traffic-management/haproxy` installs HAProxy. This playbook configures HAProxy for the API and sets up keepalived on those guests
   - Make requires at least 2 HAProxy guests. A single HAProxy is refused
