@@ -39,8 +39,23 @@ When the project needs TLS, the engine terminates it. The administrator provides
 The counts are minimums. Another worker is one guest, or two when that worker has a standby. etcd can be 3, then 5, then 7. The number of shards does not add a guest. A Citus row with no standbys keeps a worker's shards only on that disk. A row with standbys keeps those shards on the standby.
 
 - `mariadb/`
-  - MariaDB as a systemd service
-  - Layout minimums are still open
+  - MariaDB Community Server as a systemd service. The license is GPL-2.0
+  - Galera is the cluster. It is part of MariaDB Server. Every data node holds the full database. A commit is certified by a majority before it returns. Patroni, etcd, and Citus are not used here
+  - One guest is a local-settings choice. That choice runs MariaDB only. Galera stays off
+  - Galera with only data nodes: Make requires at least 3, and that count must be odd. Two data nodes are refused. This playbook does not create the guests
+  - Galera with an arbitrator: 2 data nodes plus one `garbd` guest. The arbitrator votes and sees the replication traffic. It does not store the tables. It is its own guest, so it does not die with a data node
+  - This playbook does not install or configure a proxy. A project that wants one uses `al-traffic-management`
+  - Guest counts for the cluster scenarios:
+
+| Scenario | MariaDB VMs | Arbitrator | Total you provide |
+| --- | --- | --- | --- |
+| One guest, selected in local settings | 1 | 0. Galera stays off | 1 |
+| Galera, data nodes only | 3, odd | 0 | 3 |
+| Galera, two data nodes and an arbitrator | 2 | 1 `garbd` guest | 3 |
+
+The counts are minimums. A data-node set can be 3, then 5, then 7. A failed data node leaves the full database on the surviving majority. The rows are not split across nodes.
+
+  - Sharding is still open
 - `clickhouse/`
   - ClickHouse as a systemd service. The database code is Apache 2.0
   - Layout minimums are still open
@@ -62,6 +77,7 @@ The counts are minimums. Another worker is one guest, or two when that worker ha
 ## Left out
 
 - MySQL
+- MariaDB Enterprise
 - ClickHouse Cloud and the paid ClickHouse self-managed addendum
 - The paid Azure database built on Citus
 
@@ -73,4 +89,4 @@ The counts are minimums. Another worker is one guest, or two when that worker ha
 ## Status
 
 - Playbook files: no
-- Review: `postgresql/` is decided. Next is `mariadb/`
+- Review: `postgresql/` is decided. `mariadb/` is the open playbook. Sharding is the open MariaDB question
