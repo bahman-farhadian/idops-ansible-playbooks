@@ -45,17 +45,20 @@ The counts are minimums. Another worker is one guest, or two when that worker ha
   - Galera with only data nodes: Make requires at least 3, and that count must be odd. Two data nodes are refused. This playbook does not create the guests
   - Galera with an arbitrator: 2 data nodes plus one `garbd` guest. The arbitrator votes and sees the replication traffic. It does not store the tables. It is its own guest, so it does not die with a data node
   - This playbook does not install or configure a proxy. A project that wants one uses `al-traffic-management`
-  - Guest counts for the cluster scenarios:
+  - Three layouts. The project picks one in local settings. One guest. A Galera cluster. A sharded Galera cluster
+  - Sharding uses Spider, on its own guests. A Spider node holds the virtual table and routes to the shards. It does not store the shard rows. One Spider node is refused. The Spider nodes are their own Galera set, so one of them can fail and the others still route
+  - Each shard is its own Galera set and holds only its part of the rows. Make requires at least 2 shards. The same Galera rules apply: at least 3 data nodes and an odd count, or 2 data nodes plus one `garbd` guest
+  - Guest counts:
 
-| Scenario | MariaDB VMs | Arbitrator | Total you provide |
-| --- | --- | --- | --- |
-| One guest, selected in local settings | 1 | 0. Galera stays off | 1 |
-| Galera, data nodes only | 3, odd | 0 | 3 |
-| Galera, two data nodes and an arbitrator | 2 | 1 `garbd` guest | 3 |
+| Scenario | Spider VMs | Data VMs | Arbitrators | Total you provide |
+| --- | --- | --- | --- | --- |
+| One guest, selected in local settings | 0 | 1 | 0. Galera stays off | 1 |
+| Galera, data nodes only | 0 | 3, odd | 0 | 3 |
+| Galera, two data nodes and an arbitrator | 0 | 2 | 1 | 3 |
+| Sharded cluster, data nodes only | 3, odd | 6. Two shards, three data nodes each | 0 | 9 |
+| Sharded cluster, two data nodes and an arbitrator | 2 | 4. Two shards, two data nodes each | 3. One for the Spider set and one for each shard | 9 |
 
-The counts are minimums. A data-node set can be 3, then 5, then 7. A failed data node leaves the full database on the surviving majority. The rows are not split across nodes.
-
-  - Sharding is still open
+The counts are minimums. A Galera data-node set can be 3, then 5, then 7. Another shard is 3 data nodes, or 2 data nodes plus one arbitrator. A failed Galera data node leaves that node's full copy on the surviving majority. In the sharded rows, that copy is the shard, not the whole database.
 - `clickhouse/`
   - ClickHouse as a systemd service. The database code is Apache 2.0
   - Layout minimums are still open
@@ -89,4 +92,4 @@ The counts are minimums. A data-node set can be 3, then 5, then 7. A failed data
 ## Status
 
 - Playbook files: no
-- Review: `postgresql/` is decided. `mariadb/` is the open playbook. Sharding is the open MariaDB question
+- Review: `postgresql/` and `mariadb/` are decided. Next is `clickhouse/`
