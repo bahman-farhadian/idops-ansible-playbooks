@@ -126,7 +126,11 @@ PostgreSQL sharded cluster. HAProxy faces only the coordinators. Each worker's s
 
 The counts are minimums. A Galera data-node set can be 3, then 5, then 7. Another shard is 3 data nodes, or 2 data nodes plus one arbitrator. A failed Galera data node leaves that node's full copy on the surviving majority. In the sharded rows, that copy is the shard, not the whole database.
 
-A project that wants one address adds two HAProxy guests from `al-traffic-management`. The one-guest layout does not. In the sharded layout the pair faces the Spider nodes only. The table does not count those guests. Each HAProxy guest sends the session to a MariaDB node that is in the primary component, or to a live Spider node. Spider then connects to the shard guests itself. `garbd` is not a client address.
+A project that wants one address adds two HAProxy guests from `al-traffic-management`. The one-guest layout does not. The table counts database guests only.
+
+Each HAProxy guest checks that a data node is synced in the primary component, then sends the session to one such node. The other synced nodes stay ready. That keeps writes on one node. `garbd` is not a client address.
+
+Spider stores the address of each shard, and its own failover between those addresses was removed in MariaDB 10.7.5. Each shard therefore has its own two HAProxy guests. Every Spider node is given both addresses for that shard. Spider connects to a live data node through that pair. The pair in front of the Spider nodes is separate. Two shards add six HAProxy guests: two in front of Spider, and two in front of each shard.
 
 ```mermaid
 flowchart TB
@@ -162,6 +166,10 @@ flowchart TB
   s1["Spider 1"]:::spider
   s2["Spider 2"]:::spider
   s3["Spider 3"]:::spider
+  pa1["Shard A HAProxy 1"]:::proxy
+  pa2["Shard A HAProxy 2"]:::proxy
+  pb1["Shard B HAProxy 1"]:::proxy
+  pb2["Shard B HAProxy 2"]:::proxy
   a1["Shard A 1"]:::shardA
   a2["Shard A 2"]:::shardA
   a3["Shard A 3"]:::shardA
@@ -176,13 +184,27 @@ flowchart TB
   h2 --> s2
   h2 --> s3
   s1 --- s2 --- s3
-  s1 --> a1
-  s1 --> b1
+  s1 --> pa1
+  s1 --> pa2
+  s1 --> pb1
+  s1 --> pb2
+  pa1 --> a1
+  pa1 --> a2
+  pa1 --> a3
+  pa2 --> a1
+  pa2 --> a2
+  pa2 --> a3
+  pb1 --> b1
+  pb1 --> b2
+  pb1 --> b3
+  pb2 --> b1
+  pb2 --> b2
+  pb2 --> b3
   a1 --- a2 --- a3
   b1 --- b2 --- b3
 ```
 
-MariaDB sharded cluster. HAProxy faces only the Spider nodes. Each shard is its own Galera set and holds its own rows.
+MariaDB sharded cluster. The front pair faces the Spider nodes. Each shard has its own pair, and Spider uses that pair to reach a synced data node. Green is shard A. Indigo is shard B. Each shard holds only its own rows.
 - `clickhouse/`
   - ClickHouse as a systemd service. The database code is Apache 2.0
   - Layout minimums are still open
