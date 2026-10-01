@@ -38,6 +38,70 @@ When the project needs TLS, the engine terminates it. The administrator provides
 
 The counts are minimums. Another worker is one guest, or two when that worker has a standby. etcd can be 3, then 5, then 7. The number of shards does not add a guest. A Citus row with no standbys keeps a worker's shards only on that disk. A row with standbys keeps those shards on the standby.
 
+A project that wants one address adds two HAProxy guests from `al-traffic-management`. The one-guest layout does not. The diagrams show that pair. The table does not count those guests.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef pg fill:#93c5fd,stroke:#1d4ed8,color:#0f172a
+  classDef etcd fill:#d8b4fe,stroke:#6d28d9,color:#1e1b4b
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  primary["PostgreSQL primary"]:::pg
+  standby["PostgreSQL standby"]:::pg
+  e1["etcd 1"]:::etcd
+  e2["etcd 2"]:::etcd
+  e3["etcd 3"]:::etcd
+
+  h1 --> primary
+  h1 --> standby
+  h2 --> primary
+  h2 --> standby
+  primary --- standby
+  e1 --- e2 --- e3
+  primary -.-> e2
+  standby -.-> e2
+```
+
+PostgreSQL cluster. External etcd, the minimum of 2 database guests and 3 etcd guests, plus the HAProxy pair. The dashed lines are the Patroni leader lock. etcd on the database guests, or an existing etcd cluster, replaces the three etcd guests.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef coord fill:#93c5fd,stroke:#1d4ed8,color:#0f172a
+  classDef worker fill:#67e8f9,stroke:#0e7490,color:#083344
+  classDef etcd fill:#d8b4fe,stroke:#6d28d9,color:#1e1b4b
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  c1["Coordinator"]:::coord
+  c2["Coordinator standby"]:::coord
+  w1["Worker A"]:::worker
+  w2["Worker A standby"]:::worker
+  w3["Worker B"]:::worker
+  w4["Worker B standby"]:::worker
+  e1["etcd 1"]:::etcd
+  e2["etcd 2"]:::etcd
+  e3["etcd 3"]:::etcd
+
+  h1 --> c1
+  h1 --> c2
+  h2 --> c1
+  h2 --> c2
+  c1 --- c2
+  c1 --> w1
+  c1 --> w3
+  w1 --- w2
+  w3 --- w4
+  e1 --- e2 --- e3
+  c1 -.-> e2
+  w1 -.-> e2
+  w3 -.-> e2
+```
+
+PostgreSQL sharded cluster. HAProxy faces only the coordinators. Each worker's standby holds that worker's shards. The etcd guests are the external layout.
+
 - `mariadb/`
   - MariaDB Community Server as a systemd service. The license is GPL-2.0
   - Galera is the cluster. It is part of MariaDB Server. Every data node holds the full database. A commit is certified by a majority before it returns. Patroni, etcd, and Citus are not used here
@@ -59,6 +123,64 @@ The counts are minimums. Another worker is one guest, or two when that worker ha
 | Sharded cluster, two data nodes and an arbitrator | 2 | 4. Two shards, two data nodes each | 3. One for the Spider set and one for each shard | 9 |
 
 The counts are minimums. A Galera data-node set can be 3, then 5, then 7. Another shard is 3 data nodes, or 2 data nodes plus one arbitrator. A failed Galera data node leaves that node's full copy on the surviving majority. In the sharded rows, that copy is the shard, not the whole database.
+
+A project that wants one address adds two HAProxy guests from `al-traffic-management`. The one-guest layout does not. In the sharded layout the pair faces the Spider nodes only. The table does not count those guests.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef data fill:#6ee7b7,stroke:#047857,color:#052e16
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  n1["MariaDB 1"]:::data
+  n2["MariaDB 2"]:::data
+  n3["MariaDB 3"]:::data
+
+  h1 --> n1
+  h1 --> n2
+  h1 --> n3
+  h2 --> n1
+  h2 --> n2
+  h2 --> n3
+  n1 --- n2 --- n3 --- n1
+```
+
+MariaDB Galera cluster. Three data nodes, each with the full database, plus the HAProxy pair. The two-data-node layout replaces MariaDB 3 with one `garbd` guest. `garbd` is not behind HAProxy.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef spider fill:#fcd34d,stroke:#b45309,color:#1c1917
+  classDef shardA fill:#6ee7b7,stroke:#047857,color:#052e16
+  classDef shardB fill:#a5b4fc,stroke:#4338ca,color:#1e1b4b
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  s1["Spider 1"]:::spider
+  s2["Spider 2"]:::spider
+  s3["Spider 3"]:::spider
+  a1["Shard A 1"]:::shardA
+  a2["Shard A 2"]:::shardA
+  a3["Shard A 3"]:::shardA
+  b1["Shard B 1"]:::shardB
+  b2["Shard B 2"]:::shardB
+  b3["Shard B 3"]:::shardB
+
+  h1 --> s1
+  h1 --> s2
+  h1 --> s3
+  h2 --> s1
+  h2 --> s2
+  h2 --> s3
+  s1 --- s2 --- s3
+  s1 --> a1
+  s1 --> b1
+  a1 --- a2 --- a3
+  b1 --- b2 --- b3
+```
+
+MariaDB sharded cluster. HAProxy faces only the Spider nodes. Each shard is its own Galera set and holds its own rows.
 - `clickhouse/`
   - ClickHouse as a systemd service. The database code is Apache 2.0
   - Layout minimums are still open
