@@ -74,7 +74,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `al-traffic-management` | `traefik` (no files yet) | Container on one Docker host or on Swarm. | — |
 | `am-databases` | `postgresql` (no files yet) | Patroni and Citus. The guest-count scenarios are in `am-databases/README.md`. Version pinned. | MySQL |
 | `am-databases` | `mariadb` (no files yet) | Galera, and Spider for the sharded cluster. Guest counts are in `am-databases/README.md`. Version pinned. | MySQL |
-| `am-databases` | `clickhouse` (no files yet) | Replication and sharding. Extra disk for data. Version pinned. | — |
+| `am-databases` | `clickhouse` (no files yet) | Keeper, one shard or a sharded cluster. Guest counts are in `am-databases/README.md`. Version pinned. | — |
 | `am-databases` | `elasticsearch` (no files yet) | Replication and sharding. Extra disk for data. Application database. Version pinned. | OpenSearch |
 | `am-databases` | `mongodb` (no files yet) | Replication and sharding. Extra disk for data. Community Server is SSPL. Version pinned. | — |
 | `an-data-caching` | `redis` (no files yet) | One guest. Redis 8 is tri-licensed. Use the AGPL terms. | Valkey, Memcached |

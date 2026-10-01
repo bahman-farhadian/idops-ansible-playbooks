@@ -206,8 +206,89 @@ flowchart TB
 
 MariaDB sharded cluster. The front pair faces the Spider nodes. Each shard has its own pair, and Spider uses that pair to reach a synced data node. Green is shard A. Indigo is shard B. Each shard holds only its own rows.
 - `clickhouse/`
-  - ClickHouse as a systemd service. The database code is Apache 2.0
-  - Layout minimums are still open
+  - ClickHouse as a systemd service. The database code is Apache 2.0. ClickHouse Cloud and the paid self-managed addendum stay out
+  - Three layouts. The project picks one in local settings. One guest. One shard with replicas. A sharded cluster
+  - One guest is a local-settings choice. That choice runs ClickHouse only. Keeper stays off
+  - Replication uses `ReplicatedMergeTree`. Each shard has its own replicas, and a replica holds that shard's rows. ClickHouse Keeper stores the replication log. It does not store the rows. ZooKeeper is not used
+  - Three Keeper layouts. Keeper on the ClickHouse guests. External Keeper on guests the administrator provides, and this playbook installs it. An existing Keeper cluster, with the addresses in local settings, and this playbook does not install it. A Keeper count is at least 3 and odd. Two Keepers are refused. This playbook does not create the guests
+  - A sharded cluster has at least 2 shards, and each shard has at least 2 replicas. Any ClickHouse guest can run the distributed query. There is no separate router tier, and there is no HAProxy pair per shard
+  - This playbook does not install or configure a proxy. A project that wants one address adds two HAProxy guests from `al-traffic-management`. The pair faces the ClickHouse guests. It is not placed in front of Keeper. Each ClickHouse guest is given the Keeper address list
+  - Guest counts:
+
+| Scenario | ClickHouse VMs | Keeper VMs | Total you provide |
+| --- | --- | --- | --- |
+| One guest, selected in local settings | 1 | 0. Keeper stays off | 1 |
+| One shard, Keeper on those guests | 3, odd. Three replicas | 0 extra | 3 |
+| One shard, external Keeper | 2 | 3, odd | 5 |
+| One shard, existing Keeper | 2 | 0. The cluster already has at least 3 members | 2 |
+| Sharded, Keeper on the ClickHouse guests | 4. Two shards, two replicas. Keeper runs on 3 of them | 0 extra | 4 |
+| Sharded, external Keeper | 4 | 3 | 7 |
+| Sharded, existing Keeper | 4 | 0 | 4 |
+
+The counts are minimums. Another shard is two ClickHouse guests. Keeper can be 3, then 5. A failed replica leaves that shard's rows on the other replica. The parts copy after the insert, so an insert that has not reached the other replica is still only on the disk that failed. Keeper losing quorum blocks new replicated writes. The rows stay on the ClickHouse disks.
+
+The HAProxy pair is not in the table. HAProxy checks that a ClickHouse guest answers, then sends the session there. On a sharded cluster that guest runs the distributed query and writes each shard's part to one of its replicas.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef ch fill:#67e8f9,stroke:#0e7490,color:#083344
+  classDef keeper fill:#d8b4fe,stroke:#6d28d9,color:#1e1b4b
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  c1["ClickHouse replica 1"]:::ch
+  c2["ClickHouse replica 2"]:::ch
+  k1["Keeper 1"]:::keeper
+  k2["Keeper 2"]:::keeper
+  k3["Keeper 3"]:::keeper
+
+  h1 --> c1
+  h1 --> c2
+  h2 --> c1
+  h2 --> c2
+  c1 --- c2
+  k1 --- k2 --- k3
+  c1 -.-> k2
+  c2 -.-> k2
+```
+
+ClickHouse cluster. One shard, two replicas, external Keeper, plus the HAProxy pair. The dashed lines are the Keeper address list. Keeper on the ClickHouse guests replaces this picture with three replicas and no separate Keeper guests.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef shardA fill:#67e8f9,stroke:#0e7490,color:#083344
+  classDef shardB fill:#a5b4fc,stroke:#4338ca,color:#1e1b4b
+  classDef keeper fill:#d8b4fe,stroke:#6d28d9,color:#1e1b4b
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  a1["Shard A replica 1"]:::shardA
+  a2["Shard A replica 2"]:::shardA
+  b1["Shard B replica 1"]:::shardB
+  b2["Shard B replica 2"]:::shardB
+  k1["Keeper 1"]:::keeper
+  k2["Keeper 2"]:::keeper
+  k3["Keeper 3"]:::keeper
+
+  h1 --> a1
+  h1 --> a2
+  h1 --> b1
+  h1 --> b2
+  h2 --> a1
+  h2 --> a2
+  h2 --> b1
+  h2 --> b2
+  a1 --- a2
+  b1 --- b2
+  a1 --> b1
+  k1 --- k2 --- k3
+  a1 -.-> k2
+  b1 -.-> k2
+```
+
+ClickHouse sharded cluster. Cyan is shard A. Indigo is shard B. HAProxy can send the session to any replica, and that replica queries both shards. The arrow between the shards is that distributed query. Keeper is not behind HAProxy.
 - `elasticsearch/`
   - Elasticsearch as a systemd service, for applications
   - This guest is not the Elasticsearch in `at-centralized-logging`. ELK and EFK keep their own clusters
@@ -228,6 +309,7 @@ MariaDB sharded cluster. The front pair faces the Spider nodes. Each shard has i
 - MySQL
 - MariaDB Enterprise
 - ClickHouse Cloud and the paid ClickHouse self-managed addendum
+- ZooKeeper. ClickHouse Keeper is the coordination service
 - The paid Azure database built on Citus
 
 ## Dependencies
@@ -238,4 +320,4 @@ MariaDB sharded cluster. The front pair faces the Spider nodes. Each shard has i
 ## Status
 
 - Playbook files: no
-- Review: `postgresql/` and `mariadb/` are decided. Next is `clickhouse/`
+- Review: `postgresql/`, `mariadb/`, and `clickhouse/` are decided. Next is `elasticsearch/`
