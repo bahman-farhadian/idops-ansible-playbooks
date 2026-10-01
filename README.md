@@ -72,7 +72,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `al-traffic-management` | `haproxy` (no files yet) | Systemd service. One guest, or at least two for the Kubernetes API or the Ceph object gateway. | — |
 | `al-traffic-management` | `nginx` (no files yet) | One guest, beside the service it proxies. TLS when the project supplies the keys. | — |
 | `al-traffic-management` | `traefik` (no files yet) | Container on one Docker host or on Swarm. | — |
-| `am-databases` | `postgresql` (no files yet) | Patroni. etcd on the PostgreSQL guests, on separate guests, or an existing cluster. Version pinned. | MySQL |
+| `am-databases` | `postgresql` (no files yet) | Patroni and Citus. The guest-count scenarios are in `am-databases/README.md`. Version pinned. | MySQL |
 | `am-databases` | `mariadb` (no files yet) | Replication and sharding. Extra disk for data. Version pinned. | MySQL |
 | `am-databases` | `clickhouse` (no files yet) | Replication and sharding. Extra disk for data. Version pinned. | — |
 | `am-databases` | `elasticsearch` (no files yet) | Replication and sharding. Extra disk for data. Application database. Version pinned. | OpenSearch |

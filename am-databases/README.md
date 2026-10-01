@@ -16,14 +16,28 @@ When the project needs TLS, the engine terminates it. The administrator provides
 
 - `postgresql/`
   - PostgreSQL as a systemd service. Patroni runs on the PostgreSQL guests and promotes a standby when the primary fails
+  - Citus is the sharding extension, AGPL-3.0, on those same guests. One coordinator and workers. Applications connect to the coordinator. Many shards share a worker
   - For applications that want a shared database. Mattermost, Stalwart, Metabase, Superset, Keycloak, GitLab, and Zabbix keep their own data and do not use this playbook
-  - Three etcd layouts. The project picks one in local settings
-  - etcd on the PostgreSQL guests. This playbook installs etcd there, beside PostgreSQL and Patroni. Make requires at least 3 PostgreSQL guests, and that count must be odd, so one guest can fail and etcd still has a quorum. Two guests are refused
-  - External etcd: the administrator provides the guests. They are not the PostgreSQL guests. This playbook installs etcd on them and does not create the guests. Make requires at least 3, and that count must be odd. A single etcd is refused. The PostgreSQL set is at least 2
-  - An existing etcd cluster: the addresses stay in local settings. Make requires at least 3 addresses, and that count must be odd. This playbook does not install etcd. The PostgreSQL set is at least 2
+  - Three etcd layouts. The project picks one in local settings. etcd on the PostgreSQL guests is installed by this playbook beside PostgreSQL and Patroni, and that guest count must be odd. External etcd is guests the administrator provides, not the PostgreSQL guests, and this playbook installs etcd there. An existing etcd cluster is addresses in local settings, and this playbook does not install it. An etcd count is at least 3 and odd. This playbook does not create the guests
   - One guest is a local-settings choice. That choice runs PostgreSQL only. Patroni and etcd stay off
   - This playbook does not install or configure a proxy. A project that wants one uses `al-traffic-management`
-  - Sharding is still open
+  - Guest counts for every supported scenario:
+
+| Scenario | PostgreSQL VMs | etcd VMs | Total you provide |
+| --- | --- | --- | --- |
+| One guest, selected in local settings | 1 | 0. Patroni and etcd stay off | 1 |
+| Replicated. etcd on the PostgreSQL guests | 3, odd | 0 extra | 3 |
+| Replicated. External etcd | 2 | 3, odd | 5 |
+| Replicated. Existing etcd cluster | 2 | 0. The cluster already has at least 3 members | 2 |
+| Citus, no standbys. etcd on those guests | 3. One coordinator and two workers | 0 extra | 3 |
+| Citus, no standbys. External etcd | 3 | 3 | 6 |
+| Citus, no standbys. Existing etcd cluster | 3 | 0 | 3 |
+| Citus, every primary has a standby. etcd on those guests | 7. Six is even, so one extra standby | 0 extra | 7 |
+| Citus, every primary has a standby. External etcd | 6. Coordinator pair plus two worker pairs | 3 | 9 |
+| Citus, every primary has a standby. Existing etcd cluster | 6 | 0 | 6 |
+
+The counts are minimums. Another worker is one guest, or two when that worker has a standby. etcd can be 3, then 5, then 7. The number of shards does not add a guest. A Citus row with no standbys keeps a worker's shards only on that disk. A row with standbys keeps those shards on the standby.
+
 - `mariadb/`
   - MariaDB as a systemd service
   - Layout minimums are still open
@@ -49,6 +63,7 @@ When the project needs TLS, the engine terminates it. The administrator provides
 
 - MySQL
 - ClickHouse Cloud and the paid ClickHouse self-managed addendum
+- The paid Azure database built on Citus
 
 ## Dependencies
 
@@ -58,4 +73,4 @@ When the project needs TLS, the engine terminates it. The administrator provides
 ## Status
 
 - Playbook files: no
-- Review: `postgresql/` is the open playbook. MariaDB, ClickHouse, Elasticsearch, and MongoDB follow one at a time
+- Review: `postgresql/` is decided. Next is `mariadb/`
