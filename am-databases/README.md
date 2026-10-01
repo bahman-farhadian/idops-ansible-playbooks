@@ -40,6 +40,8 @@ The counts are minimums. Another worker is one guest, or two when that worker ha
 
 A project that wants one address adds two HAProxy guests from `al-traffic-management`. The one-guest layout does not. The diagrams show that pair. The table does not count those guests.
 
+HAProxy is not placed in front of etcd. Applications do not connect to etcd. Patroni on each PostgreSQL guest is given the etcd address list and uses that list to reach a live member. etcd holds the leader lock. The two HAProxy guests sit in front of the guests that accept client sessions. Each one has the same backend list and checks Patroni's health endpoint, so the session goes to the guest that is the current primary. In a Citus layout that guest is a coordinator. A client uses either HAProxy guest. This playbook does not add a virtual address in front of those two guests.
+
 ```mermaid
 flowchart TB
   classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
@@ -124,7 +126,7 @@ PostgreSQL sharded cluster. HAProxy faces only the coordinators. Each worker's s
 
 The counts are minimums. A Galera data-node set can be 3, then 5, then 7. Another shard is 3 data nodes, or 2 data nodes plus one arbitrator. A failed Galera data node leaves that node's full copy on the surviving majority. In the sharded rows, that copy is the shard, not the whole database.
 
-A project that wants one address adds two HAProxy guests from `al-traffic-management`. The one-guest layout does not. In the sharded layout the pair faces the Spider nodes only. The table does not count those guests.
+A project that wants one address adds two HAProxy guests from `al-traffic-management`. The one-guest layout does not. In the sharded layout the pair faces the Spider nodes only. The table does not count those guests. Each HAProxy guest sends the session to a MariaDB node that is in the primary component, or to a live Spider node. Spider then connects to the shard guests itself. `garbd` is not a client address.
 
 ```mermaid
 flowchart TB
