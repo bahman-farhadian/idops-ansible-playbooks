@@ -295,7 +295,7 @@ ClickHouse sharded cluster. Cyan is shard A. Indigo is shard B. HAProxy can send
   - Three layouts. The project picks one in local settings. One guest. A cluster. A sharded cluster. Elasticsearch elects its own masters and stores its own shard copies. A master count of two is refused
   - One guest is a local-settings choice. That guest has no second copy
   - The cluster is 3 guests. Each guest can be master and hold data. One guest can fail, the other two still elect a master, and each shard has a replica on another guest
-  - The sharded cluster is those same 3 guests. The index is split into primary shards, and each primary has a replica on another guest. Splitting the index does not add a guest. A layout of 3 master-only guests plus at least 2 data guests is a later size change, when the data outgrows these 3
+  - The sharded cluster is those same 3 guests. The index is split into primary shards, and each primary has a replica on another of those guests. That replica is the backup copy. It does not get its own virtual machine. One guest can fail and the replica on a remaining guest is promoted. A layout of 3 master-only guests plus at least 2 data guests is a later size change, when the data outgrows these 3
   - This playbook does not install or configure a proxy. A project that wants one address adds two HAProxy guests from `al-traffic-management`. The pair faces the Elasticsearch guests. A client uses either HAProxy guest
   - Guest counts:
 
@@ -303,7 +303,7 @@ ClickHouse sharded cluster. Cyan is shard A. Indigo is shard B. HAProxy can send
 | --- | --- | --- |
 | One guest, selected in local settings | 1 | 1 |
 | Cluster | 3. Each guest can be master and hold data | 3 |
-| Sharded cluster | 3. The same guests. The index is split, and each piece has a replica | 3 |
+| Sharded cluster | 3. The same guests. Each primary shard has its replica on another of these guests | 3 |
 
 The HAProxy pair is not in the table.
 
