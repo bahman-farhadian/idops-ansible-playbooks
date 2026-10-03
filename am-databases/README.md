@@ -329,9 +329,79 @@ flowchart TB
 
 Elasticsearch cluster. Three guests, and the sharded layout uses these same three. HAProxy sends the session to a live guest. That guest serves its own shards and fetches a replica from another guest when it must.
 - `mongodb/`
-  - MongoDB Community Server as a systemd service
-  - Community Server is SSPL. That is not an OSI open-source license. It is in this domain because the stack asked for MongoDB
-  - Layout minimums are still open
+  - MongoDB Community Server as a systemd service. Community Server is SSPL. That is not an OSI open-source license. It is in this domain because the stack asked for MongoDB. Enterprise stays out. An arbiter stays out. An arbiter votes and holds no copy
+  - Three layouts. The project picks one in local settings. One guest. A replica set. A sharded cluster
+  - One guest is a local-settings choice. That guest has no second copy
+  - The replica set is 3 voting members. Each member holds the full database. Writes go to the primary, and the secondaries copy them. One member can fail, and a secondary is elected primary. Two voting members are refused. The next odd count is 5. Members that do not vote can be added without keeping the total odd
+  - The sharded cluster has at least 2 shards. Each shard is its own 3-member replica set and holds only its part of the rows. The config servers are their own 3-member replica set. They hold the shard map, not the collection rows. At least 2 `mongos` routers sit in front. A router holds no rows and does not vote, so that count does not have to be odd. One router can fail and the other still routes. `mongos` connects to the shards and the config servers itself
+  - This playbook does not install or configure a proxy. A project that wants one address adds two HAProxy guests from `al-traffic-management`. The pair faces the `mongos` routers in a sharded cluster, and the replica-set members in a replica set. A client session stays with the router it started on. There is no HAProxy pair per shard
+  - Guest counts:
+
+| Scenario | Data VMs | Config VMs | Routers | Total you provide |
+| --- | --- | --- | --- | --- |
+| One guest, selected in local settings | 1 | 0 | 0 | 1 |
+| Replica set | 3, odd | 0 | 0 | 3 |
+| Sharded cluster | 6. Two shards of 3 | 3 | 2 | 11 |
+
+The counts are minimums. Another shard is 3 data guests. The HAProxy pair is not in the table. A failed data member leaves that member's full copy on the other members of its replica set. In the sharded row, that copy is the shard, not the whole database.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef data fill:#6ee7b7,stroke:#047857,color:#052e16
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  n1["MongoDB primary"]:::data
+  n2["MongoDB secondary"]:::data
+  n3["MongoDB secondary"]:::data
+
+  h1 --> n1
+  h1 --> n2
+  h1 --> n3
+  h2 --> n1
+  h2 --> n2
+  h2 --> n3
+  n1 --- n2 --- n3 --- n1
+```
+
+MongoDB replica set. Three members, each with the full database, plus the HAProxy pair. The primary can move to either secondary.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef router fill:#fcd34d,stroke:#b45309,color:#1c1917
+  classDef shardA fill:#6ee7b7,stroke:#047857,color:#052e16
+  classDef shardB fill:#a5b4fc,stroke:#4338ca,color:#1e1b4b
+  classDef config fill:#d8b4fe,stroke:#6d28d9,color:#1e1b4b
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  m1["mongos 1"]:::router
+  m2["mongos 2"]:::router
+  a1["Shard A 1"]:::shardA
+  a2["Shard A 2"]:::shardA
+  a3["Shard A 3"]:::shardA
+  b1["Shard B 1"]:::shardB
+  b2["Shard B 2"]:::shardB
+  b3["Shard B 3"]:::shardB
+  c1["Config 1"]:::config
+  c2["Config 2"]:::config
+  c3["Config 3"]:::config
+
+  h1 --> m1
+  h1 --> m2
+  h2 --> m1
+  h2 --> m2
+  m1 --> a1
+  m1 --> b1
+  m1 --> c1
+  a1 --- a2 --- a3
+  b1 --- b2 --- b3
+  c1 --- c2 --- c3
+```
+
+MongoDB sharded cluster. HAProxy faces only the routers. Green is shard A. Indigo is shard B. Purple is the config replica set. Each shard holds only its own rows.
 
 ## Alternatives
 
@@ -354,4 +424,4 @@ Elasticsearch cluster. Three guests, and the sharded layout uses these same thre
 ## Status
 
 - Playbook files: no
-- Review: `postgresql/`, `mariadb/`, `clickhouse/`, and `elasticsearch/` are decided. Next is `mongodb/`
+- Review: `am-databases` is decided. Next review is `an-data-caching`

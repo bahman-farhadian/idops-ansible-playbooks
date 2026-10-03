@@ -76,7 +76,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `am-databases` | `mariadb` (no files yet) | Galera, and Spider for the sharded cluster. Guest counts are in `am-databases/README.md`. Version pinned. | MySQL |
 | `am-databases` | `clickhouse` (no files yet) | Keeper, one shard or a sharded cluster. Guest counts are in `am-databases/README.md`. Version pinned. | — |
 | `am-databases` | `elasticsearch` (no files yet) | AGPL source build, 9.x. Three guests for the cluster and the sharded cluster. | OpenSearch |
-| `am-databases` | `mongodb` (no files yet) | Replication and sharding. Extra disk for data. Community Server is SSPL. Version pinned. | — |
+| `am-databases` | `mongodb` (no files yet) | Community Server. Replica set of 3, or a sharded cluster of 11. Guest counts are in `am-databases/README.md`. | — |
 | `an-data-caching` | `redis` (no files yet) | One guest. Redis 8 is tri-licensed. Use the AGPL terms. | Valkey, Memcached |
 | `ao-message-brokers` | `rabbitmq` (no files yet) | One guest. | NATS |
 | `ao-message-brokers` | `kafka` (no files yet) | Three broker guests. | NATS |
