@@ -4,7 +4,7 @@ Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Internal data applications. Each application is its own playbook and its own guest. The application and its database stay on that guest. Metabase and Superset are not installed on the same virtual machine.
+Internal data applications. Metabase and Superset are different playbooks, `metabase/` and `superset/`. Running one does not install the other. Each playbook has its own guest. The application and its database stay on that guest. They are not installed on the same virtual machine.
 
 ## Playbook
 
@@ -28,6 +28,7 @@ Internal data applications. Each application is its own playbook and its own gue
 ## Left out
 
 - A second guest for either application
+- One playbook that installs both applications
 - Installing Metabase and Superset on the same virtual machine
 - A requirement that either guest use `am-databases/postgresql`
 
