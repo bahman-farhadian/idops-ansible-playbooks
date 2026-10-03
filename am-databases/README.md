@@ -290,10 +290,44 @@ flowchart TB
 
 ClickHouse sharded cluster. Cyan is shard A. Indigo is shard B. HAProxy can send the session to any replica, and that replica queries both shards. The arrow between the shards is that distributed query. Keeper is not behind HAProxy.
 - `elasticsearch/`
-  - Elasticsearch as a systemd service, for applications
-  - This guest is not the Elasticsearch in `at-centralized-logging`. ELK and EFK keep their own clusters
-  - The source is available under AGPL, SSPL, or the Elastic License. AGPL is the open-source terms. The usual Elastic download is the Elastic License, so when this playbook is written it installs the AGPL terms on purpose
-  - Layout minimums are still open
+  - Elasticsearch as a systemd service, for applications. This is not the Elasticsearch in `at-centralized-logging`. ELK and EFK keep their own clusters
+  - The playbook builds a pinned 9.x source release and chooses AGPL-3.0. It does not install Elastic's package. Snapshots, alphas, betas, and release candidates stay out. The pin moves only to another maintained 9.x release. X-Pack stays out, including the built-in login, machine learning, and cross-cluster replication. The JDK used to compile does not stay on the guest
+  - Three layouts. The project picks one in local settings. One guest. A cluster. A sharded cluster. Elasticsearch elects its own masters and stores its own shard copies. A master count of two is refused
+  - One guest is a local-settings choice. That guest has no second copy
+  - The cluster is 3 guests. Each guest can be master and hold data. One guest can fail, the other two still elect a master, and each shard has a replica on another guest
+  - The sharded cluster is those same 3 guests. The index is split into primary shards, and each primary has a replica on another guest. Splitting the index does not add a guest. A layout of 3 master-only guests plus at least 2 data guests is a later size change, when the data outgrows these 3
+  - This playbook does not install or configure a proxy. A project that wants one address adds two HAProxy guests from `al-traffic-management`. The pair faces the Elasticsearch guests. A client uses either HAProxy guest
+  - Guest counts:
+
+| Scenario | Elasticsearch VMs | Total you provide |
+| --- | --- | --- |
+| One guest, selected in local settings | 1 | 1 |
+| Cluster | 3. Each guest can be master and hold data | 3 |
+| Sharded cluster | 3. The same guests. The index is split, and each piece has a replica | 3 |
+
+The HAProxy pair is not in the table.
+
+```mermaid
+flowchart TB
+  classDef proxy fill:#fdba74,stroke:#c2410c,color:#1c1917
+  classDef es fill:#93c5fd,stroke:#1d4ed8,color:#0f172a
+
+  h1["HAProxy 1"]:::proxy
+  h2["HAProxy 2"]:::proxy
+  n1["Elasticsearch 1"]:::es
+  n2["Elasticsearch 2"]:::es
+  n3["Elasticsearch 3"]:::es
+
+  h1 --> n1
+  h1 --> n2
+  h1 --> n3
+  h2 --> n1
+  h2 --> n2
+  h2 --> n3
+  n1 --- n2 --- n3 --- n1
+```
+
+Elasticsearch cluster. Three guests, and the sharded layout uses these same three. HAProxy sends the session to a live guest. That guest serves its own shards and fetches a replica from another guest when it must.
 - `mongodb/`
   - MongoDB Community Server as a systemd service
   - Community Server is SSPL. That is not an OSI open-source license. It is in this domain because the stack asked for MongoDB
@@ -320,4 +354,4 @@ ClickHouse sharded cluster. Cyan is shard A. Indigo is shard B. HAProxy can send
 ## Status
 
 - Playbook files: no
-- Review: `postgresql/`, `mariadb/`, and `clickhouse/` are decided. Next is `elasticsearch/`
+- Review: `postgresql/`, `mariadb/`, `clickhouse/`, and `elasticsearch/` are decided. Next is `mongodb/`
