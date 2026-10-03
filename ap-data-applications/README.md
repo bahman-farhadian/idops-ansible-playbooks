@@ -4,33 +4,39 @@ Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Internal data applications. Each application is its own playbook and its own guest.
+Internal data applications. Each application is its own playbook and its own guest. The application and its database stay on that guest.
 
 ## Playbook
 
 - `metabase/`
   - One guest
-  - Metabase as a systemd service
-  - Its application database stays on that guest
+  - Metabase as a systemd service. The open-source edition is AGPL-3.0. The paid edition stays out
+  - The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
+  - Its application database stays on that guest. It does not use `am-databases/postgresql`
+  - A second guest is not part of this playbook. The application and the database stay together at any scale
 - `superset/`
   - One guest
-  - Apache Superset as a systemd service
-  - Its metadata database stays on that guest
+  - Apache Superset as a systemd service. The license is Apache 2.0
+  - The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
+  - Its metadata database stays on that guest. It does not use `am-databases/postgresql`
+  - A second guest is not part of this playbook. The application and the database stay together at any scale
 
 ## Alternatives
 
-- None named. Metabase and Superset are separate playbooks and can be used together.
+- None named. `metabase/` and `superset/` are separate playbooks and can be used together.
 
 ## Left out
 
+- A second guest for either application
 - A requirement that either guest use `am-databases/postgresql`
 
 ## Dependencies
 
-- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
+- Upstream: the guest the administrator provides. This playbook does not create it and does not call provisioning or hardening
 - Downstream: people querying data through the web UI
 
 ## Status
 
 - Playbook files: no
-- Guests: one per playbook, created by `kvm-vm-provisioning`
+- Review: decided
+- Guests: one per playbook
