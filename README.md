@@ -80,8 +80,8 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `an-data-caching` | `redis` (no files yet) | Redis 8, AGPL. One guest, Sentinel on 3, or a cluster of 6. | Valkey, Memcached |
 | `ao-message-brokers` | `rabbitmq` (no files yet) | RabbitMQ 4. One guest, or 3 for quorum queues. | NATS |
 | `ao-message-brokers` | `kafka` (no files yet) | Kafka 4, KRaft. One guest, or 3 brokers that are also controllers. | NATS |
-| `ap-data-applications` | `metabase` (no files yet) | One guest. The application and its database stay together at any scale. | — |
-| `ap-data-applications` | `superset` (no files yet) | One guest. The application and its metadata database stay together at any scale. | — |
+| `ap-data-applications` | `metabase` (no files yet) | One guest of its own. The application and its database stay together. | — |
+| `ap-data-applications` | `superset` (no files yet) | One guest of its own. The application and its metadata database stay together. | — |
 | `aq-identity-and-access` | `keycloak` (no files yet) | One guest. Its database stays on that guest. | Authentik, FreeIPA |
 | `ar-secrets-and-pki` | `vault` (no files yet) | One guest. Secrets and internal certificates. BSL 1.1, kept from the earlier decision. | OpenBao is the open-source match. step-ca |
 | `as-observability` | `prometheus` (no files yet) | One guest. Prometheus, Alertmanager, and Grafana. | A separate Grafana playbook. Tempo, Jaeger |
