@@ -4,30 +4,36 @@ Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Sign-in and access for applications.
+Sign-in for web applications. A person is created once in Keycloak. An application such as GitLab, Metabase, or Superset can send that person to Keycloak instead of keeping its own password. This playbook does not turn that connection on inside those applications. Each of those playbooks is pointed at Keycloak when it is written. SSH into a virtual machine stays a separate login.
 
 ## Playbook
 
 - `keycloak/`
   - One guest
-  - Keycloak as a systemd service
-  - Its database stays on that guest
+  - Keycloak as a systemd service. The license is Apache 2.0. The Red Hat subscription build stays out
+  - The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
+  - Its database stays on that guest. It does not use `am-databases/postgresql`
+  - A second guest is not part of this playbook. Keycloak and its database stay together at any scale
+  - This playbook does not create the guest and does not call provisioning or hardening
 
 ## Alternatives
 
-- Authentik and FreeIPA.
+- Authentik and FreeIPA. `keycloak/` is the sign-in playbook.
 
 ## Left out
 
-- FreeIPA and a separate LDAP directory. DNS stays on the `debian-based-perimeter` pair.
+- A second Keycloak guest
+- FreeIPA and a separate LDAP directory. DNS stays on the `debian-based-perimeter` pair
 - Authentik
+- SSH login to virtual machines
 
 ## Dependencies
 
-- Upstream: `ac-vm-provisioning` creates the guest, then `ag-os-baseline-and-hardening`
-- Downstream: applications that delegate login to this guest
+- Upstream: the guest the administrator provides. This playbook does not create it
+- Downstream: web applications that delegate login to this guest
 
 ## Status
 
 - Playbook files: no
-- Guest: one, created by `kvm-vm-provisioning`
+- Review: decided
+- Guest: one
