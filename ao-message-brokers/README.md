@@ -9,28 +9,80 @@ Message brokers that services actually publish to. Each broker is its own playbo
 ## Playbook
 
 - `rabbitmq/`
-  - One guest
-  - RabbitMQ as a systemd service
-  - A cluster is a later change inside this playbook
+  - RabbitMQ 4 as a systemd service. The playbook pins a maintained 4.x release. Snapshots, alphas, betas, and release candidates stay out. The pin moves only to another maintained 4.x release
+  - Classic queue mirroring is gone in this line. A replicated queue is a quorum queue. Three members is the practical minimum, so one guest can fail and a majority still has the message
+  - Three layouts. The project picks one in local settings. One guest. A cluster of 3. Sharding does not add guests
+  - One guest is a local-settings choice. That guest has no second copy
+  - The cluster is 3 guests. Two guests are refused for a quorum queue. The next odd count is 5
+  - This playbook does not create the guests and does not call provisioning or hardening
+  - A client uses the broker addresses. This playbook does not install or configure a proxy
+  - Guest counts:
+
+| Scenario | RabbitMQ VMs | Total you provide |
+| --- | --- | --- |
+| One guest, selected in local settings | 1 | 1 |
+| Cluster | 3. Quorum queues | 3 |
+| Sharded | 3. The same guests | 3 |
+
+```mermaid
+flowchart TB
+  classDef rmq fill:#fdba74,stroke:#c2410c,color:#1c1917
+
+  n1["RabbitMQ 1"]:::rmq
+  n2["RabbitMQ 2"]:::rmq
+  n3["RabbitMQ 3"]:::rmq
+
+  n1 --- n2 --- n3 --- n1
+```
+
+RabbitMQ cluster. Three guests. A quorum queue keeps its copies on these guests.
+
 - `kafka/`
-  - Three broker guests
-  - Kafka as a systemd service, KRaft mode, so there is no ZooKeeper guest
+  - Kafka 4 as a systemd service, in KRaft mode. ZooKeeper is not used. The playbook pins a maintained 4.x release. Snapshots, alphas, betas, and release candidates stay out. The pin moves only to another maintained 4.x release
+  - Three layouts. The project picks one in local settings. One guest. A cluster of 3. Sharding does not add guests
+  - One guest is a local-settings choice. That guest is both broker and controller. It has no second copy, and the controller has no standby
+  - The cluster is 3 guests. Each guest is a broker and a KRaft controller. One guest can fail, the other two still have a controller majority, and each partition has a replica on another guest. Two controllers are refused. The next odd controller count is 5
+  - Adding a broker later does not have to keep the total odd. The controllers stay at 3
+  - This playbook does not create the guests and does not call provisioning or hardening
+  - A client uses the broker addresses. This playbook does not install or configure a proxy
+  - Guest counts:
+
+| Scenario | Kafka VMs | Total you provide |
+| --- | --- | --- |
+| One guest, selected in local settings | 1. Broker and controller | 1 |
+| Cluster | 3. Each guest is a broker and a controller | 3 |
+| Sharded | 3. The same guests. Each partition has a replica on another guest | 3 |
+
+```mermaid
+flowchart TB
+  classDef kafka fill:#93c5fd,stroke:#1d4ed8,color:#0f172a
+
+  n1["Kafka 1"]:::kafka
+  n2["Kafka 2"]:::kafka
+  n3["Kafka 3"]:::kafka
+
+  n1 --- n2 --- n3 --- n1
+```
+
+Kafka cluster. Three guests. Each one holds partitions and votes as a controller. A partition's replica stays on another of these guests.
 
 ## Alternatives
 
-- NATS.
+- NATS. `rabbitmq/` and `kafka/` are separate playbooks and can be used together.
 
 ## Left out
 
 - NATS
+- ZooKeeper
 - Streams on the cache. The cache stays in `an-data-caching/redis`
+- HAProxy in front of either broker. The client uses the broker addresses
 
 ## Dependencies
 
-- Upstream: `ac-vm-provisioning` creates the guests, then `ag-os-baseline-and-hardening`
+- Upstream: the guests the administrator provides. This playbook does not create them
 - Downstream: applications that publish or subscribe
 
 ## Status
 
 - Playbook files: no
-- Guests: one for RabbitMQ, three for Kafka, created by `kvm-vm-provisioning`
+- Review: decided
