@@ -13,7 +13,8 @@ Message brokers that services actually publish to. Each broker is its own playbo
   - Classic queue mirroring is gone in this line. A replicated queue is a quorum queue. Three members is the practical minimum, so one guest can fail and a majority still has the message
   - Three layouts. The project picks one in local settings. One guest. A cluster of 3. Sharding does not add guests
   - One guest is a local-settings choice. That guest has no second copy
-  - The cluster is 3 guests. Two guests are refused for a quorum queue. The next odd count is 5
+  - The cluster is 3 guests. Two guests are refused for a quorum queue. The next odd member count is 5
+  - Adding a guest to an existing cluster is supported. The administrator provides the guest. This playbook joins it. A quorum queue keeps an odd member count, 3 or 5. The cluster can grow by one guest and those queues can stay on 3 members
   - This playbook does not create the guests and does not call provisioning or hardening
   - A client uses the broker addresses. This playbook does not install or configure a proxy
   - Guest counts:
@@ -42,7 +43,7 @@ RabbitMQ cluster. Three guests. A quorum queue keeps its copies on these guests.
   - Three layouts. The project picks one in local settings. One guest. A cluster of 3. Sharding does not add guests
   - One guest is a local-settings choice. That guest is both broker and controller. It has no second copy, and the controller has no standby
   - The cluster is 3 guests. Each guest is a broker and a KRaft controller. One guest can fail, the other two still have a controller majority, and each partition has a replica on another guest. Two controllers are refused. The next odd controller count is 5
-  - Adding a broker later does not have to keep the total odd. The controllers stay at 3
+  - Adding a broker to an existing cluster is supported. The administrator provides the guest. This playbook joins it as a broker. The new broker does not have to keep the total odd. The controllers stay at 3 unless the project grows them to 5. Existing partitions can be moved onto the new broker
   - This playbook does not create the guests and does not call provisioning or hardening
   - A client uses the broker addresses. This playbook does not install or configure a proxy
   - Guest counts:
