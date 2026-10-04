@@ -83,7 +83,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ap-data-applications` | `metabase` (no files yet) | One guest of its own. The application and its database stay together. | — |
 | `ap-data-applications` | `superset` (no files yet) | One guest of its own. The application and its metadata database stay together. | — |
 | `aq-identity-and-access` | `keycloak` (no files yet) | One guest. Web sign-in. Its database stays on that guest. | Authentik, FreeIPA |
-| `ar-secrets-and-pki` | `vault` (no files yet) | One guest. Secrets and internal certificates. BSL 1.1, kept from the earlier decision. | OpenBao is the open-source match. step-ca |
+| `ar-secrets-and-pki` | `vault` (no files yet) | One guest, or 3 with a copy on each. Two HAProxy guests in front of the cluster. BSL 1.1. | OpenBao |
 | `as-observability` | `prometheus` (no files yet) | One guest. Prometheus, Alertmanager, and Grafana. | A separate Grafana playbook. Tempo, Jaeger |
 | `as-observability` | `zabbix` (no files yet) | One guest. Server, web UI, and its database on that guest. | — |
 | `at-centralized-logging` | `rsyslog` (no files yet) | One guest. Receives syslog. | Loki, OpenSearch |
