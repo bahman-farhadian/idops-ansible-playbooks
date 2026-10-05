@@ -24,7 +24,7 @@ Log collection for the stack. `rsyslog/`, `elk/`, and `efk/` are different playb
 | Cluster | 3 | 1 | 2, or 0 when the project uses an existing HAProxy |
 | Sharded cluster | 3. The same guests | 1 | 2, or 0 when the project uses an existing HAProxy |
 
-Logstash or Fluent Bit is not in this table. Those programs run on guests that already exist.
+Logstash or Fluent Bit is not in this table. The chosen one runs on the `rsyslog/` receiver and adds no guest.
 
 ## Playbook
 
@@ -37,13 +37,13 @@ Logstash or Fluent Bit is not in this table. Those programs run on guests that a
   - A project runs this playbook or `efk/`, not both
   - Elasticsearch, as written above
   - One Kibana guest. Kibana is the front end. The playbook builds the same pinned 9.x source release as this Elasticsearch and chooses AGPL-3.0. It does not install Elastic's package. X-Pack stays out, so Kibana has no built-in login
-  - Logstash runs on the guests that produce the logs. The administrator names those guests. This playbook installs Logstash there and does not create them. The task uses its own local settings file. Logstash is pinned to the same maintained 9.x line and uses the Apache 2.0 package
+  - Logstash runs on the `rsyslog/` receiver. The administrator names that guest. This playbook installs Logstash there and does not create the guest. Logstash reads the logs that receiver stored and sends them to this Elasticsearch through the one address. The task uses its own local settings file. Logstash is pinned to the same maintained 9.x line and uses the Apache 2.0 package
   - This playbook does not install Fluent Bit
 - `efk/`
   - A project runs this playbook or `elk/`, not both
   - Elasticsearch, as written above. Its own cluster, used only when this playbook is the one the project runs
   - One Kibana guest, with the same Kibana build as `elk/`
-  - Fluent Bit runs on the guests that produce the logs. The administrator names those guests. This playbook installs Fluent Bit there and does not create them. The task uses its own local settings file. Fluent Bit is the collector. The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
+  - Fluent Bit runs on the `rsyslog/` receiver. The administrator names that guest. This playbook installs Fluent Bit there and does not create the guest. Fluent Bit reads the logs that receiver stored and sends them to this Elasticsearch through the one address. The task uses its own local settings file. Fluent Bit is the collector. The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
   - This playbook does not install Logstash
 
 ## Alternatives
@@ -57,7 +57,8 @@ Logstash or Fluent Bit is not in this table. Those programs run on guests that a
 - Fluentd
 - A second Kibana guest
 - Kibana login, and pointing Kibana at Keycloak. X-Pack stays out
-- A Logstash or Fluent Bit guest of its own. Those programs run on guests that already produce logs
+- A Logstash or Fluent Bit guest of its own. The chosen collector runs on the `rsyslog/` receiver
+- Installing Logstash or Fluent Bit on every guest. Those guests already send logs with the rsyslog that hardening installed
 - A logging Elasticsearch with no single address
 - One new HAProxy guest. A new pair is 2. An existing HAProxy is used through its addresses
 

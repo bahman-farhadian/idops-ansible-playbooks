@@ -88,8 +88,8 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `as-observability` | `zabbix` (no files yet) | One guest. Zabbix 7.0 LTS. Server, web page, and PostgreSQL stay together. Calculated metrics are defined in the web page. | — |
 | `as-observability` | `grafana` (no files yet) | One guest. Grafana OSS 12.4 and its PostgreSQL. Presents Prometheus and Zabbix. Zabbix history comes from the Zabbix PostgreSQL. | — |
 | `at-centralized-logging` | `rsyslog` (no files yet) | One guest. Central receiver. Hardening already installs rsyslog on each guest. | Loki, OpenSearch |
-| `at-centralized-logging` | `elk` (no files yet) | A project runs this or `efk`. Elasticsearch guest counts match `am-databases/elasticsearch`. One Kibana guest. One address is required, through a new HAProxy pair or an existing HAProxy. Logstash runs on the guests that produce logs. | Loki, OpenSearch |
-| `at-centralized-logging` | `efk` (no files yet) | A project runs this or `elk`. Same Elasticsearch, one Kibana, and the same required address. Fluent Bit runs on the guests that produce logs. | Fluentd, Loki, OpenSearch |
+| `at-centralized-logging` | `elk` (no files yet) | A project runs this or `efk`. Elasticsearch guest counts match `am-databases/elasticsearch`. One Kibana guest. One address is required, through a new HAProxy pair or an existing HAProxy. Logstash runs on the rsyslog receiver. | Loki, OpenSearch |
+| `at-centralized-logging` | `efk` (no files yet) | A project runs this or `elk`. Same Elasticsearch, one Kibana, and the same required address. Fluent Bit runs on the rsyslog receiver. | Fluentd, Loki, OpenSearch |
 | `au-backup-and-disaster-recovery` | — | No product chosen yet. | Bareos and UrBackup are central services. restic, BorgBackup, and Kopia are engines. Veeam is paid |
 | `av-security-and-compliance` | `wazuh` (no files yet) | One manager guest. Agents on existing guests come later in this playbook. | OpenSCAP, Security Onion |
 | `aw-ci-cd-automation` | `gitlab` (no files yet) | One guest. Git, CI, and its database stay on that guest. | Forgejo, Jenkins |
