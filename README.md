@@ -84,8 +84,9 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ap-data-applications` | `superset` (no files yet) | One guest of its own. The application and its metadata database stay together. | — |
 | `aq-identity-and-access` | `keycloak` (no files yet) | One guest. Web sign-in. A deployment chooses whether each web app points here. Its database stays on that guest. | Authentik, FreeIPA |
 | `ar-secrets-and-pki` | `vault` (no files yet) | One guest, or 3 with a copy on each. Two HAProxy guests in front of the cluster. BSL 1.1. | step-ca |
-| `as-observability` | `prometheus` (no files yet) | One guest. Prometheus 3.13 LTS, Alertmanager 0.34.1, and Grafana OSS 12.4. Grafana shows Prometheus and Zabbix. Grafana's PostgreSQL stays on that guest. | Tempo, Jaeger |
-| `as-observability` | `zabbix` (no files yet) | One guest. Zabbix 7.0 LTS. Server, web UI, and PostgreSQL stay together. Graphs are in Grafana. | — |
+| `as-observability` | `prometheus` (no files yet) | One guest. Prometheus 3.13 LTS and Alertmanager 0.34.1. | Tempo, Jaeger |
+| `as-observability` | `zabbix` (no files yet) | One guest. Zabbix 7.0 LTS. Server, web page, and PostgreSQL stay together. Calculated metrics are defined in the web page. | — |
+| `as-observability` | `grafana` (no files yet) | One guest. Grafana OSS 12.4 and its PostgreSQL. Presents Prometheus and Zabbix. Zabbix history comes from the Zabbix PostgreSQL. | — |
 | `at-centralized-logging` | `rsyslog` (no files yet) | One guest. Receives syslog. | Loki, OpenSearch |
 | `at-centralized-logging` | `elk` (no files yet) | Elasticsearch, Logstash, and Kibana. One guest each. | Loki, OpenSearch |
 | `at-centralized-logging` | `efk` (no files yet) | Elasticsearch, Fluent Bit, and Kibana. One guest each. | Fluentd, Loki, OpenSearch |
