@@ -4,7 +4,7 @@ Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `prometheus/` and `zabbix/` are different playbooks. Running one does not install the other. They are not installed on the same virtual machine. They can both be used in one project.
+Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `prometheus/` and `zabbix/` are different playbooks. Running one does not install the other. They are not installed on the same virtual machine. They can both be used in one project. The two monitors stay independent. This is not a cluster. Grafana, on the Prometheus guest, is the visualization for both.
 
 ## Playbook
 
@@ -16,6 +16,8 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
   - The playbook pins Prometheus 3.13 LTS. That is the current long-term release on the official download page. The maintenance release is 3.13.4, published 29 Sep 2026. Support runs through 31 Jul 2027. The license is Apache 2.0. Prometheus 3.15.0 is a newer stable release, so it is not the pin. The pin stays on 3.13
   - Alertmanager has no long-term release. The pin is 0.34.1, the current stable release on the official download page, published 17 Sep 2026. The license is Apache 2.0. Release candidates stay out
   - Grafana is the open-source edition. The license is AGPL-3.0. The paid edition stays out. Grafana does not publish a long-term line. The pin is 12.4, the last minor of Grafana 12. That line has extended patch support through 24 May 2027. The pin stays on 12.4
+  - Grafana is the visualization for Prometheus and for Zabbix. The playbook provides the graphs. Prometheus is a built-in Grafana source. Zabbix is read through the Zabbix API with the plugin `alexanderzobnin-zabbix-app` 6.8.0, published 21 Sep 2026. The license is Apache 2.0. The Zabbix address stays in local settings. Grafana does not connect to the PostgreSQL on the Zabbix guest. Grafana does not send the alerts
+  - This playbook does not install Zabbix and does not call `zabbix/`
   - A second guest is not part of this playbook
   - Adding a machine is a later task in this same playbook. That task installs the node exporter on a machine the administrator already has. The node exporter pin is 1.12.1, the current stable release on the official download page, published 14 Jul 2026. It has no long-term release. The task uses its own local settings file. It does not create the guest
   - Kubernetes monitoring is a later task in this same playbook
@@ -25,6 +27,7 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
 - `zabbix/`
   - One guest
   - Zabbix server, the web UI, and PostgreSQL stay on that guest. This PostgreSQL is for Zabbix. It is not installed on another machine. It does not use `am-databases/postgresql`, and it is not the PostgreSQL on the Prometheus guest. The playbook pins PostgreSQL 18, the same line as Grafana's database. Zabbix 7.0 supports PostgreSQL 18. The license is AGPL-3.0
+  - The web page stays for Zabbix setup. The graphs are in Grafana on the Prometheus guest. This playbook does not install Grafana
   - The playbook pins Zabbix 7.0 LTS. That is the newest stable long-term release. Kubernetes monitoring templates are included for 7.0 and higher. Zabbix 8.0 LTS is still a release candidate, so it is not the pin. The pin moves to 8.0 LTS only after that release is stable
   - A second guest is not part of this playbook
   - Adding a machine is a later task in this same playbook. That task installs the Zabbix agent on a machine the administrator already has. The agent pin is Zabbix 7.0 LTS. The task uses its own local settings file. It does not create the guest
@@ -39,8 +42,9 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
 
 ## Left out
 
-- A second guest for either playbook
+- A second guest for either playbook. A cluster of either monitor
 - A separate Grafana playbook. Grafana stays on the Prometheus guest
+- Grafana reading the Zabbix database. Grafana uses the Zabbix API
 - Installing Prometheus and Zabbix on the same virtual machine
 - A database on another machine. PostgreSQL stays on the monitor guest
 - The paid Grafana edition
