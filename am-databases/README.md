@@ -290,7 +290,7 @@ flowchart TB
 
 ClickHouse sharded cluster. Cyan is shard A. Indigo is shard B. HAProxy can send the session to any replica, and that replica queries both shards. The arrow between the shards is that distributed query. Keeper is not behind HAProxy.
 - `elasticsearch/`
-  - Elasticsearch as a systemd service, for applications. This is not the Elasticsearch in `at-centralized-logging`. ELK and EFK keep their own clusters
+  - Elasticsearch as a systemd service, for applications. This is not the Elasticsearch in `at-centralized-logging`. A project runs `elk/` or `efk/`, and that playbook keeps its own cluster
   - The playbook builds a pinned 9.x source release and chooses AGPL-3.0. It does not install Elastic's package. Snapshots, alphas, betas, and release candidates stay out. The pin moves only to another maintained 9.x release. X-Pack stays out, including the built-in login, machine learning, and cross-cluster replication. The JDK used to compile does not stay on the guest
   - Three layouts. The project picks one in local settings. One guest. A cluster. A sharded cluster. Elasticsearch elects its own masters and stores its own shard copies. A master count of two is refused
   - One guest is a local-settings choice. That guest has no second copy
