@@ -22,4 +22,5 @@ Domain for package and image caches.
 - A hosted Docker registry stays out of scope.
 - No apt-cacher, Harbor, or Pulp playbook.
 - JFrog is the stronger paid product. It stays out. Nexus stays.
+- Nexus keeps its own login. Pointing that web page at Keycloak is a paid Nexus feature, so it stays out.
 - PyPI, npm, Maven, Helm, raw, and further repository types are later additions in this playbook. They are not created by the current deploy.

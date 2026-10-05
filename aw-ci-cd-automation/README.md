@@ -13,6 +13,7 @@ Git hosting and CI for this environment.
   - GitLab as a systemd service
   - Git repositories, CI, and GitLab's own database stay on that guest
   - The runner stays on this guest. A separate runner guest is a later change inside this playbook
+  - A deployment can point GitLab at `aq-identity-and-access/keycloak`, or leave GitLab with its own login. The choice is in local settings. This playbook does not require Keycloak
 
 ## Alternatives
 

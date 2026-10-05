@@ -13,6 +13,7 @@ One security platform for the guests that are already hardened.
   - Wazuh manager as a systemd service
   - Wazuh is the open-source security monitor (GPL). The manager collects alerts. Agents on the other machines send logs, file-integrity checks, and intrusion checks. It is the self-hosted monitor when the stack does not use a paid SIEM
   - Agents on other guests are a later task in this same playbook
+  - A deployment can point the Wazuh web page at `aq-identity-and-access/keycloak`, or leave that page with its own login. The choice is in local settings. This playbook does not require Keycloak
   - Does not change the Lynis score in `ag-os-baseline-and-hardening`
 
 ## Alternatives

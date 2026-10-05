@@ -16,12 +16,14 @@ Log collection for the stack. rsyslog, ELK, and EFK are separate playbooks. They
   - Elasticsearch, Logstash, and Kibana
   - One guest each
   - A three-node Elasticsearch cluster is a later change inside this playbook
+  - A deployment can point Kibana at `aq-identity-and-access/keycloak`, or leave Kibana with its own login. The choice is in local settings. This playbook does not require Keycloak
 - `efk/`
   - Elasticsearch, Fluent Bit, and Kibana
   - One guest each
   - Its own Elasticsearch and Kibana, separate from `elk/`
   - Fluent Bit is the collector. Fluentd is still maintained, and new production collectors use Fluent Bit
   - A three-node Elasticsearch cluster is a later change inside this playbook
+  - A deployment can point Kibana at `aq-identity-and-access/keycloak`, or leave Kibana with its own login. The choice is in local settings. This playbook does not require Keycloak
 
 ## Alternatives
 

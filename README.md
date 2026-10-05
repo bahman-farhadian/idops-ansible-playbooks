@@ -82,7 +82,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ao-message-brokers` | `kafka` (no files yet) | Kafka 4, KRaft. One guest, or 3 brokers that are also controllers. | NATS |
 | `ap-data-applications` | `metabase` (no files yet) | One guest of its own. The application and its database stay together. | — |
 | `ap-data-applications` | `superset` (no files yet) | One guest of its own. The application and its metadata database stay together. | — |
-| `aq-identity-and-access` | `keycloak` (no files yet) | One guest. Web sign-in. Its database stays on that guest. | Authentik, FreeIPA |
+| `aq-identity-and-access` | `keycloak` (no files yet) | One guest. Web sign-in. A deployment chooses whether each web app points here. Its database stays on that guest. | Authentik, FreeIPA |
 | `ar-secrets-and-pki` | `vault` (no files yet) | One guest, or 3 with a copy on each. Two HAProxy guests in front of the cluster. BSL 1.1. | step-ca |
 | `as-observability` | `prometheus` (no files yet) | One guest of its own. Prometheus, Alertmanager, and Grafana. | Tempo, Jaeger |
 | `as-observability` | `zabbix` (no files yet) | One guest of its own. Server, web UI, and its database stay together. | — |

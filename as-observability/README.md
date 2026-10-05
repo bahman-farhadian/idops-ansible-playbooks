@@ -14,14 +14,14 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
   - The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
   - A second guest is not part of this playbook
   - Programs that expose metrics on other guests are a later task in this same playbook
-  - Grafana sign-in is still open
+  - A deployment can point Grafana at `aq-identity-and-access/keycloak`, or leave Grafana with its own login. The choice is in local settings. This playbook does not require Keycloak
 - `zabbix/`
   - One guest
   - Zabbix server, the web UI, and its database stay on that guest. The license is GPL
   - The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
   - A second guest is not part of this playbook
   - Agents on other guests are a later task in this same playbook
-  - Zabbix sign-in is still open
+  - A deployment can point the Zabbix web page at `aq-identity-and-access/keycloak`, or leave Zabbix with its own login. The choice is in local settings. This playbook does not require Keycloak
   - This playbook does not create the guest and does not call provisioning or hardening
 
 ## Alternatives
@@ -43,4 +43,4 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
 ## Status
 
 - Playbook files: no
-- Review: one guest each is decided. Sign-in is still open
+- Review: decided

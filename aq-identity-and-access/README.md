@@ -4,7 +4,7 @@ Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Sign-in for web applications. A person is created once in Keycloak. An application such as GitLab, Metabase, or Superset can send that person to Keycloak instead of keeping its own password. This playbook does not turn that connection on inside those applications. Each of those playbooks is pointed at Keycloak when it is written. SSH into a virtual machine stays a separate login.
+Sign-in for web applications. A person is created once in Keycloak. A deployment can point a web application at this guest, or leave that application with its own login. Pointing at Keycloak is not mandatory. The choice is in that deployment's local settings. This playbook does not turn the connection on. SSH into a virtual machine stays a separate login. Vault keeps its own login.
 
 ## Playbook
 
@@ -26,6 +26,7 @@ Sign-in for web applications. A person is created once in Keycloak. An applicati
 - FreeIPA and a separate LDAP directory. DNS stays on the `debian-based-perimeter` pair
 - Authentik
 - SSH login to virtual machines
+- Vault login. Vault keeps its own login
 
 ## Dependencies
 
