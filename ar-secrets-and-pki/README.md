@@ -9,7 +9,7 @@ A secrets store, and certificates for services that opt in. OpenVPN certificates
 ## Playbook
 
 - `vault/`
-  - HashiCorp Vault as a systemd service. The license is BSL 1.1, so this playbook does not meet the open-source rule. It stays from the earlier decision. OpenBao is the open-source match and is not this playbook
+  - HashiCorp Vault as a systemd service. The license is BSL 1.1. That license is accepted for this playbook
   - Two layouts. The project picks one in local settings. One guest. A Raft cluster
   - One guest is a local-settings choice. That guest has no second copy
   - The cluster is 3 guests. Every guest holds a full copy. Only the leader answers. A standby tells a direct client the leader's own address. One guest can fail, and the others elect a new leader. Two guests are refused. The next count is 5. Adding a guest keeps the count odd
@@ -44,11 +44,10 @@ Vault cluster. The pair sends traffic only to the leader. The standbys hold a fu
 
 ## Alternatives
 
-- OpenBao is the open-source match. step-ca was left out.
+- None named. step-ca was left out.
 
 ## Left out
 
-- OpenBao
 - OpenVPN certificates. Those stay on the `debian-based-perimeter` pair
 - A separate step-ca playbook
 - The paid Vault edition

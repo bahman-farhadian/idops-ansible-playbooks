@@ -40,7 +40,7 @@ Ansible playbook monorepo for the **idops** brand (`interdisciplinary + ops`), o
 
 ## Domain Intent (Production)
 
-A service in this list is open source, self-hosted, and production-ready. A paid product is left out even when it is the stronger product. JFrog is left out for that reason. Nexus stays. ESXi is required on this stack, so it stays even though it is not open source. Vault stays from the earlier decision. Its license is BSL 1.1, so it does not meet the open-source rule. OpenBao does.
+A service in this list is open source, self-hosted, and production-ready. A paid product is left out even when it is the stronger product. JFrog is left out for that reason. Nexus stays. ESXi is required on this stack, so it stays even though it is not open source. Vault stays. Its license is BSL 1.1, and that license is accepted.
 
 Each domain has the playbooks below. A name with no directory yet is a decision, not an implementation. Copy `playbook-template/` only after that name is accepted.
 
@@ -83,7 +83,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ap-data-applications` | `metabase` (no files yet) | One guest of its own. The application and its database stay together. | — |
 | `ap-data-applications` | `superset` (no files yet) | One guest of its own. The application and its metadata database stay together. | — |
 | `aq-identity-and-access` | `keycloak` (no files yet) | One guest. Web sign-in. Its database stays on that guest. | Authentik, FreeIPA |
-| `ar-secrets-and-pki` | `vault` (no files yet) | One guest, or 3 with a copy on each. Two HAProxy guests in front of the cluster. BSL 1.1. | OpenBao |
+| `ar-secrets-and-pki` | `vault` (no files yet) | One guest, or 3 with a copy on each. Two HAProxy guests in front of the cluster. BSL 1.1. | step-ca |
 | `as-observability` | `prometheus` (no files yet) | One guest. Prometheus, Alertmanager, and Grafana. | A separate Grafana playbook. Tempo, Jaeger |
 | `as-observability` | `zabbix` (no files yet) | One guest. Server, web UI, and its database on that guest. | — |
 | `at-centralized-logging` | `rsyslog` (no files yet) | One guest. Receives syslog. | Loki, OpenSearch |
