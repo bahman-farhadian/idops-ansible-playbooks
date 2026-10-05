@@ -84,8 +84,8 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ap-data-applications` | `superset` (no files yet) | One guest of its own. The application and its metadata database stay together. | — |
 | `aq-identity-and-access` | `keycloak` (no files yet) | One guest. Web sign-in. Its database stays on that guest. | Authentik, FreeIPA |
 | `ar-secrets-and-pki` | `vault` (no files yet) | One guest, or 3 with a copy on each. Two HAProxy guests in front of the cluster. BSL 1.1. | step-ca |
-| `as-observability` | `prometheus` (no files yet) | One guest. Prometheus, Alertmanager, and Grafana. | A separate Grafana playbook. Tempo, Jaeger |
-| `as-observability` | `zabbix` (no files yet) | One guest. Server, web UI, and its database on that guest. | — |
+| `as-observability` | `prometheus` (no files yet) | One guest of its own. Prometheus, Alertmanager, and Grafana. | Tempo, Jaeger |
+| `as-observability` | `zabbix` (no files yet) | One guest of its own. Server, web UI, and its database stay together. | — |
 | `at-centralized-logging` | `rsyslog` (no files yet) | One guest. Receives syslog. | Loki, OpenSearch |
 | `at-centralized-logging` | `elk` (no files yet) | Elasticsearch, Logstash, and Kibana. One guest each. | Loki, OpenSearch |
 | `at-centralized-logging` | `efk` (no files yet) | Elasticsearch, Fluent Bit, and Kibana. One guest each. | Fluentd, Loki, OpenSearch |
