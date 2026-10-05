@@ -16,7 +16,7 @@ A secrets store, and certificates for services that opt in. OpenVPN certificates
   - The paid edition's standby reads stay out. A standby does not serve secrets
   - For the cluster, the administrator provides 2 HAProxy guests. `al-traffic-management/haproxy` installs HAProxy. This playbook connects to those guests and writes the configuration. The pair sends a request only to the current leader. A client uses either HAProxy guest. The one-guest layout has no HAProxy pair. The pair is not part of the Vault guest count
   - This playbook does not create the guests and does not call provisioning or hardening
-  - How Vault is unlocked after a reboot is still open
+  - After the Vault process starts, including a reboot of that guest, Vault is locked. The key that opens the secrets was only in memory. An operator unlocks Vault by submitting the key shares. The shares are created at the first setup and stay out of git. A service cannot unlock Vault. Automatic unlock by another system stays out. This is the safer choice, because the key is not stored on a machine that Vault can reach by itself
   - Guest counts:
 
 | Scenario | Vault VMs | HAProxy VMs | Total you provide |
@@ -52,6 +52,7 @@ Vault cluster. The pair sends traffic only to the leader. The standbys hold a fu
 - OpenVPN certificates. Those stay on the `debian-based-perimeter` pair
 - A separate step-ca playbook
 - The paid Vault edition
+- Automatic unlock by another system
 
 ## Dependencies
 
@@ -61,4 +62,4 @@ Vault cluster. The pair sends traffic only to the leader. The standbys hold a fu
 ## Status
 
 - Playbook files: no
-- Review: the cluster and the HAProxy pair are decided. Unlocking after a reboot is still open
+- Review: decided
