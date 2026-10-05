@@ -17,10 +17,10 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
   - A deployment can point Grafana at `aq-identity-and-access/keycloak`, or leave Grafana with its own login. The choice is in local settings. This playbook does not require Keycloak
 - `zabbix/`
   - One guest
-  - Zabbix server, the web UI, and its database stay on that guest. The license is GPL
-  - The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
+  - Zabbix server, the web UI, and its database stay on that guest. The license is AGPL-3.0
+  - The playbook pins Zabbix 7.0 LTS. That is the newest stable long-term release. Kubernetes monitoring templates are included for 7.0 and higher. Zabbix 8.0 LTS is still a release candidate, so it is not the pin. The pin moves to 8.0 LTS only after that release is stable
   - A second guest is not part of this playbook
-  - Agents on other guests are a later task in this same playbook
+  - Agents on other guests are a later task in this same playbook. Kubernetes monitoring is one of those later tasks
   - A deployment can point the Zabbix web page at `aq-identity-and-access/keycloak`, or leave Zabbix with its own login. The choice is in local settings. This playbook does not require Keycloak
   - This playbook does not create the guest and does not call provisioning or hardening
 
