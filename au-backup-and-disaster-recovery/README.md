@@ -17,7 +17,7 @@ Backup of the virtual machine disk, taken from the KVM host while the guest is r
   - A systemd timer on the backup guest runs the job. The playbook does not create the KVM host and does not call provisioning or hardening
   - Each job ends with a boot test. `virtnbdrestore` rebuilds the latest chain onto a scratch disk on the KVM host. That disk is started as a temporary virtual machine with a different name and no production network. The backup counts only if the QEMU guest agent answers. The temporary virtual machine and the scratch disk are then removed
   - Each job publishes its result, including the boot test. Prometheus scrapes that result. `as-observability/grafana` shows it on a backup dashboard. This playbook does not install Grafana
-  - Evaluation still open. The first full backup and the first incremental of a real guest must pass this boot test before this is the backup the stack depends on
+  - The first full backup and the first incremental of a real guest must pass this boot test before this is the backup the stack depends on. That run is later. It is not an open choice
 
 ## Alternatives
 
@@ -30,6 +30,8 @@ Backup of the virtual machine disk, taken from the KVM host while the guest is r
 - The Bareos, VMware, and Hyper-V plugins. Paid, and they do not speak to a plain libvirt host
 - A backup program written in this playbook. Libvirt starts the copy. virtnbdbackup stores the chain and restores it
 - Copying a live disk file with `qemu-img` while the guest is running
+- An ESXi virtual machine. This playbook talks to libvirt
+- A second site. An offsite copy of the backup disk is later, not this playbook
 
 ## Dependencies
 
@@ -39,4 +41,4 @@ Backup of the virtual machine disk, taken from the KVM host while the guest is r
 ## Status
 
 - Playbook files: no
-- Review: virtnbdbackup is chosen. A real restore test is still open
+- Review: decided. The boot test is part of each job. It has not been run yet
