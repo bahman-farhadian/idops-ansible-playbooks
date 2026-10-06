@@ -15,8 +15,9 @@ Backup of the virtual machine disk, taken from the KVM host while the guest is r
   - A full run copies the disks. A later run copies the blocks that changed. Incremental backup needs qcow2. `virtnbdrestore` rebuilds the disk from that chain. Both commands are command line
   - The QEMU guest agent freezes the filesystems for the start of the copy. Without it, the disk is the same as after a sudden power loss
   - A systemd timer on the backup guest runs the job. The playbook does not create the KVM host and does not call provisioning or hardening
-  - Each job publishes its result. Prometheus scrapes that result. `as-observability/grafana` shows it on a backup dashboard. This playbook does not install Grafana
-  - Evaluation still open. A full backup and an incremental of a real guest must be restored onto another disk, and that virtual machine must boot, before this is the backup the stack depends on
+  - Each job ends with a boot test. `virtnbdrestore` rebuilds the latest chain onto a scratch disk on the KVM host. That disk is started as a temporary virtual machine with a different name and no production network. The backup counts only if the QEMU guest agent answers. The temporary virtual machine and the scratch disk are then removed
+  - Each job publishes its result, including the boot test. Prometheus scrapes that result. `as-observability/grafana` shows it on a backup dashboard. This playbook does not install Grafana
+  - Evaluation still open. The first full backup and the first incremental of a real guest must pass this boot test before this is the backup the stack depends on
 
 ## Alternatives
 
