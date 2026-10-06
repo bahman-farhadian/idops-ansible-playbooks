@@ -1,46 +1,41 @@
 # au-backup-and-disaster-recovery
 
-Domain status: decision only (no playbook name yet)
+Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Backup and restore for the stack. The product is not chosen yet. There are good open-source options. They are not the same kind of product.
+Backup of the virtual machine disk, taken from the KVM host while the guest is running. This is not a copy of files from inside the guest. A database replica is not a backup.
 
-## Options
+## Playbook
 
-A central backup service has a director, a catalog, and schedules. Clients on the other guests send backups to it.
-
-- Bareos. AGPL. This is the open-source service with that shape: a director, a catalog, file daemons, and storage. The community build includes the core service. Some hypervisor plugins are subscription binaries. The project is still releasing, and it is used in production.
-- UrBackup. AGPL. A smaller central server with a web UI, file backup, and disk images. Simpler than Bareos. Image backup fits workstations more than this server stack.
-- Bacula community. AGPL, and the same shape as Bareos. More of the features sit in the paid edition. Bareos is the community fork.
-
-A backup engine encrypts and deduplicates files into a repository. A timer or a small wrapper does the schedule. There is no director.
-
-- restic. BSD. Widely used in production. Many storage backends, including S3. No central catalog.
-- BorgBackup. BSD. Mature append-only repositories, on local disk or over SSH. No native S3.
-- Kopia. Apache-2.0. The same kind of engine, plus an optional repository server and a web UI.
-
-Veeam is the paid central service, and the backup server is mainly Windows, so it is out. Proxmox Backup Server is AGPL and tied to Proxmox. This stack uses KVM and ESXi, so that server is out.
-
-No playbook name until one of these is accepted. No files yet. The guest count waits with the product.
+- `virtnbdbackup/`
+  - One backup guest. The backup files stay on an extra disk on that guest. The disk size stays in local settings
+  - The playbook installs virtnbdbackup 2.53, published 7 September 2026. The license is GPL-3.0. The pin stays on 2.53 while the restore test below is open
+  - virtnbdbackup runs on the backup guest and talks to libvirt on the KVM host. It does not install a client inside the virtual machine. The virtual machine stays running
+  - A full run copies the disks. A later run copies the blocks that changed. Incremental backup needs qcow2. `virtnbdrestore` rebuilds the disk from that chain. Both commands are command line
+  - The QEMU guest agent freezes the filesystems for the start of the copy. Without it, the disk is the same as after a sudden power loss
+  - A systemd timer on the backup guest runs the job. The playbook does not create the KVM host and does not call provisioning or hardening
+  - Each job publishes its result. Prometheus scrapes that result. `as-observability/grafana` shows it on a backup dashboard. This playbook does not install Grafana
+  - Evaluation still open. A full backup and an incremental of a real guest must be restored onto another disk, and that virtual machine must boot, before this is the backup the stack depends on
 
 ## Alternatives
 
-- Bareos, UrBackup, restic, BorgBackup, and Kopia are the open-source options.
-- Veeam is paid and is out.
+- Bareos and UrBackup, central file-backup services. restic, BorgBackup, and Kopia, file-backup engines. None of them take the virtual machine disk from a plain libvirt host.
 
 ## Left out
 
-- Veeam
-- Proxmox Backup Server
-- A second site
+- Veeam. Paid, and the backup server is Windows
+- Proxmox Backup Server. It backs up Proxmox guests. These hosts are libvirt
+- The Bareos, VMware, and Hyper-V plugins. Paid, and they do not speak to a plain libvirt host
+- A backup program written in this playbook. Libvirt starts the copy. virtnbdbackup stores the chain and restores it
+- Copying a live disk file with `qemu-img` while the guest is running
 
 ## Dependencies
 
-- Upstream: `ac-vm-provisioning` creates the guests this service needs, then `ag-os-baseline-and-hardening`
-- Downstream: guests that send backups
+- Upstream: the backup guest and the KVM host the administrator provides. This playbook does not create them
+- Downstream: a restored virtual machine disk, and the backup dashboard in Grafana
 
 ## Status
 
 - Playbook files: no
-- Playbook name: not chosen
+- Review: virtnbdbackup is chosen. A real restore test is still open

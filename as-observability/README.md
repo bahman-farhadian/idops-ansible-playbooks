@@ -37,6 +37,7 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
   - Grafana as a systemd service. The open-source edition. The license is AGPL-3.0. The paid edition stays out. Grafana does not publish a long-term line. The pin is 12.4, the last minor of Grafana 12. That line has extended patch support through 24 May 2027. The pin stays on 12.4
   - PostgreSQL stays on that guest. It is the database for Grafana's users and dashboards. It does not use `am-databases/postgresql`. The pin is PostgreSQL 18, the same line as the Zabbix guest
   - The playbook provides the graphs for Prometheus and for Zabbix
+  - A backup dashboard is included. It reads the job result published by `au-backup-and-disaster-recovery/virtnbdbackup`. This playbook does not install virtnbdbackup
   - Prometheus is a built-in Grafana source. The Prometheus address stays in local settings
   - Zabbix history is read from the PostgreSQL on the Zabbix guest. That direct connection is the default. The plugin supports it. The plugin is `alexanderzobnin-zabbix-app` 6.8.0, published 21 Sep 2026. The license is Apache 2.0. The Zabbix API address stays in local settings so Grafana can find the hosts and items. Grafana does not copy the Zabbix database onto this guest
   - Grafana does not send the alerts
