@@ -6,7 +6,7 @@ Domain status: decision only (no playbook files yet)
 
 Git hosting, CI, and CD for this environment. `gitlab/` and `jenkins/` are separate playbooks. Running one does not install the other.
 
-GitLab hosts git and runs CI. It does not deploy. Jenkins is the CD setup, on its own guest. A deployment that does not want GitLab as the CD tool uses Jenkins.
+GitLab hosts git and runs CI and CD. A deployment can run GitLab alone and deploy with GitLab. Jenkins is optional, on its own guest. A deployment that does not want GitLab as the CD tool can add Jenkins.
 
 ## Playbook
 
@@ -20,14 +20,14 @@ GitLab hosts git and runs CI. It does not deploy. Jenkins is the CD setup, on it
   - The deployment chooses the executor in the runner's local settings. A deployment that is not containerized uses the shell executor. A containerized deployment uses Docker, and only when `aj-container-runtime/docker-engine` is already installed on the runner guest. This playbook does not install Docker
   - The Nexus address is a DNS name in the runner's local settings. The perimeter already publishes that name. `debian-based-perimeter` serves the zone, and a project that chose `opnsense-firewall` uses that playbook's DNS. When the name is empty, no mirror is configured. The name is the Docker Hub pull cache on port 8082. This playbook does not read the perimeter's parameter file
   - GitLab's container registry stays off. GitLab's npm, Maven, and PyPI registry stays off. Nexus is the artifact store
-  - This playbook runs CI jobs. It does not deploy the result
+  - This playbook runs CI jobs and can deploy the result. Jenkins is not required for that
   - OS login stays on port 2222. GitLab's git SSH uses port 22
   - The TLS certificate stays in local settings
   - A deployment can point the web page at `aq-identity-and-access/keycloak`, or leave GitLab's own login. The choice is in local settings. This playbook does not require Keycloak
   - `am-databases/postgresql` and `an-data-caching/redis` stay on their own guests
   - This playbook does not create either guest and does not call provisioning or hardening
 - `jenkins/`
-  - Its own setup. One controller guest. Jenkins runs as a systemd service
+  - Optional. Its own setup. One controller guest. Jenkins runs as a systemd service
   - Pin Jenkins 2.580.1 LTS, published 30 September 2026. The license is MIT. The weekly line stays out
   - Java 21. Debian 13, Ubuntu 24.04, and Ubuntu 26.04 use OpenJDK 21 from the OS archive. Debian 12's archive has Java 17, and this Jenkins release does not start on Java 17, so Debian 12 uses Temurin 21
   - The same four releases as the other guests
@@ -45,7 +45,6 @@ GitLab hosts git and runs CI. It does not deploy. Jenkins is the CD setup, on it
 
 - Forgejo
 - The GitLab Enterprise package, Premium, and Ultimate
-- Using GitLab to deploy
 - GitLab's container registry, and its npm, Maven, and PyPI registry
 - A hosted Docker registry. Nexus stays the Docker Hub pull cache
 - The Jenkins weekly line
@@ -56,7 +55,7 @@ GitLab hosts git and runs CI. It does not deploy. Jenkins is the CD setup, on it
 ## Dependencies
 
 - Upstream: the guests the administrator provides. These playbooks do not create them
-- Downstream: git repositories, CI jobs, and deploys from Jenkins
+- Downstream: git repositories, CI jobs, and deploys from GitLab or from Jenkins
 
 ## Status
 
