@@ -94,7 +94,6 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `av-security-and-compliance` | `wazuh` (no files yet) | One guest. Wazuh 4.14.8. Manager, indexer, and dashboard stay together. Agents come later. It only reports. | OpenSCAP, Security Onion |
 | `aw-ci-cd-automation` | `gitlab` (no files yet) | Two guests. GitLab CE 19.4.1. Git and CI on one guest, runner on the other. GitLab does not deploy. | Forgejo |
 | `aw-ci-cd-automation` | `jenkins` (no files yet) | One guest. Jenkins 2.580.1 LTS. A CD setup of its own. | — |
-| `aw-ci-cd-automation` | `argocd` (no files yet) | Inside the Kubernetes cluster. Argo CD 3.5.3. No new guest. | — |
 
 `ah-distributed-storage` is the Ceph cluster. OpenStack and Kubernetes use it. There is no chat or mail domain in the `aa`–`aw` list, so `mattermost` and `stalwart` sit in `ae-internal-services`. A project uses one perimeter, `debian-based-perimeter` or `opnsense-firewall`. MX, SPF, DKIM, and DMARC for Stalwart stay on that pair. `ai-openstack` deploys an OpenStack cluster. It is not a hypervisor and it does not create guests. It does not use `kvm-vm-provisioning` or `esxi-vm-provisioning`.
 
