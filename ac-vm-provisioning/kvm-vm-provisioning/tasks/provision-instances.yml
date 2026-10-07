@@ -828,7 +828,7 @@
          ordered after it, so systemctl restart from bootcmd never returns
          and qemu-guest-agent is never installed. #}
       {% set effective_bootcmd = item.cloud_init_bootcmd | default([]) %}
-      {% if (item.cloud_init_tune_networkd_wait_online | default(true) | bool) and ((item.image_profile_id | default('')) == 'debian-12') %}
+      {% if (item.cloud_init_tune_networkd_wait_online | default(true) | bool) and ((item.image_profile_id | default('')) in ['debian-12', 'debian-13']) %}
       {% set networkd_wait_online_timeout = item.cloud_init_networkd_wait_online_timeout_seconds | default(15) | int %}
       {% set networkd_wait_online_iface = item.guest_network_interface | default('enp1s0') %}
       {% set effective_bootcmd = effective_bootcmd + [
