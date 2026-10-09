@@ -2,6 +2,10 @@
 
 Build a production-like Kubernetes cluster from scratch for hands-on learning, covering high availability, networking, storage, security, and cluster administration.
 
+## Teaching note
+
+A production cluster is more than one control plane. You want three control planes, a floating API address, and a way in that is not the API itself. This lab teaches that shape with kubeadm, a gateway pair, a separate API load balancer, and Ceph on its own VMs. The limit is real: one KVM host. If that host dies, every VM dies. Three Ceph disks also share one SSD, so a disk failure is not a real Ceph failure test. Walk 02 → 09 on Debian 13 stacked first.
+
 ## Scope
 
 This repo documents cluster deployment on top of a set of already-provisioned VMs. **VM/host provisioning is out of scope** — bring your own VMs (manual install, Ansible, a cloud provider, or any other method), reachable over SSH with a base OS installed. The node count and roles you need are defined in this documentation.
@@ -10,7 +14,7 @@ This repo documents cluster deployment on top of a set of already-provisioned VM
 
 Tables are padded so the columns line up in a text editor and still render as tables. Each procedure step is one short note, then one command block, with a short comment on the command that does the work.
 
-One numbered spine. Circle a profile × scenario in [01-inventory.md](01-inventory.md) and one distro (Debian 13 or Ubuntu 26), then walk 02 → 09. The only branch is inside [05-deploy-kubernetes.md](05-deploy-kubernetes.md) (stacked or external bootstrap). Upgrades are 11, then 12, after the smoke test. GPU adds [14-gpu.md](14-gpu.md) after a healthy Heavy cluster. Application databases are [apps/](apps/README.md) and stay blocked until that cluster is healthy. Site WAN/LAN addresses stay out of this repo — tables use example LAN IPs.
+One numbered spine. Circle a profile × scenario in [01-inventory.md](01-inventory.md) and one distro (Debian 13 or Ubuntu 26), then walk 02 → 09. The only branch is inside [05-deploy-kubernetes.md](05-deploy-kubernetes.md) (stacked or external bootstrap). Upgrades are 11, then 12, after the smoke test. GPU adds [14-gpu.md](14-gpu.md) after a healthy stacked or external cluster. Application databases are [apps/](apps/README.md) and stay blocked until that cluster is healthy. Site WAN/LAN addresses stay out of this repo — tables use example LAN IPs.
 
 | Doc                                                | Covers                                                               |
 | -------------------------------------------------- | -------------------------------------------------------------------- |

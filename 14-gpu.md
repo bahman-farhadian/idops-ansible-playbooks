@@ -1,8 +1,12 @@
 # 14. GPU node
 
-**Goal:** After a healthy Heavy cluster, add `k8s-work-4` as a tainted NVIDIA worker. GPU is Heavy plus this step, not a from-scratch build.
+**Goal:** After a healthy stacked or external cluster, add `k8s-work-4` as a tainted NVIDIA worker. GPU is that cluster plus this step, not a from-scratch build.
 
 **Status:** Outline — fill in with real commands on the first GPU run. PCI passthrough / IOMMU is hypervisor-level and out of scope (see [00-overview.md](00-overview.md)); this repo assumes the GPU is already visible inside the VM.
+
+## Teaching note
+
+A GPU worker is a tainted node. Only pods that ask for a GPU and tolerate the taint land there. Do not join this VM to Ceph. The toolkit change is a file in containerd, then a restart, not a live-only flag. This page has no commands until a GPU is actually in the guest.
 
 Do this only when `k8s-work-4` is in the table you deployed ([01-inventory.md](01-inventory.md), 12 GB or 16 GB, no Ceph disk). It should already have been joined in [05-deploy-kubernetes.md](05-deploy-kubernetes.md). Do not add it to the Ceph cluster.
 
@@ -15,7 +19,7 @@ Do this only when `k8s-work-4` is in the table you deployed ([01-inventory.md](0
 - A one-pod smoke test that *tolerates* the taint and requests `nvidia.com/gpu: 1`
 
 ## Prerequisites
-- Heavy-shaped cluster already through [09-smoke-test.md](09-smoke-test.md)
+- Stacked or external cluster already through [09-smoke-test.md](09-smoke-test.md)
 - [01-inventory.md](01-inventory.md) GPU table (Scenario A or B)
 
 ## Next

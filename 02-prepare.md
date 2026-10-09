@@ -2,6 +2,10 @@
 
 **Goal:** Confirm every VM is in the expected starting state before any cluster-building step begins.
 
+## Teaching note
+
+kubeadm needs a unique machine-id on every node, no swap, and kernel settings that survive reboot. Write the file that boot reads, then load that file. A one-shot `sysctl -w` is gone after the next restart. Unique IDs matter because kubeadm treats two clones as the same node and stops. Do this on every VM in the table you circled, including the new Ceph VMs. Kernel bridge sysctls are for Kubernetes nodes only.
+
 > Continues from the root docs — read [00-overview.md](00-overview.md) through [01-inventory.md](01-inventory.md) first if you haven't. Circle **one** profile × scenario in [01-inventory.md](01-inventory.md) **and one distro** (Debian 13 or Ubuntu 26). That table is the node list for every later step. Do not mix distros in one cluster.
 
 ## Covers

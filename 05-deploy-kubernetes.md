@@ -2,6 +2,10 @@
 
 **Goal:** Container runtime on the Kubernetes nodes, a two-node API load balancer, then one control-plane bootstrap (stacked **or** external), worker join, and Calico. `kubectl`, k9s, and Helm land on the bastion at the end of the bootstrap you opened.
 
+## Teaching note
+
+kubeadm needs a stable API address before the first `init`. That address is the HAProxy VIP, not a node's own IP. Three control planes share etcd in the stacked path. If one node dies, you lose both an API server and an etcd member. That is why three is the minimum. containerd must be 2.x for Kubernetes 1.36. Pin kubelet, kubeadm, and kubectl to the same string, then hold them. Calico is one minor behind so file 11 has a real upgrade. The lab limit is still one host.
+
 Open **one** bootstrap section. Stacked is the current pass.
 
 ## Container runtime
@@ -13,16 +17,31 @@ Every `k8s-ctrl-*` and `k8s-work-*` in the inventory table you circled in [01-in
 
 ## Steps
 
-**1. Install pinned containerd** — distro package, same version on every control plane and worker. Hold it in the same step.
+**1. Install pinned containerd 2.x** — Kubernetes 1.36 does not support containerd 1.x ([SIG Node](https://kubernetes.io/blog/2025/09/12/kubernetes-v1-34-cri-cgroup-driver-lookup-now-ga/)). Debian 13's `containerd` package is 1.7 and is too old. Use Docker's `containerd.io` on cluster nodes. Do **not** install `docker-ce` here. Docker Engine stays on the bastion only.
 ```sh
 sudo apt update
-apt-cache madison containerd                                          # copy one version string
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+cat /etc/apt/sources.list.d/docker.sources 2>/dev/null || true
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+cat /etc/apt/sources.list.d/docker.sources
+sudo apt update
+apt-cache madison containerd.io                                       # copy a 2.x string
 CONTAINERD_VERSION="<version from the list above>"
-sudo apt install -y containerd=${CONTAINERD_VERSION}
-sudo apt-mark hold containerd                                         # apt upgrade must not move the runtime
-containerd --version                                                  # kubeadm must accept this version
+sudo apt install -y containerd.io=${CONTAINERD_VERSION}
+sudo apt-mark hold containerd.io                                      # apt upgrade must not move the runtime
+containerd --version                                                  # must print 2.x
 ```
-If that version is too old for the Kubernetes minor below, use Docker's `containerd.io` repo instead. Check [download.docker.com](https://download.docker.com) for Debian 13 or Ubuntu 26.
+On Ubuntu 26, the URI host is `https://download.docker.com/linux/ubuntu` and the suite is that distro's codename. Same pin-and-hold.
 
 **2. systemd cgroup driver** — kubelet uses systemd, so containerd must too. Read any file already on disk, write `/etc/containerd/config.toml`, then restart so the running daemon loads it. Apt has usually started containerd already; `enable --now` does not reload it. No registry mirror is installed in this manual. If you add one later, it is another file under that config, written before this restart. See [04-bastion.md](04-bastion.md).
 ```sh
@@ -199,7 +218,7 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 cat /etc/apt/sources.list.d/kubernetes.list                       # apt reads this file
 sudo apt update
 apt-cache madison kubeadm                                    # copy the exact package string
-KUBE_DEPLOY_VERSION="1.36.4-1.1"                             # must match madison, including the -1.1 suffix
+KUBE_DEPLOY_VERSION="1.36.5-1.1"                             # must match madison, including the -1.1 suffix
 sudo apt install -y kubelet=${KUBE_DEPLOY_VERSION} kubeadm=${KUBE_DEPLOY_VERSION} kubectl=${KUBE_DEPLOY_VERSION}
 sudo apt-mark hold kubelet kubeadm kubectl                   # apt upgrade must not move these
 sudo systemctl enable kubelet                                # kubeadm starts it; do not start it yet
@@ -239,7 +258,7 @@ Same thing as `sudo kubectl --kubeconfig /etc/kubernetes/admin.conf ...`. Expect
 **5. `kubectl`, k9s, and Helm on the bastion** — admin host only. Do not install `kubelet` or `kubeadm` here. Debian's package named `helm` is Emacs, so Helm 3 comes from the upstream tarball (`v3.22.0`; Helm 4 exists, this lab stays on 3). k9s is the same kind of install: a pinned GitHub tarball, not a distro package.
 ```sh
 KUBE_DEPLOY_MINOR=v1.36            # same minor as step 1
-KUBE_DEPLOY_VERSION="1.36.4-1.1"   # same pin as step 1
+KUBE_DEPLOY_VERSION="1.36.5-1.1"   # same pin as step 1
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/${KUBE_DEPLOY_MINOR}/deb/Release.key" \
   | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -463,7 +482,7 @@ All 3 must report healthy before continuing.
 
 **5. Install kubelet/kubeadm/kubectl on `k8s-ctrl-1/2` only** — deliberately one minor behind current stable so [11-update-kubernetes.md](11-update-kubernetes.md) has a real upgrade to practice:
 ```sh
-KUBE_DEPLOY_MINOR=v1.36   # checked 2026-09: current stable is v1.37, so one behind = v1.36 — reverify at kubernetes.io/releases, it moves every ~4 months
+KUBE_DEPLOY_MINOR=v1.36   # checked 2026-10-10: current stable is v1.37, so one behind = v1.36 — reverify at kubernetes.io/releases
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/${KUBE_DEPLOY_MINOR}/deb/Release.key" \
   | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -473,8 +492,8 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 cat /etc/apt/sources.list.d/kubernetes.list                       # apt reads this file
 sudo apt update
 
-apt-cache madison kubeadm   # list exact available patch versions in this minor — pick one; 1.36.4 was latest as of 2026-09
-KUBE_DEPLOY_VERSION="1.36.4-1.1"   # confirm this exact string (Debian package revision suffix) against the madison output above
+apt-cache madison kubeadm   # list exact available patch versions in this minor — pick one; 1.36.5 was latest as of 2026-10-10
+KUBE_DEPLOY_VERSION="1.36.5-1.1"   # confirm this exact string (Debian package revision suffix) against the madison output above
 
 sudo apt install -y kubelet=${KUBE_DEPLOY_VERSION} kubeadm=${KUBE_DEPLOY_VERSION} kubectl=${KUBE_DEPLOY_VERSION}
 sudo apt-mark hold kubelet kubeadm kubectl
@@ -517,7 +536,7 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 `kubectl` — same Kubernetes apt repo as the control-plane nodes (step 5; the bastion never ran that step):
 ```sh
 KUBE_DEPLOY_MINOR=v1.36            # MUST match step 5
-KUBE_DEPLOY_VERSION="1.36.4-1.1"   # MUST match step 5
+KUBE_DEPLOY_VERSION="1.36.5-1.1"   # MUST match step 5
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/${KUBE_DEPLOY_MINOR}/deb/Release.key" \
   | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -640,7 +659,7 @@ External etcd (any profile). Hardware: Scenario B table for your profile in [01-
 **1. On each worker** — add the **same** Kubernetes apt repo and install the **same exact** `KUBE_DEPLOY_VERSION` as the control-plane nodes (stacked step 1, or external step 5, above). Workers never ran the bootstrap, so the repo is not there yet. `kubelet` + `kubeadm` only (`kubectl` isn't needed on workers for this lab):
 ```sh
 KUBE_DEPLOY_MINOR=v1.36            # MUST match the bootstrap
-KUBE_DEPLOY_VERSION="1.36.4-1.1"   # MUST match the bootstrap exactly — copy the string, don't pick a new one
+KUBE_DEPLOY_VERSION="1.36.5-1.1"   # MUST match the bootstrap exactly — copy the string, don't pick a new one
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL "https://pkgs.k8s.io/core:/stable:/${KUBE_DEPLOY_MINOR}/deb/Release.key" \
   | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -693,7 +712,7 @@ flowchart LR
 
 **1. Calico operator** — from `k8s-bastion`. Pin the tag. Do not track `master`.
 ```sh
-CALICO_DEPLOY_VERSION=v3.31.7   # one minor behind current stable; recheck the Calico releases page
+CALICO_DEPLOY_VERSION=v3.32.2   # one minor behind current stable; recheck the Calico releases page
 kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_DEPLOY_VERSION}/manifests/tigera-operator.yaml"
 ```
 

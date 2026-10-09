@@ -2,17 +2,21 @@
 
 **Goal:** Upgrade Ceph from the release deployed in [06-ceph.md](06-ceph.md) to the next pinned release. Do this only after that cluster is healthy and after [11-update-kubernetes.md](11-update-kubernetes.md).
 
-Deployed on `CEPH_DEPLOY_RELEASE`/`CEPH_DEPLOY_VERSION` ([06-ceph.md](06-ceph.md)) — Squid (v19.x), current as of 2026-09 but scheduled to reach end of life 2026-10-31, so don't sit on it indefinitely; this exercise upgrades to Tentacle (v20.x). Order matters: **mons (one at a time) → mgrs → OSDs (one node at a time)**. Check the target release's own upgrade notes on [docs.ceph.com](https://docs.ceph.com/en/latest/releases/) first — some releases require an extra step (e.g. `ceph osd require-osd-release <name>`) once every daemon is upgraded, not assumed here since it depends which two releases you're moving between.
+## Teaching note
 
-**1. New Ceph repo** — on all three Ceph VMs, then stop rebalancing while daemons restart.
+Upgrade monitors one by one, then managers, then OSDs. Set `noout` first so Ceph does not rebalance while a daemon restarts. On Debian 13 this is an Umbrella patch, not Squid to Tentacle, because Trixie has no Squid or Tentacle packages. The three OSDs still share one SSD, so a "node down" test is a VM test, not a disk test.
+
+Debian 13 deployed Umbrella from [06-ceph.md](06-ceph.md). `download.ceph.com` has no Trixie suite for Squid or Tentacle (checked 2026-10-10), so this file is **not** a Squid → Tentacle walk on Trixie. Use a newer Umbrella patch from madison on the same `debian-umbrella` suite, or wait until Vampire publishes `trixie`. Ubuntu later: pick the suite the OS table lists, then one named release up. Order still matters: **mons (one at a time) → mgrs → OSDs (one node at a time)**. Check the target release's own upgrade notes on [docs.ceph.com](https://docs.ceph.com/en/latest/releases/) first — some releases require `ceph osd require-osd-release <name>` once every daemon is upgraded.
+
+**1. Same suite, newer pin — or a new suite if madison shows one.** On all three Ceph VMs, then stop rebalancing while daemons restart.
 ```sh
-CEPH_UPGRADE_RELEASE=tentacle     # next release after the one you deployed; recheck docs.ceph.com
+CEPH_UPGRADE_RELEASE=umbrella     # Debian 13: stay on umbrella until Vampire has trixie; recheck docs.ceph.com
 grep -n debian- /etc/apt/sources.list.d/ceph.list     # the suite you are leaving
 sudo sed -i "s/debian-${CEPH_DEPLOY_RELEASE}/debian-${CEPH_UPGRADE_RELEASE}/" /etc/apt/sources.list.d/ceph.list
 grep -n debian- /etc/apt/sources.list.d/ceph.list     # apt reads this file
 sudo apt update
 apt-cache madison ceph-common                         # copy the new pin
-CEPH_UPGRADE_VERSION="20.2.4-1~$(lsb_release -sc)"    # must match madison
+CEPH_UPGRADE_VERSION="<from madison>"                 # must match madison
 sudo ceph osd set noout                                # mons store this; it survives a daemon restart
 ```
 

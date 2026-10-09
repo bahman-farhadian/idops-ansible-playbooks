@@ -2,6 +2,10 @@
 
 **Goal:** Upgrade Kubernetes, Calico, and (external etcd only) the etcd packages, one held component at a time, from the versions deployed in [05-deploy-kubernetes.md](05-deploy-kubernetes.md). Do this after [09-smoke-test.md](09-smoke-test.md). Ceph's upgrade is the next file, [12-update-ceph.md](12-update-ceph.md).
 
+## Teaching note
+
+Upgrade one minor at a time. kubeadm's skew rule forbids skipping. First control plane runs `kubeadm upgrade apply`. Other nodes run `kubeadm upgrade node`. Drain a worker before you touch kubelet. Hold the package again before you leave the node. Calico upgrades by applying a newer operator manifest. Do not re-apply `custom-resources.yaml`, or you can reset the pod CIDR.
+
 **Rule for every held package** (`containerd`, `kubelet`/`kubeadm`/`kubectl`, `haproxy`, `keepalived`, `etcd-*`, `ceph-*`, `docker-ce` on the bastion, `prometheus-node-exporter`): `sudo apt-mark unhold <pkg>` → drain/cordon if it's a k8s node → `apt install <pkg>=<exact-new-version>` (never a bare `apt install`/`apt upgrade`) → verify healthy → `sudo apt-mark hold <pkg>` again. A package never spends more than the length of one upgrade step unheld.
 
 Compose on the bastion: read **that app's** file (`/opt/nexus/compose.yaml`, `/opt/prometheus/compose.yaml`, or `/opt/grafana/compose.yaml`), change the image tag in the file, then `cd /opt/<app> && sudo docker compose pull && sudo docker compose up -d`. Do not pull without changing the tag. `compose up` is what loads the file.
@@ -21,7 +25,7 @@ echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 cat /etc/apt/sources.list.d/kubernetes.list                       # apt reads this file
 sudo apt update
 apt-cache madison kubeadm                            # copy the new pin
-KUBE_UPGRADE_VERSION="1.37.0-1.1"                    # must match madison
+KUBE_UPGRADE_VERSION="1.37.1-1.1"                    # must match madison
 ```
 
 **2. First control plane** — `kubeadm` first, then the apply, then kubelet and kubectl. Hold again before you leave the node.
@@ -78,7 +82,7 @@ Deployed in [05-deploy-kubernetes.md](05-deploy-kubernetes.md). Operator-based i
 
 **1. New Calico operator** — read the release notes, then apply only the operator manifest. Do not re-apply `custom-resources.yaml`.
 ```sh
-CALICO_UPGRADE_VERSION=v3.32.2   # recheck github.com/projectcalico/calico/releases
+CALICO_UPGRADE_VERSION=v3.33.0   # recheck github.com/projectcalico/calico/releases
 kubectl apply -f "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_UPGRADE_VERSION}/manifests/tigera-operator.yaml"
 kubectl get tigerastatus                              # Available=True again
 kubectl get pods -n calico-system                     # pods roll one at a time

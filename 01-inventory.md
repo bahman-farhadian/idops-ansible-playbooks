@@ -2,6 +2,10 @@
 
 **Goal:** VM list, resource budget, and the LAN plan for whichever profile and scenario you are deploying.
 
+## Teaching note
+
+Give each job its own VM. The gateway is not the API load balancer. The bastion is not a Kubernetes node. Ceph is not on the workers, so a busy pod cannot steal CPU from an OSD. Addresses in this file are examples on `10.0.1.0/24`. Pods use `192.168.0.0/16` and services use `10.96.0.0/12`. Those three ranges must not overlap. This lab has 14 VMs on one server for stacked Debian. That is a lot of guests, not a second rack.
+
 > VM creation is out of scope ([00-overview.md](00-overview.md)). These tables are what the VMs look like once they exist.
 
 ## One server, four scenarios

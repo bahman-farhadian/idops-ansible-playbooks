@@ -2,11 +2,13 @@
 
 **Goal:** After [05-deploy-kubernetes.md](05-deploy-kubernetes.md) — nodes `Ready`, Calico up — bootstrap Ceph as native `apt` packages and systemd services on `k8s-ceph-1/2/3` (no Rook operator pods — see [00-overview.md](00-overview.md)), then let Kubernetes consume it via the lean Ceph-CSI driver. Do not install Ceph before the cluster exists: the CSI pods have nowhere to run until then. Do not install Ceph on the Kubernetes workers.
 
+## Teaching note
+
+Three monitors give quorum. Three OSDs give three copies. Keep those daemons off the workers so a busy pod cannot stall an OSD. CSI is the only Ceph piece that runs as pods. Debian 13 has no Squid or Tentacle apt suite; this lab uses Umbrella on Trixie. All three OSD images still sit on one SSD. That teaches the commands. It does not teach a real disk failure.
+
 Mon, mgr, and one OSD share a Ceph VM. Three VMs give a mon quorum and three OSDs, on the dedicated disks from [01-inventory.md](01-inventory.md). This is unrelated to the etcd tier (`k8s-etcd-*` in the external scenario) — Ceph's own mon/quorum is entirely separate from Kubernetes' etcd.
 
-Distro apt only ever carries one Ceph release per OS release, which leaves nothing to upgrade *to* later. Debian 13 as of 2026-09 bundles Reef (`18.2.7+ds-1+deb13u1`), which upstream already retired in March 2026. So this uses Ceph's own apt repo instead (`$(lsb_release -sc)` picks `trixie` or the Ubuntu 26 codename), pinned one release behind current stable (same reasoning as the Kubernetes pin in [05-deploy-kubernetes.md](05-deploy-kubernetes.md)), so [12-update-ceph.md](12-update-ceph.md) has a real target: **Squid (v19.x) → Tentacle (v20.x)**.
-
-> **OS caveat, checked 2026-09:** Ceph's [OS recommendations](https://docs.ceph.com/en/latest/start/os-recommendations/) rate Debian 13 tier "C" (packages exist, untested). Ubuntu 26 may or may not be listed yet — check that page before you add the repo. Try the repo below first; if `apt update` fails, Debian's fallback is its bundled Reef (`apt-cache policy ceph-common`) as a stopgap (already past upstream EOL). On Ubuntu, do not fall back to an unmaintained distro Ceph; fix the Ceph repo or stop.
+Debian 13's own `ceph-common` is Reef, already past upstream EOL. Do not use it. Ceph's own apt repo is required. **Checked 2026-10-10:** `download.ceph.com` has **no** `debian-squid/trixie` and **no** `debian-tentacle/trixie`. Only `debian-umbrella` publishes a Trixie suite. Squid itself is EOL 2026-10-31. So Debian 13 deploys **Umbrella (21.x)** from that suite. Ceph's [OS recommendations](https://docs.ceph.com/en/latest/start/os-recommendations/) rate Debian 13 as **C** (packages exist, untested) for Umbrella. Umbrella was still an RC line (21.1.x) when this was checked — `apt-cache madison` is the pin, not the example string below. [12-update-ceph.md](12-update-ceph.md) cannot walk Squid → Tentacle on Trixie; it waits for a newer Umbrella patch or a Vampire trixie suite. Ubuntu 26 later: check that same OS table (Vampire is the listed column) before you pick a suite.
 
 ## Steps — native Ceph cluster (run on `k8s-ceph-1/2/3`)
 
@@ -14,7 +16,7 @@ These three VMs are the Ceph cluster in every scenario. They are not kubelet nod
 
 **1. Ceph packages on all three Ceph VMs** — Ceph's own repo, one release behind current stable, then hold them.
 ```sh
-CEPH_DEPLOY_RELEASE=squid          # v19; recheck docs.ceph.com/en/latest/releases
+CEPH_DEPLOY_RELEASE=umbrella       # Debian 13: only suite with trixie; recheck download.ceph.com
 curl -fsSL https://download.ceph.com/keys/release.asc | sudo gpg --dearmor -o /usr/share/keyrings/ceph.gpg
 cat /etc/apt/sources.list.d/ceph.list 2>/dev/null || true
 echo "deb [signed-by=/usr/share/keyrings/ceph.gpg] https://download.ceph.com/debian-${CEPH_DEPLOY_RELEASE}/ $(lsb_release -sc) main" \
@@ -22,7 +24,7 @@ echo "deb [signed-by=/usr/share/keyrings/ceph.gpg] https://download.ceph.com/deb
 cat /etc/apt/sources.list.d/ceph.list              # apt reads this file
 sudo apt update
 apt-cache madison ceph-common                      # copy the exact version string
-CEPH_DEPLOY_VERSION="19.2.6-1~$(lsb_release -sc)"  # must match madison
+CEPH_DEPLOY_VERSION="<from madison, 21.x on Trixie>"  # must match madison
 sudo apt install -y ceph-mon=${CEPH_DEPLOY_VERSION} ceph-mgr=${CEPH_DEPLOY_VERSION} \
   ceph-osd=${CEPH_DEPLOY_VERSION} ceph-common=${CEPH_DEPLOY_VERSION}
 sudo apt-mark hold ceph-mon ceph-mgr ceph-osd ceph-common

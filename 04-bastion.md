@@ -2,6 +2,10 @@
 
 **Goal:** On `k8s-bastion` only, install a **single-node Docker Engine** and run **three separate Compose projects** — one directory and one `compose.yaml` each:
 
+## Teaching note
+
+Keep Docker off the Kubernetes nodes. kubelet and Docker both want to own cgroups and iptables. This VM is admin only: jump, cache, metrics UI. Three Compose projects mean you can restart Grafana without touching Nexus. There is one bastion, so this is not HA. kubectl and k9s come later, after the API exists.
+
 | App        | Directory         | Host ports                             |
 | ---------- | ----------------- | -------------------------------------- |
 | Nexus      | `/opt/nexus`      | 8081 (UI/apt), 8082 (docker connector) |
@@ -180,8 +184,8 @@ Create apt proxies for the distro of *this* cluster only, plus docker proxies. E
 | ------------------------------------ | ------ | ---------------------------------------------- |
 | `apt-debian` / `apt-debian-security` | apt    | Debian mirrors (Debian 13 instance only)       |
 | `apt-ubuntu`                         | apt    | Ubuntu archive (Ubuntu 26 instance only)       |
-| `apt-kubernetes`                     | apt    | `https://pkgs.k8s.io/core:/stable:/v1.36/deb/` |
-| `apt-ceph`                           | apt    | `https://download.ceph.com/debian-squid/`      |
+| `apt-kubernetes`                     | apt    | `https://pkgs.k8s.io/core:/stable:/v1.36/deb/` (same minor as [05](05-deploy-kubernetes.md)) |
+| `apt-ceph`                           | apt    | `https://download.ceph.com/debian-umbrella/` (Debian 13) |
 | `docker-dockerio`                    | docker | `https://registry-1.docker.io`                 |
 | `docker-k8s`                         | docker | `https://registry.k8s.io`                      |
 | `docker-quay`                        | docker | `https://quay.io`                              |

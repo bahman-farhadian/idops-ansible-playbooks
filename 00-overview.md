@@ -2,12 +2,16 @@
 
 **Goal:** Define what this lab builds, what it deliberately leaves out, and how to read the rest of the docs.
 
+## Teaching note
+
+Read this file before you type a command. The fixed decisions are the contract: kubeadm, containerd 2.x, Calico, native Ceph, Traefik, Helm 3. Pins exist so an `apt upgrade` cannot surprise you, and so file 11 and 12 have a real next version. One host cannot give you failover. It can still teach quorum: one control plane, one firewall, one API proxy, or one Ceph VM can die while the others keep working.
+
 ## Covers
 - Purpose: build a production-like, highly-available Kubernetes cluster for hands-on learning.
 - Learning focus: HA control plane, networking, storage (Ceph), security, day-2 operations.
 - Out of scope: VM/host provisioning. This repo assumes the VMs already exist (created manually, via Ansible, via a cloud provider, or any other method) and are reachable over SSH with a base OS installed.
 - Two supported topologies, chosen up front in [Scenarios](#scenarios).
-- Three deployment profiles (below), each its own independent instance of this lab, never joined together.
+- Four scenarios (below). Only one is powered on at a time. They are never joined together.
 - Style: manual, step-by-step, real commands — short enough to read end to end and understand what's happening, so you can later drive the same cluster with kubeadm scripted, Kubespray, or any other automation with eyes open.
 
 ## Deployment profiles
@@ -49,15 +53,15 @@ Every package this manual installs for the cluster to function (`containerd`, `k
 
 This pinning is deliberate for a second reason, not just safety: **Kubernetes, Ceph, and Calico are each deployed one version behind current stable** ([05-deploy-kubernetes.md](05-deploy-kubernetes.md) for Kubernetes and Calico, [06-ceph.md](06-ceph.md) for Ceph), specifically so there's a real version to upgrade *to*. [11-update-kubernetes.md](11-update-kubernetes.md) and [12-update-ceph.md](12-update-ceph.md) walk that, component by component, using the same unhold → install exact new pinned version → verify → re-hold cycle (Calico has no apt package/hold; the same shape applies via its operator manifest version). Staying current matters here, not just as an exercise: an untouched cluster silently ages out of its security-support window. That upgrade walkthrough is as much the point of this lab as the initial bootstrap is.
 
-**Checked 2026-09** (Kubernetes has no LTS track — it ships a new minor roughly every 4 months and supports the 3 most recent; Ceph ships a new stable release roughly once a year, in support until the next-next one ships; Calico ships patch releases frequently within a minor):
+**Checked 2026-10-10** (Kubernetes has no LTS track — it ships a new minor roughly every 4 months and supports the 3 most recent; Ceph ships a new stable release roughly once a year; Calico keeps the latest two minors in security support):
 
 | Component  | Deploy version                                                       | Upgrade-to version                          | Source                                                                                       |
 | ---------- | -------------------------------------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Kubernetes | v1.36 (latest patch 1.36.4)                                          | v1.37 (current stable, released 2026-08-26) | [kubernetes.io/releases](https://kubernetes.io/releases/)                                    |
-| Ceph       | Squid v19.x (latest 19.2.6) — **EOL 2026-10-31**, don't linger on it | Tentacle v20.x (latest 20.2.4)              | [docs.ceph.com/en/latest/releases](https://docs.ceph.com/en/latest/releases/)                |
-| Calico     | v3.31.7 (one minor behind)                                           | v3.32.2 (current stable)                    | [github.com/projectcalico/calico/releases](https://github.com/projectcalico/calico/releases) |
+| Kubernetes | v1.36 (latest patch 1.36.5)                                          | v1.37 (latest patch 1.37.1)                 | [kubernetes.io/releases](https://kubernetes.io/releases/)                                    |
+| Ceph       | Debian 13: Umbrella 21.x from `debian-umbrella` (trixie exists here) | Next Umbrella patch, or Vampire when it ships a trixie suite | [docs.ceph.com/en/latest/releases](https://docs.ceph.com/en/latest/releases/)                |
+| Calico     | v3.32.2 (one minor behind)                                           | v3.33.0 (current stable)                    | [github.com/projectcalico/calico/releases](https://github.com/projectcalico/calico/releases) |
 
-Re-check all three before you actually run the steps — this table is a snapshot, not a promise. Debian 13/Trixie's own `ceph-common` (`18.2.7+ds-1+deb13u1`, Reef) is already past Reef's upstream end of life, and Ceph's official [OS recommendations](https://docs.ceph.com/en/latest/start/os-recommendations/) rate Debian 13 tier "C" (packages exist, untested by the Ceph project) — [06-ceph.md](06-ceph.md) has the fallback plan if `download.ceph.com`'s Trixie repo doesn't cooperate.
+Re-check all three before you actually run the steps — this table is a snapshot, not a promise. Kubernetes 1.36 needs containerd 2.x ([SIG Node](https://kubernetes.io/blog/2025/09/12/kubernetes-v1-34-cri-cgroup-driver-lookup-now-ga/)); Debian 13's `containerd` 1.7 package is too old. Squid (19.x) is EOL 2026-10-31, and `download.ceph.com` has **no** `debian-squid/trixie` or `debian-tentacle/trixie` suite (checked 2026-10-10). Only `debian-umbrella` publishes Trixie. Debian 13 is Ceph tier "C" (packages, untested) for Umbrella. Debian's own Reef package is already EOL; do not use it. [06-ceph.md](06-ceph.md) and [05-deploy-kubernetes.md](05-deploy-kubernetes.md) follow that.
 
 ## Scenarios
 

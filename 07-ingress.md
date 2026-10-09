@@ -2,6 +2,10 @@
 
 **Goal:** Expose services outside the cluster.
 
+## Teaching note
+
+Pods are not on the LAN. Ingress is the door. Traefik watches Ingress objects and opens 80 and 443. Those ports bind on the same API VIP as 6443, on the HAProxy pair, not on the bastion. Check `http://10.0.1.10/`, not the bastion address. This lab has no cert-manager. HTTPS is for later.
+
 **Choice:** Traefik — ingress-nginx is being sunset upstream, so this lab standardizes on Traefik instead. No cert-manager for this lab (internal-only); revisit if you expose services externally.
 
 ## Steps

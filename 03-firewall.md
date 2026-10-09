@@ -2,6 +2,10 @@
 
 **Goal:** Put a two-node keepalived firewall in front of the LAN so the cluster has a redundant default gateway and a single WAN entry. The API VIP (`10.0.1.10`) is a second keepalived pair, `k8s-lb-1` / `k8s-lb-2`, in [05-deploy-kubernetes.md](05-deploy-kubernetes.md). Do not put that VIP on these firewalls, and do not reuse this VRID for it — both pairs speak VRRP on the same LAN.
 
+## Teaching note
+
+A cluster needs one default gateway that can move. Keepalived holds a VIP. If the master dies, the backup takes the address. That is guest HA, not a second physical firewall. The API load balancer is a different pair with a different VRID. Mixing them on one VIP makes a fight on the same LAN. Save nftables in `/etc/nftables.conf`. Do not use `nft add` as the only change.
+
 `kubectl` and k9s from a host that is not on this LAN reach `10.0.1.10:6443` only through the site VPN, and that path enters here. The VPN server is outside this repo. These firewalls do not terminate it, and they do not publish `:6443` on the WAN VIP. The nftables below is outbound NAT for the VMs. It is not the VPN.
 
 **Applies to:** `k8s-fw-1` and `k8s-fw-2` only. Not a Kubernetes node — no kubelet, no containerd.

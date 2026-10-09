@@ -2,6 +2,10 @@
 
 **Goal:** Move the cluster from "working" to "defensible."
 
+## Teaching note
+
+A working cluster is not a safe cluster. Later you will tighten RBAC, add NetworkPolicy (Calico already can enforce it), and encrypt Secrets at rest. This file is still an outline. Do not treat the bullet list as an install. Fill it after a real run. The lab still has one host, so this is node hardening, not site isolation.
+
 ## Covers
 - RBAC review (avoid `cluster-admin` sprawl)
 - Pod Security Admission (baseline/restricted namespaces)

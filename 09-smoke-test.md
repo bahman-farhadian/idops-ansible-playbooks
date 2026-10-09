@@ -2,6 +2,10 @@
 
 **Goal:** Prove the cluster actually works under load, not just that pods schedule — deploy a small nginx workload plus a scalable Debian `stress-ng` workload, ramp the second one up until the cluster is genuinely using roughly 80% of its worker capacity, watch it hold there via Grafana, then tear everything down cleanly.
 
+## Teaching note
+
+A green `kubectl get nodes` is not a test. Put a workload in its own namespace, push the workers, and watch Grafana. Then delete the namespace. If Ceph or Calico falls over under CPU load, you learned that before an application depends on it. The numbers in this file are examples. Read allocatable from the live nodes first.
+
 Everything here goes in its own namespace so teardown is one command.
 
 The example numbers below are illustrative. Recompute from `kubectl` allocatable on your actual nodes.
@@ -13,7 +17,7 @@ The example numbers below are illustrative. Recompute from `kubectl` allocatable
 kubectl create namespace smoke-test
 ```
 
-**2. Baseline: read the cluster's real capacity before adding load.** Ceph (mon+mgr+osd) and Calico already consume some of each worker — don't assume the raw VM spec is what's available:
+**2. Baseline: read the cluster's real capacity before adding load.** Calico and Ceph-CSI already consume some of each worker. The Ceph daemons themselves run on `k8s-ceph-*`, not on these workers. Do not assume the raw VM spec is what's available:
 ```sh
 kubectl describe nodes k8s-work-1 k8s-work-2 k8s-work-3 | grep -E "^(Name|.*cpu |.*memory )" -A0
 # or, summed across the 3 workers:

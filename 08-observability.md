@@ -2,11 +2,15 @@
 
 **Goal:** Export host metrics from every node. Prometheus and Grafana are already running as Compose services on `k8s-bastion` from [04-bastion.md](04-bastion.md). This step is the **node_exporter** agents plus a Grafana dashboard. No in-cluster kube-state-metrics or logging stack.
 
+## Teaching note
+
+You cannot run what you cannot see. Each VM exports CPU, memory, and disk on port 9100. Prometheus scrapes that list from a file on the bastion. Put the Ceph VMs in that list too. Metrics stay on the host, not inside the cluster, so a broken kubelet still has a pulse. This is not a full logging stack.
+
 `node_exporter` is a **systemd** package on every VM (including the bastion). It needs the host's `/proc` and `/sys`; do not put it in the Compose file.
 
 ## Steps
 
-**1. `node_exporter` on every node** in the [02-prepare.md](02-prepare.md) hosts block (firewalls, bastion, control-plane, etcd if present, workers):
+**1. `node_exporter` on every node** in the [02-prepare.md](02-prepare.md) hosts block (firewalls, bastion, control-plane, etcd if present, workers, and the three Ceph VMs):
 ```sh
 sudo apt update
 apt-cache madison prometheus-node-exporter

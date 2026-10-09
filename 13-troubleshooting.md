@@ -2,6 +2,10 @@
 
 **Goal:** Collect known issues and fixes encountered while building this lab.
 
+## Teaching note
+
+Write the failure here when it happens. Stacked etcd is a static pod; you `kubectl exec` into it. External etcd is a systemd unit; you use `etcdctl` on the VM. A VIP that vanishes is keepalived, not kube-apiserver. This file stays empty until a real run fills it. That is the point.
+
 ## Covers
 - etcd quorum loss recovery
   - **Stacked:** `kubectl exec` into the etcd static pod
