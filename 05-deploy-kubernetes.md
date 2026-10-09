@@ -35,11 +35,13 @@ Signed-By: /etc/apt/keyrings/docker.asc
 EOF
 cat /etc/apt/sources.list.d/docker.sources
 sudo apt update
-apt-cache madison containerd.io                                       # copy a 2.x string
-CONTAINERD_VERSION="<version from the list above>"
+apt-cache madison containerd.io
+# Kubernetes 1.36 needs 2.2.0+ or 2.3.0+. Kubernetes 1.37 needs 2.3.0+ or 2.4.0+.
+# Do not pick 2.1.x. Prefer 2.3.x LTS or 2.4.x so file 11 does not have to jump the runtime.
+CONTAINERD_VERSION="<2.3.x or 2.4.x from madison>"
 sudo apt install -y containerd.io=${CONTAINERD_VERSION}
 sudo apt-mark hold containerd.io                                      # apt upgrade must not move the runtime
-containerd --version                                                  # must print 2.x
+containerd --version                                                  # 2.3 or 2.4, not 2.1
 ```
 On Ubuntu 26, the URI host is `https://download.docker.com/linux/ubuntu` and the suite is that distro's codename. Same pin-and-hold.
 
@@ -706,7 +708,7 @@ flowchart LR
 
 **Goal:** Install a CNI plugin so nodes go `Ready` and pods get networking.
 
-**Choice:** Calico — supports `NetworkPolicy` (used in [10-security.md](10-security.md)) and matches the `192.168.0.0/16` pod CIDR set in the bootstrap above. Same reasoning as Kubernetes/Ceph applies here too: deployed one release behind current stable, so [11-update-kubernetes.md](11-update-kubernetes.md) has a real Calico upgrade to walk through, not just a pin-and-forget.
+**Choice:** Calico — supports `NetworkPolicy` (used in [10-security.md](10-security.md)) and matches the `192.168.0.0/16` pod CIDR set in the bootstrap above. Same as Kubernetes: deployed one minor behind current stable, so [11-update-kubernetes.md](11-update-kubernetes.md) has a real Calico upgrade. Ceph on Trixie is Umbrella, not one release behind.
 
 ## Steps
 

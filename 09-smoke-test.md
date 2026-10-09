@@ -33,7 +33,7 @@ Write down: total allocatable CPU/memory across the workers, and what's already 
 |                                   | Example (illustrative — use your own numbers)                   |
 | --------------------------------- | --------------------------------------------------------------- |
 | Allocatable, 3 workers combined   | 12 vCPU / 12 GB (3 × 4 vCPU/4 GB, minus kubelet/system reserve) |
-| Already requested (Ceph + Calico) | ~1.5 vCPU / ~1.5 GB                                             |
+| Already requested (Calico + CSI)  | ~1.5 vCPU / ~1.5 GB                                             |
 | 80% target                        | 9.6 vCPU / 9.6 GB                                               |
 | Additional load to add            | ~8.1 vCPU / ~8.1 GB                                             |
 
@@ -146,14 +146,14 @@ kubectl -n smoke-test scale deployment/smoketest-stress --replicas=12
 sleep 60
 kubectl -n smoke-test scale deployment/smoketest-stress --replicas=16   # or wherever your step-2 math landed
 ```
-Watch actual usage climb on the "Node Exporter Full" Grafana dashboard from [08-observability.md](08-observability.md) — that's real usage, not just requests. If any pod stays `Pending`, `kubectl describe pod` it: you've hit the requested-capacity ceiling before reaching your live-usage target, which is itself a useful data point about how much headroom Ceph/Calico's own requests actually leave.
+Watch actual usage climb on the "Node Exporter Full" Grafana dashboard from [08-observability.md](08-observability.md) — that's real usage, not just requests. If any pod stays `Pending`, `kubectl describe pod` it: you've hit the requested-capacity ceiling before reaching your live-usage target, which is itself a useful data point about how much headroom Calico and Ceph-CSI requests actually leave.
 
 **6. Hold at ~80% for a few minutes and confirm nothing else broke:**
 ```sh
 sudo ceph -s                              # still HEALTH_OK — storage shouldn't degrade under CPU/mem pressure
 kubectl get pods -A | grep -v Running     # nothing unexpectedly Pending/CrashLooping/Evicted
 kubectl describe nodes k8s-work-1 k8s-work-2 k8s-work-3 | grep -E "MemoryPressure|DiskPressure|PIDPressure"
-curl -H "Host: smoketest.lab.local" http://10.0.1.11/   # nginx still answers under load
+curl -H "Host: smoketest.lab.local" http://10.0.1.10/   # API VIP :80, not the bastion
 ```
 
 ## Teardown

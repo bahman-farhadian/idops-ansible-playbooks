@@ -14,7 +14,7 @@ Debian 13's own `ceph-common` is Reef, already past upstream EOL. Do not use it.
 
 These three VMs are the Ceph cluster in every scenario. They are not kubelet nodes. Do not install Ceph on `k8s-work-*`, including the GPU node.
 
-**1. Ceph packages on all three Ceph VMs** — Ceph's own repo, one release behind current stable, then hold them.
+**1. Ceph packages on all three Ceph VMs** — Ceph's own `debian-umbrella` repo on Debian 13 (the only suite with Trixie), then hold them. This is not one release behind.
 ```sh
 CEPH_DEPLOY_RELEASE=umbrella       # Debian 13: only suite with trixie; recheck download.ceph.com
 curl -fsSL https://download.ceph.com/keys/release.asc | sudo gpg --dearmor -o /usr/share/keyrings/ceph.gpg

@@ -10,9 +10,13 @@ Debian 13 deployed Umbrella from [06-ceph.md](06-ceph.md). `download.ceph.com` h
 
 **1. Same suite, newer pin — or a new suite if madison shows one.** On all three Ceph VMs, then stop rebalancing while daemons restart.
 ```sh
-CEPH_UPGRADE_RELEASE=umbrella     # Debian 13: stay on umbrella until Vampire has trixie; recheck docs.ceph.com
+CEPH_DEPLOY_RELEASE=umbrella      # the suite 06 wrote; Debian 13 has no squid/tentacle
+CEPH_UPGRADE_RELEASE=umbrella     # stay here until Vampire has trixie; recheck docs.ceph.com
 grep -n debian- /etc/apt/sources.list.d/ceph.list     # the suite you are leaving
-sudo sed -i "s/debian-${CEPH_DEPLOY_RELEASE}/debian-${CEPH_UPGRADE_RELEASE}/" /etc/apt/sources.list.d/ceph.list
+# same suite: skip sed. A later named jump sets CEPH_UPGRADE_RELEASE and runs the next line.
+if [ "$CEPH_DEPLOY_RELEASE" != "$CEPH_UPGRADE_RELEASE" ]; then
+  sudo sed -i "s/debian-${CEPH_DEPLOY_RELEASE}/debian-${CEPH_UPGRADE_RELEASE}/" /etc/apt/sources.list.d/ceph.list
+fi
 grep -n debian- /etc/apt/sources.list.d/ceph.list     # apt reads this file
 sudo apt update
 apt-cache madison ceph-common                         # copy the new pin

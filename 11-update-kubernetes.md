@@ -6,13 +6,25 @@
 
 Upgrade one minor at a time. kubeadm's skew rule forbids skipping. First control plane runs `kubeadm upgrade apply`. Other nodes run `kubeadm upgrade node`. Drain a worker before you touch kubelet. Hold the package again before you leave the node. Calico upgrades by applying a newer operator manifest. Do not re-apply `custom-resources.yaml`, or you can reset the pod CIDR.
 
-**Rule for every held package** (`containerd`, `kubelet`/`kubeadm`/`kubectl`, `haproxy`, `keepalived`, `etcd-*`, `ceph-*`, `docker-ce` on the bastion, `prometheus-node-exporter`): `sudo apt-mark unhold <pkg>` → drain/cordon if it's a k8s node → `apt install <pkg>=<exact-new-version>` (never a bare `apt install`/`apt upgrade`) → verify healthy → `sudo apt-mark hold <pkg>` again. A package never spends more than the length of one upgrade step unheld.
+**Rule for every held package** (`containerd.io` on cluster nodes, `kubelet`/`kubeadm`/`kubectl`, `haproxy`, `keepalived`, `etcd-*`, `ceph-*`, `docker-ce` on the bastion, `prometheus-node-exporter`): `sudo apt-mark unhold <pkg>` → drain/cordon if it's a k8s node → `apt install <pkg>=<exact-new-version>` (never a bare `apt install`/`apt upgrade`) → verify healthy → `sudo apt-mark hold <pkg>` again. A package never spends more than the length of one upgrade step unheld.
 
 Compose on the bastion: read **that app's** file (`/opt/nexus/compose.yaml`, `/opt/prometheus/compose.yaml`, or `/opt/grafana/compose.yaml`), change the image tag in the file, then `cd /opt/<app> && sudo docker compose pull && sudo docker compose up -d`. Do not pull without changing the tag. `compose up` is what loads the file.
 
 ## Steps — Kubernetes minor upgrade
 
-Deployed in [05-deploy-kubernetes.md](05-deploy-kubernetes.md). Upgrading one minor at a time, in this order: **first control-plane node → remaining control-plane nodes → workers** — never skip a minor, per [kubeadm's version skew policy](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubeadm-upgrade/). External etcd's apiserver is stateless, but `kubeadm upgrade` still walks the same control-plane component set on each node.
+Deployed in [05-deploy-kubernetes.md](05-deploy-kubernetes.md). Upgrading one minor at a time, in this order: **containerd.io floor → first control-plane node → remaining control-plane nodes → workers** — never skip a minor, per [kubeadm's version skew policy](https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/kubeadm-upgrade/). External etcd's apiserver is stateless, but `kubeadm upgrade` still walks the same control-plane component set on each node.
+
+**0. Runtime floor for 1.37** — on every `k8s-ctrl-*` and `k8s-work-*` before kubeadm 1.37. Kubernetes 1.37 needs containerd 2.3.0+ or 2.4.0+ ([containerd RELEASES.md](https://github.com/containerd/containerd/blob/main/RELEASES.md)). A 2.2.x pin that was valid for 1.36 is below that floor. Drain a worker first. Control planes: one at a time. If `containerd --version` is already 2.3 or 2.4, skip the install and keep the hold.
+```sh
+containerd --version
+apt-cache madison containerd.io
+CONTAINERD_UPGRADE_VERSION="<2.3.x or 2.4.x from madison>"
+sudo apt-mark unhold containerd.io
+sudo apt install -y containerd.io=${CONTAINERD_UPGRADE_VERSION}
+sudo apt-mark hold containerd.io
+containerd --version                                                  # 2.3 or 2.4
+sudo systemctl restart containerd
+```
 
 **1. New minor repo** — on `k8s-ctrl-1` first. One minor up. Do not skip.
 ```sh

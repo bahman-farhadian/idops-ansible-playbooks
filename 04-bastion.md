@@ -71,7 +71,7 @@ sudo docker info                                                                
 sudo mkdir -p /opt/nexus /opt/prometheus /opt/grafana                              # one directory per compose project
 ```
 
-`containerd.io` here is Docker's runtime on the **bastion only**. Cluster nodes use distro `containerd` from [05-deploy-kubernetes.md](05-deploy-kubernetes.md).
+`containerd.io` here is Docker's runtime next to Docker Engine on the **bastion**. Cluster nodes also install `containerd.io` (2.3.x or 2.4.x, no `docker-ce`) in [05-deploy-kubernetes.md](05-deploy-kubernetes.md). They do not use Debian's `containerd` 1.7 package.
 
 Pin image tags (confirm on Docker Hub; examples below were current-ish in 2026-09).
 
