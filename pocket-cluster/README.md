@@ -611,6 +611,33 @@ kubectl wait \
   --timeout=180s
 ```
 
+kind sets the control-plane role. It does not set a worker role, so `kubectl get nodes` shows `ROLES` as `<none>` on workers. The ROLES column is the label `node-role.kubernetes.io/<role>`. Set it on every node that is not the control plane:
+
+```sh
+kubectl label node \
+  -l '!node-role.kubernetes.io/control-plane' \
+  node-role.kubernetes.io/worker=worker
+```
+
+Then:
+
+```sh
+kubectl get nodes
+```
+
+Expected:
+
+```
+NAME                   STATUS   ROLES           AGE   VERSION
+pocket-control-plane   Ready    control-plane   ...   v1.37.0
+pocket-worker          Ready    worker          ...   v1.37.0
+pocket-worker2         Ready    worker          ...   v1.37.0
+```
+
+kind names the first worker `{cluster}-worker` and the next `{cluster}-worker2`. There is no `worker1`. Custom node names are not in kind config. Recreate is not required for the role label; run the `kubectl label` command on the cluster you already have.
+
+A new cluster from [cluster.yaml](cluster.yaml) already has that worker label on each worker node. Copy the file into `$K8S_LAB_ROOT` again if you recreate.
+
 kind ships Rancher local-path provisioner. The default StorageClass is `standard`. PersistentVolumeClaims bind to disk inside the node containers.
 
 kubectl context name is `kind-pocket`.
