@@ -16,6 +16,8 @@ Tools live under `/opt/pocket-cluster`. That is the local-software tree. `sudo` 
 
 kind sets each node hostname when it creates the Docker container. The first worker is `pocket-worker`, the second is `pocket-worker2`. There is no `worker1`. kind config has no hostname field. `docker rename` and `hostname` inside a running node do not change the Kubernetes node name. Recreate the cluster after you change [cluster.yaml](cluster.yaml); the same naming scheme still applies.
 
+Every command in this file is safe to run again. A second pass keeps the same pins, reuses `/opt/pocket-cluster`, and starts the cluster only if it is missing.
+
 ## Contents
 
 - [Part I — One-Time Setup and Configuration](#part-i--one-time-setup-and-configuration)
@@ -88,7 +90,9 @@ No command in this guide uses `latest`, `stable.txt`, a floating release URL, or
 
 # Part I — One-Time Setup and Configuration
 
-Complete this part once. Run the commands from the `pocket-cluster/` directory of this clone.
+Run these steps from the top whenever you need the cluster. Every command is idempotent: install overwrites the same pin, `k8s_lab_start` creates the cluster only if `pocket` is missing.
+
+Run the commands from the `pocket-cluster/` directory of this clone.
 
 Work from this directory so `cluster.yaml` and `activate` are next to you.
 
@@ -263,7 +267,7 @@ chmod 0755 "$K8S_LAB_BIN/kubectl"
 ```
 
 ```sh
-rm "$K8S_LAB_ROOT/kubectl.sha256"
+rm -f "$K8S_LAB_ROOT/kubectl.sha256"
 ```
 
 Confirm it is a Linux binary for this CPU.
@@ -301,7 +305,7 @@ Check the file. The checksum names `kind-linux-amd64` or `kind-linux-arm64`, so 
 Expected: `kind-linux-amd64: OK` or `kind-linux-arm64: OK`. Stop if this fails.
 
 ```sh
-mv "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_BIN/kind"
+cp "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_BIN/kind"
 ```
 
 ```sh
@@ -309,7 +313,7 @@ chmod 0755 "$K8S_LAB_BIN/kind"
 ```
 
 ```sh
-rm "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum"
+rm -f "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum"
 ```
 
 ```sh
@@ -428,7 +432,7 @@ actual_kind_version="$(kind version | awk '{ print $2; exit }')"
 k8s_lab_start
 ```
 
-kind reads `$K8S_LAB_ROOT/cluster.yaml`: name `pocket`, one control plane, two workers, image `kindest/node:v1.37.0`. The first run pulls that image. If the cluster already exists, kubeconfig is exported. After a successful create, `k8s_lab_start` labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in cluster.yaml: kubelet will refuse it at join.
+kind reads `$K8S_LAB_ROOT/cluster.yaml`: name `pocket`, one control plane, two workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if `pocket` already exists. After the cluster is up, `k8s_lab_start` labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in cluster.yaml: kubelet will refuse it at join.
 
 ## 12. Verify the Cluster
 
@@ -487,15 +491,15 @@ Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube
 Two replicas can land on the two workers. `nginx:1.27` is an example tag for this smoke.
 
 ```sh
-kubectl create namespace demo
+kubectl create namespace demo --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ```sh
-kubectl create deployment hello --image=nginx:1.27 --replicas=2 -n demo
+kubectl create deployment hello --image=nginx:1.27 --replicas=2 -n demo --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ```sh
-kubectl expose deployment hello --port=80 --target-port=80 -n demo
+kubectl create service clusterip hello --tcp=80:80 -n demo --dry-run=client -o yaml | kubectl apply -f -
 ```
 
 ```sh
@@ -515,7 +519,7 @@ kubectl run curl --rm -it --restart=Never -n demo --image=busybox:1.36 -- wget -
 Expected: nginx HTML, then the curl pod exits.
 
 ```sh
-kubectl delete namespace demo
+kubectl delete namespace demo --ignore-not-found
 ```
 
 ---
@@ -685,7 +689,7 @@ sudo rm -rf /opt/pocket-cluster
 Optional: free the cached node image.
 
 ```sh
-docker image rm kindest/node:v1.37.0
+docker image rm kindest/node:v1.37.0 2>/dev/null || true
 ```
 
 ## 9. Optional Bash Convenience Function

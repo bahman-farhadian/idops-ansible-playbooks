@@ -71,6 +71,13 @@ k8s_lab_info() {
   printf '  KUBECONFIG:         %s\n' "$KUBECONFIG"
 }
 
+k8s_lab_label_workers() {
+  local nodes
+  nodes="$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o name 2>/dev/null || true)"
+  [[ -z "$nodes" ]] && return 0
+  kubectl label --overwrite $nodes node-role.kubernetes.io/worker=worker
+}
+
 k8s_lab_start() {
   k8s_lab_require_docker || return 1
   if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
@@ -81,7 +88,8 @@ k8s_lab_start() {
     kind create cluster --name="$KIND_CLUSTER_NAME" --config="$K8S_LAB_ROOT/cluster.yaml" --kubeconfig="$KUBECONFIG" --wait=2m || return 1
     chmod 0600 "$KUBECONFIG"
   fi
-  kubectl label node -l '!node-role.kubernetes.io/control-plane' node-role.kubernetes.io/worker=worker --overwrite
+  kubectl wait --for=condition=Ready node --all --timeout=180s || return 1
+  k8s_lab_label_workers
 }
 
 k8s_lab_status() {
@@ -109,7 +117,7 @@ k8s_lab_deactivate() {
   fi
   unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KUBECONFIG
   unalias k 2>/dev/null || true
-  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_info k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_info k8s_lab_label_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r
   echo "Pocket Cluster environment deactivated."
 }
