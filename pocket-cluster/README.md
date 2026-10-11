@@ -38,11 +38,11 @@ This setup provides:
 
 ## Where This Sits in the Repo
 
-| Track                  | Directory                                                                          | What you practice                                              |
-| ---------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Pocket Cluster         | [pocket-cluster/](README.md)                                                       | Application delivery, CKAD, kubectl against a local API        |
+| Track                  | Directory                                                                           | What you practice                                              |
+| ---------------------- | ----------------------------------------------------------------------------------  | -------------------------------------------------------------- |
+| Pocket Cluster         | [pocket-cluster/](README.md)                                                        | Application delivery, CKAD, kubectl against a local API        |
 | KVM HA lab             | [00-overview.md](../00-overview.md) through [09-smoke-test.md](../09-smoke-test.md) | Building the cluster (kubeadm, Calico, Ceph, Traefik)          |
-| In-cluster databases   | [apps/](../apps/README.md)                                                         | MariaDB Galera and PostgreSQL, after the HA cluster is healthy |
+| In-cluster databases   | [apps/](../apps/README.md)                                                          | MariaDB Galera and PostgreSQL, after the HA cluster is healthy |
 
 Use this directory while the VMs are still being delivered. It does not replace the HA lab, and it does not wait on [apps/](../apps/README.md).
 
@@ -428,7 +428,7 @@ actual_kind_version="$(kind version | awk '{ print $2; exit }')"
 k8s_lab_start
 ```
 
-kind reads `$K8S_LAB_ROOT/cluster.yaml`: name `pocket`, one control plane, two workers, image `kindest/node:v1.37.0`. The first run pulls that image. If the cluster already exists, kubeconfig is exported. `k8s_lab_start` then labels workers so `kubectl get nodes` shows `ROLES` as `worker`.
+kind reads `$K8S_LAB_ROOT/cluster.yaml`: name `pocket`, one control plane, two workers, image `kindest/node:v1.37.0`. The first run pulls that image. If the cluster already exists, kubeconfig is exported. After a successful create, `k8s_lab_start` labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in cluster.yaml: kubelet will refuse it at join.
 
 ## 12. Verify the Cluster
 
@@ -862,6 +862,14 @@ Apply a default-deny in a test namespace and confirm traffic is dropped. If it i
 ## Cgroup v1
 
 Kubernetes 1.37 expects cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgroup2fs`, use a host with cgroup v2, or pick an older `kindest/node` tag. Change every `image:` in [cluster.yaml](cluster.yaml). This file stays on 1.37.
+
+## Joining Worker Nodes Failed / kubelet healthz
+
+kind create can sit on "Joining worker nodes" for about four minutes, then delete the cluster. kubeadm reports kubelet healthz on `127.0.0.1:10248` connection refused.
+
+Do not put `node-role.kubernetes.io/worker` (or any reserved `kubernetes.io` label) in [cluster.yaml](cluster.yaml) `labels:`. kind hands those to kubelet `--node-labels`. kubelet refuses them and never becomes healthy. Set the worker role after the cluster is up: `k8s_lab_start` runs `kubectl label`.
+
+Copy the repo [cluster.yaml](cluster.yaml) and [activate](activate) into `/opt/pocket-cluster` again, then retry `k8s_lab_start`.
 
 ## Worker Names Are Not worker1 and worker2
 

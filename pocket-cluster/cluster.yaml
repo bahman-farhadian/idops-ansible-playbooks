@@ -12,8 +12,10 @@
 # First worker is pocket-worker, then pocket-worker2. There is no worker1.
 # kind config has no hostname field. Recreate does not change that scheme.
 #
-# labels: node-role.kubernetes.io/worker is what kubectl get nodes
-# shows in the ROLES column. kind role: worker only joins the node.
+# Do not set node-role.kubernetes.io/* here. kind passes extra labels to
+# kubelet --node-labels. kubelet refuses reserved kubernetes.io labels and
+# the worker kubelet never becomes healthy. Set the worker role after
+# create with kubectl label (k8s_lab_start does this).
 #
 # extraPortMappings publish node :80 and :443 on the laptop at 8080 and 8443
 # (unprivileged host ports).
@@ -33,12 +35,8 @@ nodes:
         protocol: TCP
   - role: worker
     image: kindest/node:v1.37.0
-    labels:
-      node-role.kubernetes.io/worker: worker
   - role: worker
     image: kindest/node:v1.37.0
-    labels:
-      node-role.kubernetes.io/worker: worker
 
 # ---------------------------------------------------------------------------
 # Sample: one control plane, three workers.
@@ -57,16 +55,10 @@ nodes:
 #         protocol: TCP
 #   - role: worker
 #     image: kindest/node:v1.37.0
-#     labels:
-#       node-role.kubernetes.io/worker: worker
 #   - role: worker
 #     image: kindest/node:v1.37.0
-#     labels:
-#       node-role.kubernetes.io/worker: worker
 #   - role: worker
 #     image: kindest/node:v1.37.0
-#     labels:
-#       node-role.kubernetes.io/worker: worker
 #
 # Sample: smallest — control plane only.
 # Use this when RAM is very tight. DaemonSet and nodeSelector practice
