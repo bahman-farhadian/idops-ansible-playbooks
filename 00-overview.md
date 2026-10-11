@@ -13,6 +13,7 @@ Read this file before you type a command. The fixed decisions are the contract: 
 - Two supported topologies, chosen up front in [Scenarios](#scenarios).
 - Four scenarios (below). Only one is powered on at a time. They are never joined together.
 - Style: manual, step-by-step, real commands — short enough to read end to end and understand what's happening, so you can later drive the same cluster with kubeadm scripted, Kubespray, or any other automation with eyes open.
+- Laptop playground: [kind/README.md](kind/README.md) is a separate Linux + Docker kind cluster for CKAD and application delivery. It is outside the 02–09 spine and does not wait on VMs.
 
 ## Deployment profiles
 
