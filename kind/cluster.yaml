@@ -1,8 +1,8 @@
-# Pocket cluster — small Docker Kubernetes for CKAD and app practice.
+# Pocket Cluster — small Docker Kubernetes for CKAD and app practice.
 #
-# Kubernetes version is the `image:` on every node. There is no
-# kubernetesVersion key in kind config. Use the same image and digest
-# on the control plane and on each worker. A tag without a digest can move.
+# Kubernetes version is the `image:` tag on every node.
+# There is no kubernetesVersion key in kind config.
+# Use the same image on the control plane and on each worker.
 #
 # Shape: one control plane, two workers. Extra workers help with
 # DaemonSet, nodeSelector, and spread. Extra control planes do not add
@@ -16,7 +16,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 name: pocket
 nodes:
   - role: control-plane
-    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+    image: kindest/node:v1.37.0
     extraPortMappings:
       - containerPort: 80
         hostPort: 8080
@@ -25,9 +25,9 @@ nodes:
         hostPort: 8443
         protocol: TCP
   - role: worker
-    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+    image: kindest/node:v1.37.0
   - role: worker
-    image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+    image: kindest/node:v1.37.0
 
 # ---------------------------------------------------------------------------
 # Sample: one control plane, three workers.
@@ -36,7 +36,7 @@ nodes:
 #
 # nodes:
 #   - role: control-plane
-#     image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+#     image: kindest/node:v1.37.0
 #     extraPortMappings:
 #       - containerPort: 80
 #         hostPort: 8080
@@ -45,11 +45,11 @@ nodes:
 #         hostPort: 8443
 #         protocol: TCP
 #   - role: worker
-#     image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+#     image: kindest/node:v1.37.0
 #   - role: worker
-#     image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+#     image: kindest/node:v1.37.0
 #   - role: worker
-#     image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+#     image: kindest/node:v1.37.0
 #
 # Sample: smallest — control plane only.
 # Use this when RAM is very tight. DaemonSet and nodeSelector practice
@@ -57,7 +57,7 @@ nodes:
 #
 # nodes:
 #   - role: control-plane
-#     image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+#     image: kindest/node:v1.37.0
 #     extraPortMappings:
 #       - containerPort: 80
 #         hostPort: 8080
