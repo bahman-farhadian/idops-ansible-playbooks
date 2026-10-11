@@ -1,0 +1,118 @@
+# Pocket Cluster
+# Source this file; do not execute it as a standalone process.
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  echo "This file must be sourced:" >&2
+  echo '  source /opt/pocket-cluster/activate' >&2
+  exit 1
+fi
+
+export KUBECTL_VERSION="v1.37.0"
+export KIND_VERSION="v0.33.0"
+export KIND_CLUSTER_NAME="pocket"
+
+export K8S_LAB_HOME="/opt/pocket-cluster"
+export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSION}"
+export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
+
+if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" ]]; then
+  echo "The pinned kubectl or kind binary is missing or not executable:" >&2
+  echo "  $K8S_LAB_BIN" >&2
+  return 1
+fi
+
+if [[ ! -f "$K8S_LAB_ROOT/cluster.yaml" ]]; then
+  echo "kind cluster config is missing:" >&2
+  echo "  $K8S_LAB_ROOT/cluster.yaml" >&2
+  return 1
+fi
+
+if [[ -z "${K8S_LAB_OLD_PATH+x}" ]]; then
+  export K8S_LAB_OLD_PATH="$PATH"
+fi
+
+export PATH="$K8S_LAB_BIN:$K8S_LAB_OLD_PATH"
+export KUBECONFIG="$K8S_LAB_ROOT/kubeconfig"
+
+mkdir -p "$(dirname "$KUBECONFIG")"
+if [[ ! -e "$KUBECONFIG" ]]; then
+  touch "$KUBECONFIG"
+fi
+chmod 0600 "$KUBECONFIG"
+hash -r
+
+alias k=kubectl
+
+if command -v kubectl >/dev/null 2>&1; then
+  source <(kubectl completion bash 2>/dev/null) || true
+  complete -o default -F __start_kubectl k 2>/dev/null || true
+fi
+
+k8s_lab_require_docker() {
+  if ! docker info >/dev/null 2>&1; then
+    echo "Docker is not ready. Start the engine and confirm this user is in the docker group." >&2
+    return 1
+  fi
+}
+
+k8s_lab_node_image() {
+  awk '/^[[:space:]]*image:[[:space:]]*/ { sub(/^[[:space:]]*image:[[:space:]]*/, ""); print; exit }' "$K8S_LAB_ROOT/cluster.yaml"
+}
+
+k8s_lab_info() {
+  printf 'Pocket Cluster\n'
+  printf '  kubectl:            %s\n' "$(command -v kubectl 2>/dev/null || printf 'not found')"
+  printf '  kind:               %s\n' "$(command -v kind 2>/dev/null || printf 'not found')"
+  printf '  KUBECTL_VERSION:    %s\n' "$KUBECTL_VERSION"
+  printf '  KIND_VERSION:       %s\n' "$KIND_VERSION"
+  printf '  KIND_CLUSTER_NAME:  %s\n' "$KIND_CLUSTER_NAME"
+  printf '  cluster.yaml:       %s\n' "$K8S_LAB_ROOT/cluster.yaml"
+  printf '  Kubernetes image:   %s\n' "$(k8s_lab_node_image)"
+  printf '  KUBECONFIG:         %s\n' "$KUBECONFIG"
+}
+
+k8s_lab_start() {
+  k8s_lab_require_docker || return 1
+  if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
+    kind export kubeconfig --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+    chmod 0600 "$KUBECONFIG"
+    echo "Cluster ${KIND_CLUSTER_NAME} already exists. kubeconfig exported."
+  else
+    kind create cluster --name="$KIND_CLUSTER_NAME" --config="$K8S_LAB_ROOT/cluster.yaml" --kubeconfig="$KUBECONFIG" --wait=2m
+    chmod 0600 "$KUBECONFIG"
+  fi
+  kubectl label node -l '!node-role.kubernetes.io/control-plane' node-role.kubernetes.io/worker=worker --overwrite
+}
+
+k8s_lab_status() {
+  kind get clusters
+  kind get nodes --name="$KIND_CLUSTER_NAME"
+  kubectl get nodes -o wide
+}
+
+k8s_lab_load_image() {
+  if [[ $# -lt 1 ]]; then
+    echo "usage: k8s_lab_load_image <image> [image...]" >&2
+    return 1
+  fi
+  k8s_lab_require_docker || return 1
+  kind load docker-image "$@" --name="$KIND_CLUSTER_NAME"
+}
+
+k8s_lab_delete_cluster() {
+  kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+}
+
+k8s_lab_deactivate() {
+  if [[ -n "${K8S_LAB_OLD_PATH:-}" ]]; then
+    export PATH="$K8S_LAB_OLD_PATH"
+  fi
+  unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KUBECONFIG
+  unalias k 2>/dev/null || true
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_info k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  hash -r
+  echo "Pocket Cluster environment deactivated."
+}
+
+echo "Pocket Cluster environment activated."
+echo "Run 'k8s_lab_info' to inspect it."

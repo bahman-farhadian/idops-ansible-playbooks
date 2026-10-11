@@ -8,8 +8,9 @@
 # DaemonSet, nodeSelector, and spread. Extra control planes do not add
 # HA here: every node is a container on one Docker host.
 #
-# kind names the first worker pocket-worker, then pocket-worker2.
-# Custom names (worker1, worker2) are not in kind config.
+# kind sets the container hostname and the Kubernetes node name.
+# First worker is pocket-worker, then pocket-worker2. There is no worker1.
+# kind config has no hostname field. Recreate does not change that scheme.
 #
 # labels: node-role.kubernetes.io/worker is what kubectl get nodes
 # shows in the ROLES column. kind role: worker only joins the node.
