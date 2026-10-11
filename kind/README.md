@@ -1,12 +1,14 @@
-# kind Kubernetes playground (Linux)
+# Pocket cluster (kind on Linux)
 
-**Goal:** Give a Linux user with Docker a local Kubernetes API for learning how to ship applications (CKAD) and for testing manifests. kind runs the nodes as Docker containers. There is no kubeadm HA, no keepalived, and no Ceph in this directory.
+**Goal:** Run a small Kubernetes on a Linux box that already has Docker. Use it to learn how to ship applications (CKAD) and to test manifests. Three Docker containers: one control plane and two workers. No kubeadm HA, no keepalived, no Ceph.
 
 ## Teaching note
 
-The numbered files in this repo teach you how a production-shaped cluster is built. That work waits on VMs. This directory is the other half of the learning: you already have a cluster, and you practice Deployments, Services, ConfigMaps, Jobs, probes, and the rest of the application API.
+The numbered files in this repo teach you how a production-shaped cluster is built. That work waits on VMs. Pocket cluster is the other half: you already have an API, and you practice Deployments, Services, ConfigMaps, Jobs, probes, and the rest of the application language.
 
-kind (Kubernetes IN Docker) starts that cluster with one command. Each node is a container. The API speaks the same kubectl language as the KVM lab. Close the terminal and the binaries stay; source `activate` again and keep working.
+kind (Kubernetes IN Docker) starts it. Each node is a container, so the RAM cost stays small. Extra workers help you spread Pods and run DaemonSets. Extra control planes do not help: they still share one Docker host.
+
+The Kubernetes **cluster** version is the `image:` field on every node in [cluster.yaml](cluster.yaml). The kubectl **client** version is `KUBECTL_VERSION` in the install steps. Match those two minors.
 
 ## Contents
 
@@ -21,28 +23,27 @@ kind (Kubernetes IN Docker) starts that cluster with one command. Each node is a
 This setup provides:
 
 - native Linux `amd64` or `arm64` binaries;
-- explicit, pinned versions and SHA-256 verification;
+- a step-by-step kubectl install with a pinned version and SHA-256 check;
+- the cluster Kubernetes version in one file, [cluster.yaml](cluster.yaml);
+- one control plane and two workers, with commented samples in that file;
 - no `sudo` for the kind or kubectl install;
 - no package-manager install of `kubectl` or kind;
-- no change to a kubectl that Docker or the distro already put on `PATH`;
-- a session-scoped `PATH`;
-- an isolated kubeconfig;
-- a stable activation command that works after closing the terminal;
-- reusable commands for start, status, image load, delete, and deactivate.
+- a session-scoped `PATH` and an isolated kubeconfig;
+- a stable activation command after you close the terminal.
 
 ## Where this sits in the repo
 
-| Track                  | Directory                                                                                  | What you practice                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Laptop playground      | [kind/](README.md)                                                                         | Application delivery, CKAD, kubectl against a local API                |
-| KVM HA lab             | [00-overview.md](../00-overview.md) through [09-smoke-test.md](../09-smoke-test.md)         | Building the cluster (kubeadm, Calico, Ceph, Traefik)                  |
-| In-cluster databases   | [apps/](../apps/README.md)                                                                 | MariaDB Galera and PostgreSQL, after the HA cluster is healthy         |
+| Track                  | Directory                                                                          | What you practice                                              |
+| ---------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Pocket cluster         | [kind/](README.md)                                                                 | Application delivery, CKAD, kubectl against a local API        |
+| KVM HA lab             | [00-overview.md](../00-overview.md) through [09-smoke-test.md](../09-smoke-test.md) | Building the cluster (kubeadm, Calico, Ceph, Traefik)          |
+| In-cluster databases   | [apps/](../apps/README.md)                                                         | MariaDB Galera and PostgreSQL, after the HA cluster is healthy |
 
 Use this directory while the VMs are still being delivered. It does not replace the HA lab, and it does not wait on [apps/](../apps/README.md).
 
 ## Reference environment
 
-This procedure targets a Linux laptop or workstation with Docker Engine. Pins below were checked against upstream on **2026-10-11**. The full create was not executed in that check.
+Linux workstation or laptop with Docker Engine. Pins checked against upstream on **2026-10-11**. The full create was not executed in that check.
 
 | Item                 | Value                                                  |
 | -------------------- | ------------------------------------------------------ |
@@ -52,13 +53,11 @@ This procedure targets a Linux laptop or workstation with Docker Engine. Pins be
 | cgroup               | v2 (`cgroup2fs`)                                       |
 | Existing `kubectl`   | left in place if the host already has one              |
 
-Docker Desktop on Linux also works. This guide talks to the Docker API the same way. Rootless Docker is possible with extra host sysctls; this file stays on the default Docker Engine socket.
+Docker Desktop on Linux also works. This guide talks to the Docker API the same way. Rootless Docker needs extra host sysctls; this file stays on the default Docker Engine socket.
 
 ## Isolation model
 
-The environment is isolated in three ways:
-
-1. Binaries are installed beneath `~/kind-k8s-lab`.
+1. Binaries are installed beneath `~/pocket-cluster`.
 2. The isolated `bin` directory is placed first in `PATH` only after activation.
 3. `KUBECONFIG` points to a project-specific file instead of `~/.kube/config`.
 
@@ -68,18 +67,18 @@ kind stores node state in Docker containers and in a Docker network named `kind`
 
 Checked **2026-10-11**. Re-check before you run: [kind releases](https://github.com/kubernetes-sigs/kind/releases), [kubectl downloads](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/), [CKAD exam version](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks).
 
-| Component                    | Pinned value                                                                               |
-| ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `kubectl` client             | `v1.37.0`                                                                                  |
-| kind                         | `v0.33.0`                                                                                  |
-| Kubernetes node image        | `kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5` |
-| kind cluster name            | `ckad`                                                                                     |
-| Nodes                        | 1 control-plane + 1 worker                                                                 |
-| In-cluster runtime           | containerd (inside the node image)                                                         |
-| kind linux-amd64 SHA-256     | `aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d`                         |
-| kind linux-arm64 SHA-256     | `20022bee6cfcd5086cb7234d218e3454e6090022f2a8f55d1fa7fcf42c3867a2`                         |
+| Component                    | Pinned value                                                                               | Where it is set                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------- |
+| `kubectl` client             | `v1.37.0`                                                                                  | `KUBECTL_VERSION` in Part I step 3, then step 4      |
+| kind CLI                     | `v0.33.0`                                                                                  | `KIND_VERSION` in Part I step 3, then step 5         |
+| Kubernetes cluster           | `kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5` | `image:` on every node in [cluster.yaml](cluster.yaml) |
+| kind cluster name            | `pocket`                                                                                   | `name:` in [cluster.yaml](cluster.yaml)              |
+| Nodes                        | 1 control-plane + 2 workers                                                                | `nodes:` in [cluster.yaml](cluster.yaml)             |
+| In-cluster runtime           | containerd (inside the node image)                                                         | the node image                                       |
+| kind linux-amd64 SHA-256     | `aee6151561422756b764a4ae28e7f44cda5af5a9eead3cc9985112b1de8d8e0d`                         | kind GitHub release checksum file                    |
+| kind linux-arm64 SHA-256     | `20022bee6cfcd5086cb7234d218e3454e6090022f2a8f55d1fa7fcf42c3867a2`                         | kind GitHub release checksum file                    |
 
-The node digest is the image kind v0.33.0 published for Kubernetes 1.37.0. You must pass the digest; a tag alone can move. kubectl v1.37.0 matches that node minor ([version skew](https://kubernetes.io/releases/version-skew-policy/)). The CKAD exam environment was Kubernetes v1.37 as of 2026-09-30 ([Linux Foundation FAQ](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks)).
+kind has no `kubernetesVersion` key. The cluster version **is** the node image. You must keep the digest; a tag alone can move. kubectl v1.37.0 matches that node minor ([version skew](https://kubernetes.io/releases/version-skew-policy/)). The CKAD exam environment was Kubernetes v1.37 as of 2026-09-30 ([Linux Foundation FAQ](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks)).
 
 No command in this guide uses `latest`, `stable.txt`, a floating release URL, or an unversioned package-manager formula for kubectl or kind.
 
@@ -87,7 +86,7 @@ No command in this guide uses `latest`, `stable.txt`, a floating release URL, or
 
 # Part I — One-time setup and configuration
 
-Complete this part once for a pinned toolchain. Run the commands from the `kind/` directory of this clone.
+Complete this part once. Run the commands from the `kind/` directory of this clone.
 
 ```sh
 cd /path/to/kubernetes-lab/kind
@@ -150,11 +149,11 @@ docker info --format \
   'Architecture={{.Architecture}} CPUs={{.NCPU}} MemoryBytes={{.MemTotal}}'
 ```
 
-Two kind nodes plus the node image need several GB of RAM and disk. First create pulls `kindest/node` (about a gigabyte). Leave room for that pull.
+Three kind nodes plus the node image need several GB of RAM and disk. First create pulls `kindest/node` (about a gigabyte). Leave room for that pull.
 
 ## 2. Inspect the existing kubectl
 
-Run before activating the isolated toolchain:
+Run this before the isolated install:
 
 ```sh
 type -a kubectl 2>/dev/null || true
@@ -162,16 +161,16 @@ command -v kubectl 2>/dev/null || true
 kubectl version --client 2>/dev/null || true
 ```
 
-A distro or Docker install commonly exposes `/usr/bin/kubectl` or `/usr/local/bin/kubectl`. Leave that executable in place. This guide installs a second binary under `~/kind-k8s-lab`.
+A distro or Docker install commonly exposes `/usr/bin/kubectl` or `/usr/local/bin/kubectl`. Leave that executable in place. The next steps install a second binary under `~/pocket-cluster`.
 
-## 3. Define the pinned installation
+## 3. Pin the tool versions
+
+These two pins are for the **binaries on your laptop**. The **cluster** Kubernetes version is set later, in [cluster.yaml](cluster.yaml).
 
 ```sh
 export KUBECTL_VERSION="v1.37.0"
 export KIND_VERSION="v0.33.0"
-export KUBERNETES_VERSION="v1.37.0"
-export KIND_NODE_IMAGE="kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
-export KIND_CLUSTER_NAME="ckad"
+export KIND_CLUSTER_NAME="pocket"
 
 case "$(uname -m)" in
   x86_64)  export K8S_ARCH="amd64" ;;
@@ -187,7 +186,7 @@ if [[ "$(uname -s)" != "Linux" ]]; then
   return 1 2>/dev/null || exit 1
 fi
 
-export K8S_LAB_HOME="$HOME/kind-k8s-lab"
+export K8S_LAB_HOME="$HOME/pocket-cluster"
 export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSION}"
 export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
 
@@ -197,14 +196,16 @@ mkdir -p "$K8S_LAB_BIN"
 The initial directory layout is:
 
 ```
-~/kind-k8s-lab/
+~/pocket-cluster/
 └── kubectl-v1.37.0_kind-v0.33.0/
     └── bin/
 ```
 
-## 4. Download and verify kubectl
+`KUBECTL_VERSION` must stay in the same minor as the node `image:` in [cluster.yaml](cluster.yaml) (here both are 1.37).
 
-Download the pinned binary and its published checksum ([install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)):
+## 4. Install kubectl
+
+Download the pinned client and its published checksum ([install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)):
 
 ```sh
 curl --fail --location \
@@ -235,11 +236,14 @@ chmod 0755 "$K8S_LAB_BIN/kubectl"
 rm "$K8S_LAB_ROOT/kubectl.sha256"
 
 file "$K8S_LAB_BIN/kubectl"
+"$K8S_LAB_BIN/kubectl" version --client
 ```
 
-Expected output includes `ELF 64-bit LSB executable` and either `x86-64` or `ARM aarch64`, matching `uname -m`.
+Expected output of `file` includes `ELF 64-bit LSB executable` and either `x86-64` or `ARM aarch64`, matching `uname -m`. Expected client version: `v1.37.0`.
 
-## 5. Download and verify kind
+This binary is not on `PATH` until you source `activate` in step 10.
+
+## 5. Install kind
 
 kind publishes a `.sha256sum` next to each binary ([quick start](https://kind.sigs.k8s.io/docs/user/quick-start/)):
 
@@ -283,38 +287,48 @@ kind v0.33.0 go1.26.7 linux/amd64
 
 The Go and arch suffix follow the binary you downloaded.
 
-## 6. Install the cluster config
+## 6. Set the cluster Kubernetes version
 
-The file [cluster.yaml](cluster.yaml) in this directory is the kind config. Copy it into the versioned lab root so daily use does not depend on the git clone path:
+**This is where the cluster version is defined.** Open [cluster.yaml](cluster.yaml). Every node has an `image:` line. That image **is** the Kubernetes version kind will boot. kind has no separate `kubernetesVersion` field.
+
+Default (small): one control plane, two workers, Kubernetes 1.37.0 with the digest from kind v0.33.0:
+
+```yaml
+image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+```
+
+That same line is on the control plane and on both workers. Change the cluster version by changing **every** `image:` to a node image from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), digest included, then recreate the cluster. Also move `KUBECTL_VERSION` in step 3 so the client stays in the same minor.
+
+The file also has **commented samples**: three workers, and a control-plane-only layout. To use a sample, copy its `nodes:` list over the live list, then recreate. Keep a single `role: control-plane`.
+
+Copy the file into the versioned lab root so daily use does not depend on the git clone path:
 
 ```sh
 cp "$GUIDE_DIR/cluster.yaml" "$K8S_LAB_ROOT/cluster.yaml"
 ```
 
-It is a 1 control-plane + 1 worker cluster named `ckad`. Host ports `8080` and `8443` map to node ports `80` and `443` so an ingress controller you add later can be reached on the laptop without a privileged bind.
+Host ports `8080` and `8443` map to node ports `80` and `443` so an ingress controller you add later can be reached without a privileged bind.
 
 ## 7. Create the reusable activation file
 
-The activation file restores the variables in every new terminal and defines the helper functions.
+The activation file restores the variables in every new terminal and defines the helper functions. `kind create` reads Kubernetes version from `cluster.yaml`. It does not take a separate `--image` flag here, so the file stays the single source.
 
 ```sh
 cat > "$K8S_LAB_ROOT/activate" <<'EOF'
-# kind Kubernetes playground (Linux)
+# Pocket cluster (kind on Linux)
 # Source this file; do not execute it as a standalone process.
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   echo "This file must be sourced:" >&2
-  echo '  source "$HOME/kind-k8s-lab/activate"' >&2
+  echo '  source "$HOME/pocket-cluster/activate"' >&2
   exit 1
 fi
 
 export KUBECTL_VERSION="v1.37.0"
 export KIND_VERSION="v0.33.0"
-export KUBERNETES_VERSION="v1.37.0"
-export KIND_NODE_IMAGE="kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
-export KIND_CLUSTER_NAME="ckad"
+export KIND_CLUSTER_NAME="pocket"
 
-export K8S_LAB_HOME="$HOME/kind-k8s-lab"
+export K8S_LAB_HOME="$HOME/pocket-cluster"
 export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSION}"
 export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
 
@@ -364,15 +378,25 @@ k8s_lab_require_docker() {
   fi
 }
 
+k8s_lab_node_image() {
+  awk '
+    /^[[:space:]]*image:[[:space:]]*/ {
+      sub(/^[[:space:]]*image:[[:space:]]*/, "")
+      print
+      exit
+    }
+  ' "$K8S_LAB_ROOT/cluster.yaml"
+}
+
 k8s_lab_info() {
-  printf 'kind Kubernetes playground\n'
+  printf 'Pocket cluster\n'
   printf '  kubectl:            %s\n' "$(command -v kubectl 2>/dev/null || printf 'not found')"
   printf '  kind:               %s\n' "$(command -v kind 2>/dev/null || printf 'not found')"
   printf '  KUBECTL_VERSION:    %s\n' "$KUBECTL_VERSION"
   printf '  KIND_VERSION:       %s\n' "$KIND_VERSION"
-  printf '  KUBERNETES_VERSION: %s\n' "$KUBERNETES_VERSION"
-  printf '  KIND_NODE_IMAGE:    %s\n' "$KIND_NODE_IMAGE"
   printf '  KIND_CLUSTER_NAME:  %s\n' "$KIND_CLUSTER_NAME"
+  printf '  cluster.yaml:       %s\n' "$K8S_LAB_ROOT/cluster.yaml"
+  printf '  Kubernetes image:   %s\n' "$(k8s_lab_node_image)"
   printf '  KUBECONFIG:         %s\n' "$KUBECONFIG"
 }
 
@@ -386,9 +410,9 @@ k8s_lab_start() {
     return 0
   fi
 
+  # Kubernetes version comes from image: in cluster.yaml
   kind create cluster \
     --name="$KIND_CLUSTER_NAME" \
-    --image="$KIND_NODE_IMAGE" \
     --config="$K8S_LAB_ROOT/cluster.yaml" \
     --kubeconfig="$KUBECONFIG" \
     --wait=2m
@@ -426,14 +450,13 @@ k8s_lab_deactivate() {
   unset K8S_LAB_BIN
   unset KUBECTL_VERSION
   unset KIND_VERSION
-  unset KUBERNETES_VERSION
-  unset KIND_NODE_IMAGE
   unset KIND_CLUSTER_NAME
   unset KUBECONFIG
 
   unalias k 2>/dev/null || true
 
   unset -f k8s_lab_require_docker
+  unset -f k8s_lab_node_image
   unset -f k8s_lab_info
   unset -f k8s_lab_start
   unset -f k8s_lab_status
@@ -442,10 +465,10 @@ k8s_lab_deactivate() {
   unset -f k8s_lab_deactivate
 
   hash -r
-  echo "kind playground environment deactivated."
+  echo "Pocket cluster environment deactivated."
 }
 
-echo "kind playground environment activated."
+echo "Pocket cluster environment activated."
 echo "Run 'k8s_lab_info' to inspect it."
 EOF
 
@@ -476,7 +499,7 @@ ln -sfn "current/activate" "$K8S_LAB_HOME/activate"
 The project now has a stable entry point:
 
 ```
-~/kind-k8s-lab/
+~/pocket-cluster/
 ├── activate -> current/activate
 ├── current -> kubectl-v1.37.0_kind-v0.33.0
 └── kubectl-v1.37.0_kind-v0.33.0/
@@ -492,7 +515,7 @@ From this point, type the stable activation path. You do not need the versioned 
 ## 9. Activate the environment
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 ```
 
 Inspect the active environment:
@@ -503,7 +526,7 @@ type -a kubectl
 type -a kind
 ```
 
-The first `kubectl` and `kind` must resolve under `$K8S_LAB_BIN`. A host kubectl, if present, stays later in `type -a kubectl`.
+The first `kubectl` and `kind` must resolve under `$K8S_LAB_BIN`. A host kubectl, if present, stays later in `type -a kubectl`. `Kubernetes image` in `k8s_lab_info` is the first `image:` from `cluster.yaml`.
 
 ## 10. Verify the pinned client versions
 
@@ -550,13 +573,12 @@ actual_kind_version="$(kind version | awk '{ print $2; exit }')"
 k8s_lab_start
 ```
 
-The function creates the cluster with these pinned settings:
+kind reads [cluster.yaml](cluster.yaml) (the copy under `$K8S_LAB_ROOT`):
 
 ```
-name:               ckad
-driver:             docker
-node image:         kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
-nodes:              1 control-plane + 1 worker
+name:               pocket
+nodes:              1 control-plane + 2 workers
+Kubernetes version: image: on each node (v1.37.0 digest)
 wait for Ready:     2m
 kubeconfig:         $K8S_LAB_ROOT/kubeconfig
 ```
@@ -573,14 +595,14 @@ kubectl get pods --all-namespaces
 kubectl get storageclass
 ```
 
-Expected client/server relationship:
+Expected: three Ready nodes (`pocket-control-plane`, `pocket-worker`, `pocket-worker2`) and:
 
 ```
 Client Version: v1.37.0
 Server Version: v1.37.0
 ```
 
-Wait for both nodes:
+Wait for every node:
 
 ```sh
 kubectl wait \
@@ -590,9 +612,9 @@ kubectl wait \
   --timeout=180s
 ```
 
-kind ships Rancher local-path provisioner. The default StorageClass is `standard`. PersistentVolumeClaims in this playground bind to disk inside the node containers.
+kind ships Rancher local-path provisioner. The default StorageClass is `standard`. PersistentVolumeClaims bind to disk inside the node containers.
 
-kubectl context name is `kind-ckad`.
+kubectl context name is `kind-pocket`.
 
 ## 13. Confirm isolation
 
@@ -609,7 +631,7 @@ docker ps --filter "label=io.x-k8s.kind.cluster=${KIND_CLUSTER_NAME}" --format '
 Project-specific state:
 
 ```
-~/kind-k8s-lab/
+~/pocket-cluster/
 ├── activate
 ├── current
 └── kubectl-v1.37.0_kind-v0.33.0/
@@ -630,25 +652,25 @@ any host kubectl already on PATH
 
 ## 14. Ship a first application
 
-This is the point of the playground: a Deployment and a Service, with no cluster-bootstrap work.
+A Deployment and a Service, with no cluster-bootstrap work. Two replicas can land on the two workers.
 
-The `nginx:1.27` tag is a convenient example for this smoke. Pin a digest in your own apps. The cluster pins above stay exact.
+The `nginx:1.27` tag is a convenient example for this smoke. Pin a digest in your own apps. The cluster version stays the `image:` in `cluster.yaml`.
 
 ```sh
-kubectl create namespace playground
+kubectl create namespace demo
 
 kubectl create deployment hello \
   --image=nginx:1.27 \
   --replicas=2 \
-  -n playground
+  -n demo
 
 kubectl expose deployment hello \
   --port=80 \
   --target-port=80 \
-  -n playground
+  -n demo
 
-kubectl rollout status deployment/hello -n playground --timeout=120s
-kubectl get deploy,po,svc -n playground
+kubectl rollout status deployment/hello -n demo --timeout=120s
+kubectl get deploy,po,svc -n demo -o wide
 ```
 
 Reach the Service from inside the cluster:
@@ -656,7 +678,7 @@ Reach the Service from inside the cluster:
 ```sh
 kubectl run curl \
   --rm -it --restart=Never \
-  -n playground \
+  -n demo \
   --image=busybox:1.36 \
   -- wget -qO- http://hello
 ```
@@ -664,7 +686,7 @@ kubectl run curl \
 Expected: nginx HTML on stdout, then the curl pod exits. Tear the namespace down when you are done with this smoke:
 
 ```sh
-kubectl delete namespace playground
+kubectl delete namespace demo
 ```
 
 ---
@@ -680,7 +702,7 @@ Closing a terminal removes shell variables, PATH changes, aliases, and helper fu
 In every new terminal:
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 ```
 
 Then:
@@ -711,9 +733,9 @@ The session alias `k` is `kubectl`. Example: `k get po -A`.
 | --------------------------- | -------------------------- | --------------------------------------------------------- |
 | Pinned `kubectl` binary     | Yes                        | Under the versioned project directory                     |
 | Pinned kind binary          | Yes                        | Under the versioned project directory                     |
-| Stable activation link      | Yes                        | `~/kind-k8s-lab/activate`                                 |
+| Stable activation link      | Yes                        | `~/pocket-cluster/activate`                               |
 | Isolated kubeconfig         | Yes                        | Under the versioned project directory                     |
-| kind cluster config         | Yes                        | `$K8S_LAB_ROOT/cluster.yaml`                              |
+| kind cluster config         | Yes                        | `$K8S_LAB_ROOT/cluster.yaml` (Kubernetes `image:` lives here) |
 | Running kind nodes          | Usually yes                | Docker containers, until deleted or Docker stops          |
 | Node image in Docker        | Yes                        | Docker image cache                                        |
 | Exported variables          | No                         | Restore by sourcing `activate`                            |
@@ -728,11 +750,11 @@ After activation:
 
 | Command                          | Effect                                                              |
 | -------------------------------- | ------------------------------------------------------------------- |
-| `k8s_lab_info`                   | Show paths, versions, cluster name, and active binaries             |
-| `k8s_lab_start`                  | Create the pinned cluster, or export kubeconfig if it exists        |
+| `k8s_lab_info`                   | Show paths, versions, cluster name, and the `image:` from cluster.yaml |
+| `k8s_lab_start`                  | Create the cluster from cluster.yaml, or export kubeconfig if it exists |
 | `k8s_lab_status`                 | List kind clusters, node containers, and Kubernetes nodes           |
 | `k8s_lab_load_image <image>`     | Load a local Docker image into the kind nodes                       |
-| `k8s_lab_delete_cluster`         | Delete the `ckad` cluster (kind delete is idempotent)               |
+| `k8s_lab_delete_cluster`         | Delete the `pocket` cluster (kind delete is idempotent)             |
 | `k8s_lab_deactivate`             | Restore the shell's original PATH and variables                     |
 
 kind has no stop/pause. Deleting the cluster frees the node containers. The next start reuses the cached node image.
@@ -769,7 +791,7 @@ Closing the terminal has the same shell-reset effect as deactivation.
 After the Docker engine is running again:
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 docker info >/dev/null && echo "Docker is ready"
 kind get clusters
 kubectl get nodes
@@ -788,11 +810,11 @@ Workloads from the old cluster are gone after delete. Treat kind as disposable: 
 ## 7. Delete the cluster but keep the tools
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 k8s_lab_delete_cluster
 ```
 
-This removes the `ckad` containers and the Docker network membership for that cluster. It leaves the pinned kubectl, kind binary, activation file, and node image.
+This removes the `pocket` containers and the Docker network membership for that cluster. It leaves the pinned kubectl, kind binary, activation file, and node image.
 
 Create a clean cluster later with:
 
@@ -800,12 +822,12 @@ Create a clean cluster later with:
 k8s_lab_start
 ```
 
-## 8. Completely uninstall the lab
+## 8. Completely uninstall Pocket cluster
 
 This removes the kind cluster and the pinned toolchain. Docker Engine and any host kubectl stay.
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 
 lab_home="$K8S_LAB_HOME"
 install_root="$K8S_LAB_ROOT"
@@ -831,14 +853,14 @@ docker image rm \
 The normal activation command is:
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 ```
 
 For a shorter command, add this function to the Bash startup file this terminal uses:
 
 ```sh
 k8s_lab_activate() {
-  source "$HOME/kind-k8s-lab/activate"
+  source "$HOME/pocket-cluster/activate"
 }
 ```
 
@@ -855,35 +877,35 @@ This convenience function does not change `PATH` in every shell on its own. It o
 Treat an upgrade as a new versioned installation.
 
 1. Read the [kind release notes](https://github.com/kubernetes-sigs/kind/releases) and pick a Kubernetes node image from that release, digest included.
-2. Pick a kubectl in the same minor as that node image.
-3. Recheck the CKAD exam Kubernetes version if you are studying for the exam.
-4. Download and verify the new binaries.
-5. Create a new versioned directory under `~/kind-k8s-lab`.
-6. Copy [cluster.yaml](cluster.yaml) into it (update node count or ports if you need to).
+2. Put that image on **every** `image:` line in [cluster.yaml](cluster.yaml). That is the cluster version.
+3. Set `KUBECTL_VERSION` to the same minor and install that kubectl (Part I steps 3–4).
+4. Recheck the CKAD exam Kubernetes version if you are studying for the exam.
+5. Create a new versioned directory under `~/pocket-cluster`.
+6. Copy the updated `cluster.yaml` into it.
 7. Write its version-specific activation file.
-8. Delete the old `ckad` cluster, or use a different `KIND_CLUSTER_NAME`.
+8. Delete the old `pocket` cluster, or use a different `name:` in cluster.yaml.
 9. Point `current` at the new versioned directory.
 10. Keep the old directory for a while, then remove it after the new environment works.
 
 After installing a new version:
 
 ```sh
-ln -sfn "$NEW_K8S_LAB_ROOT" "$HOME/kind-k8s-lab/current"
+ln -sfn "$NEW_K8S_LAB_ROOT" "$HOME/pocket-cluster/current"
 ```
 
 The top-level activation link remains:
 
 ```
-~/kind-k8s-lab/activate -> current/activate
+~/pocket-cluster/activate -> current/activate
 ```
 
 Daily activation stays:
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 ```
 
-Two versioned environments must not share the cluster name `ckad` at the same time. Delete the old cluster first, or pick a new name.
+Two versioned environments must not share the cluster name `pocket` at the same time. Delete the old cluster first, or pick a new name.
 
 ---
 
@@ -891,12 +913,12 @@ Two versioned environments must not share the cluster name `ckad` at the same ti
 
 The CKAD exam is a two-hour, performance-based kubectl test. Domains below are from the [CKAD page](https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/) (Kubernetes v1.37 as of 2026-09-30). Recheck that page before you sit.
 
-This playground is for practice. It is not the exam environment and it is not a dump of exam tasks.
+This cluster is for practice. It is not the exam environment and it is not a dump of exam tasks.
 
 | Domain                                                      | Weight | What works on this cluster out of the box                                                                                      |
 | ----------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Application Environment, Configuration and Security         | 25%    | ConfigMaps, Secrets, ServiceAccounts, SecurityContext, requests/limits/quotas                                                  |
-| Application Design and Build                                | 20%    | Deployments, DaemonSets (two nodes), Jobs, CronJobs, multi-container Pods, local-path PVCs (`standard`)                        |
+| Application Design and Build                                | 20%    | Deployments, DaemonSets (two workers), Jobs, CronJobs, multi-container Pods, local-path PVCs (`standard`)                      |
 | Application Deployment                                      | 20%    | Rolling updates, canary via two Deployments + Service labels, `kubectl apply -k` (Kustomize is in kubectl)                     |
 | Services and Networking                                     | 20%    | ClusterIP/NodePort Services, NetworkPolicy on kindnet, Ingress objects (an ingress controller is still required to serve HTTP) |
 | Application Observability and Maintenance                   | 15%    | probes, `kubectl logs`, `kubectl exec`, `kubectl describe`, debug Pods                                                         |
@@ -917,25 +939,25 @@ Exam-day habits to use here: `k` as kubectl, `--dry-run=client -o yaml` into a f
 ## The top-level activation file is missing
 
 ```sh
-ls -la "$HOME/kind-k8s-lab"
+ls -la "$HOME/pocket-cluster"
 ```
 
 Recreate the stable links for the installed version:
 
 ```sh
-export K8S_LAB_HOME="$HOME/kind-k8s-lab"
+export K8S_LAB_HOME="$HOME/pocket-cluster"
 export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-v1.37.0_kind-v0.33.0"
 
 ln -sfn "$K8S_LAB_ROOT" "$K8S_LAB_HOME/current"
 ln -sfn "current/activate" "$K8S_LAB_HOME/activate"
 
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 ```
 
 ## The host kubectl is still selected
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 hash -r
 type -a kubectl
 ```
@@ -955,20 +977,20 @@ Start the Docker engine. If `docker` returns permission denied, this user is mis
 ## kubectl cannot find the cluster
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 k8s_lab_info
 k8s_lab_status
 kubectl config get-contexts
 ```
 
-The project kubeconfig should be active. Context name: `kind-ckad`.
+The project kubeconfig should be active. Context name: `kind-pocket`.
 
 ## The shell variables disappeared
 
 Expected after closing the terminal. Restore them with:
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 ```
 
 Skip the download steps.
@@ -976,7 +998,7 @@ Skip the download steps.
 ## The cluster is missing
 
 ```sh
-source "$HOME/kind-k8s-lab/activate"
+source "$HOME/pocket-cluster/activate"
 k8s_lab_start
 ```
 
@@ -992,7 +1014,7 @@ Load it into kind, then set `imagePullPolicy: IfNotPresent`:
 k8s_lab_load_image my-app:dev
 ```
 
-Pass `--name ckad` is already inside `k8s_lab_load_image`.
+`--name pocket` is already inside `k8s_lab_load_image`.
 
 ## NetworkPolicy seems to do nothing
 
@@ -1000,7 +1022,7 @@ Apply a default-deny in a test namespace and confirm traffic is dropped. If it i
 
 ## cgroup v1
 
-Kubernetes 1.37 and this node image expect cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgroup2fs`, use a host with cgroup v2, or pick an older kind node image from a kind release that still lists a 1.34/1.35 image. This file stays on 1.37.
+Kubernetes 1.37 and this node image expect cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgroup2fs`, use a host with cgroup v2, or pick an older kind node image from a kind release that still lists a 1.34/1.35 image. Change every `image:` in [cluster.yaml](cluster.yaml). This file stays on 1.37.
 
 ---
 
