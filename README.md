@@ -14,28 +14,28 @@ This repo documents cluster deployment on top of a set of already-provisioned VM
 
 Tables are padded so the columns line up in a text editor and still render as tables. Each procedure step is one short note, then one command block, with a short comment on the command that does the work.
 
-One numbered spine. Circle a profile × scenario in [01-inventory.md](01-inventory.md) and one distro (Debian 13 or Ubuntu 26), then walk 02 → 09. The only branch is inside [05-deploy-kubernetes.md](05-deploy-kubernetes.md) (stacked or external bootstrap). Upgrades are 11, then 12, after the smoke test. GPU adds [14-gpu.md](14-gpu.md) after a healthy stacked or external cluster. Application databases are [apps/](apps/README.md) and stay blocked until that cluster is healthy. A small Docker Kubernetes for CKAD and application delivery is [kind/](kind/README.md) (**Pocket Cluster**) and is independent of the VMs. Site WAN/LAN addresses stay out of this repo — tables use example LAN IPs.
+One numbered spine. Circle a profile × scenario in [01-inventory.md](01-inventory.md) and one distro (Debian 13 or Ubuntu 26), then walk 02 → 09. The only branch is inside [05-deploy-kubernetes.md](05-deploy-kubernetes.md) (stacked or external bootstrap). Upgrades are 11, then 12, after the smoke test. GPU adds [14-gpu.md](14-gpu.md) after a healthy stacked or external cluster. Application databases are [apps/](apps/README.md) and stay blocked until that cluster is healthy. A small Docker Kubernetes for CKAD and application delivery is [pocket-cluster/](pocket-cluster/README.md) (**Pocket Cluster**) and is independent of the VMs. Site WAN/LAN addresses stay out of this repo — tables use example LAN IPs.
 
-| Doc                                                | Covers                                                               |
-| -------------------------------------------------- | -------------------------------------------------------------------- |
-| [00-overview.md](00-overview.md)                   | Scope, profiles, scenarios, version pins                             |
-| [01-inventory.md](01-inventory.md)                 | VM tables and the LAN plan, including the API load-balancer pair     |
-| [02-prepare.md](02-prepare.md)                     | Prerequisites and OS baseline                                        |
-| [03-firewall.md](03-firewall.md)                   | Gateway keepalived pair                                              |
-| [04-bastion.md](04-bastion.md)                     | Docker Compose: Nexus, Prometheus, Grafana                           |
-| [05-deploy-kubernetes.md](05-deploy-kubernetes.md) | containerd, API pair, bootstrap, join, Calico, kubectl, k9s          |
-| [06-ceph.md](06-ceph.md)                           | Ceph deploy                                                          |
-| [07-ingress.md](07-ingress.md)                     | Traefik, published on the API pair                                   |
-| [08-observability.md](08-observability.md)         | node_exporter                                                        |
-| [09-smoke-test.md](09-smoke-test.md)               | Smoke and stress                                                     |
-| [10-security.md](10-security.md)                   | Hardening outline                                                    |
-| [11-update-kubernetes.md](11-update-kubernetes.md) | Kubernetes, Calico, and external-etcd upgrades                       |
-| [12-update-ceph.md](12-update-ceph.md)             | Ceph upgrade                                                         |
-| [13-troubleshooting.md](13-troubleshooting.md)     | Notes filled in as a run hits them                                   |
-| [14-gpu.md](14-gpu.md)                             | GPU profile only                                                     |
-| [15-deployment-log.md](15-deployment-log.md)       | What was actually pinned, per run                                    |
-| [apps/README.md](apps/README.md)                   | Application databases, after the cluster is healthy                  |
-| [kind/README.md](kind/README.md)                   | Pocket Cluster: small kind on Docker for CKAD and app practice       |
+| Doc                                                  | Covers                                                           |
+| ---------------------------------------------------- | ---------------------------------------------------------------- |
+| [00-overview.md](00-overview.md)                     | Scope, profiles, scenarios, version pins                         |
+| [01-inventory.md](01-inventory.md)                   | VM tables and the LAN plan, including the API load-balancer pair |
+| [02-prepare.md](02-prepare.md)                       | Prerequisites and OS baseline                                    |
+| [03-firewall.md](03-firewall.md)                     | Gateway keepalived pair                                          |
+| [04-bastion.md](04-bastion.md)                       | Docker Compose: Nexus, Prometheus, Grafana                       |
+| [05-deploy-kubernetes.md](05-deploy-kubernetes.md)   | containerd, API pair, bootstrap, join, Calico, kubectl, k9s      |
+| [06-ceph.md](06-ceph.md)                             | Ceph deploy                                                      |
+| [07-ingress.md](07-ingress.md)                       | Traefik, published on the API pair                               |
+| [08-observability.md](08-observability.md)           | node_exporter                                                    |
+| [09-smoke-test.md](09-smoke-test.md)                 | Smoke and stress                                                 |
+| [10-security.md](10-security.md)                     | Hardening outline                                                |
+| [11-update-kubernetes.md](11-update-kubernetes.md)   | Kubernetes, Calico, and external-etcd upgrades                   |
+| [12-update-ceph.md](12-update-ceph.md)               | Ceph upgrade                                                     |
+| [13-troubleshooting.md](13-troubleshooting.md)       | Notes filled in as a run hits them                               |
+| [14-gpu.md](14-gpu.md)                               | GPU profile only                                                 |
+| [15-deployment-log.md](15-deployment-log.md)         | What was actually pinned, per run                                |
+| [apps/README.md](apps/README.md)                     | Application databases, after the cluster is healthy              |
+| [pocket-cluster/README.md](pocket-cluster/README.md) | Pocket Cluster: small kind on Docker for CKAD and app practice   |
 
 ```mermaid
 flowchart TD
@@ -72,7 +72,7 @@ Each row is under 128 GB. They are not added together. vCPU, disk, and the per-V
 1. **Stacked — current task.** On **Debian 13 first**, walk 02 → 09, then [11-update-kubernetes.md](11-update-kubernetes.md), then [12-update-ceph.md](12-update-ceph.md). Ubuntu 26 is the same path later, not at the same time.
 2. **External etcd** — same spine, the other bootstrap section in [05-deploy-kubernetes.md](05-deploy-kubernetes.md), after the stacked cluster has been removed.
 3. **Applications** — [apps/](apps/README.md), MariaDB Galera and PostgreSQL. Not part of the cluster bring-up. Open that directory only after step 1 has passed the smoke test.
-4. **Pocket Cluster** — [kind/](kind/README.md). Linux + Docker, one control plane and two workers, usable now while the VMs are still being delivered.
+4. **Pocket Cluster** — [pocket-cluster/](pocket-cluster/README.md). Linux + Docker, one control plane and two workers, usable now while the VMs are still being delivered.
 
 Record the exact pinned component versions used on each run in [15-deployment-log.md](15-deployment-log.md).
 
@@ -85,4 +85,4 @@ Two control-plane/etcd topologies — trade-offs in [00-overview.md](00-overview
 
 ## Status
 
-02–09, 11, and 12 have runnable procedure (commands, configs, pinned-version installs). [10-security.md](10-security.md) and [13-troubleshooting.md](13-troubleshooting.md) stay outlines until a real run fills them in. [14-gpu.md](14-gpu.md) is an outline pending the first GPU run. [apps/](apps/README.md) is a blocked placeholder for MariaDB Galera and PostgreSQL. [kind/](kind/README.md) is Pocket Cluster, a runnable small kind procedure, independent of the HA spine. Versions marked "verify current" are not promises — check them against upstream before running.
+02–09, 11, and 12 have runnable procedure (commands, configs, pinned-version installs). [10-security.md](10-security.md) and [13-troubleshooting.md](13-troubleshooting.md) stay outlines until a real run fills them in. [14-gpu.md](14-gpu.md) is an outline pending the first GPU run. [apps/](apps/README.md) is a blocked placeholder for MariaDB Galera and PostgreSQL. [pocket-cluster/](pocket-cluster/README.md) is Pocket Cluster, a runnable small kind procedure, independent of the HA spine. Versions marked "verify current" are not promises — check them against upstream before running.

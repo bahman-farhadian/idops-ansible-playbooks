@@ -37,7 +37,7 @@ This setup provides:
 
 | Track                  | Directory                                                                          | What you practice                                              |
 | ---------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Pocket Cluster         | [kind/](README.md)                                                                 | Application delivery, CKAD, kubectl against a local API        |
+| Pocket Cluster         | [pocket-cluster/](README.md)                                                       | Application delivery, CKAD, kubectl against a local API        |
 | KVM HA lab             | [00-overview.md](../00-overview.md) through [09-smoke-test.md](../09-smoke-test.md) | Building the cluster (kubeadm, Calico, Ceph, Traefik)          |
 | In-cluster databases   | [apps/](../apps/README.md)                                                         | MariaDB Galera and PostgreSQL, after the HA cluster is healthy |
 
@@ -85,10 +85,10 @@ No command in this guide uses `latest`, `stable.txt`, a floating release URL, or
 
 # Part I — One-Time Setup and Configuration
 
-Complete this part once. Run the commands from the `kind/` directory of this clone.
+Complete this part once. Run the commands from the `pocket-cluster/` directory of this clone.
 
 ```sh
-cd /path/to/kubernetes-lab/kind
+cd /path/to/kubernetes-lab/pocket-cluster
 GUIDE_DIR="$(pwd)"
 ```
 
