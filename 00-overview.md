@@ -13,7 +13,7 @@ Read this file before you type a command. The fixed decisions are the contract: 
 - Two supported topologies, chosen up front in [Scenarios](#scenarios).
 - Four scenarios (below). Only one is powered on at a time. They are never joined together.
 - Style: manual, step-by-step, real commands — short enough to read end to end and understand what's happening, so you can later drive the same cluster with kubeadm scripted, Kubespray, or any other automation with eyes open.
-- Pocket Cluster: [pocket-cluster/README.md](pocket-cluster/README.md) is a small Linux + Docker kind cluster (one control plane, two workers) for CKAD and application delivery. It is outside the 02–09 spine and does not wait on VMs. The cluster Kubernetes version is the `image:` tag in `pocket-cluster/cluster.yaml`.
+- Pocket Cluster: [pocket-cluster/README.md](pocket-cluster/README.md) is a small Linux + Docker kind cluster (one control plane, two workers) for CKAD and application delivery. Cluster name `idops-pocket-k8s-cluster`. Config is [pocket-cluster/idops-pocket-k8s-cluster.yaml](pocket-cluster/idops-pocket-k8s-cluster.yaml). Docker CPU/RAM caps are applied after create. It is outside the 02–09 spine and does not wait on VMs.
 
 ## Deployment profiles
 

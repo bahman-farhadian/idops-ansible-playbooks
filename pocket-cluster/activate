@@ -9,11 +9,17 @@ fi
 
 export KUBECTL_VERSION="v1.37.0"
 export KIND_VERSION="v0.33.0"
-export KIND_CLUSTER_NAME="pocket"
+export KIND_CLUSTER_NAME="idops-pocket-k8s-cluster"
+export KIND_CLUSTER_CONFIG="idops-pocket-k8s-cluster.yaml"
+export KIND_CONTROL_PLANE_CPUS="${KIND_CONTROL_PLANE_CPUS:-2}"
+export KIND_CONTROL_PLANE_MEMORY="${KIND_CONTROL_PLANE_MEMORY:-3g}"
+export KIND_WORKER_CPUS="${KIND_WORKER_CPUS:-2}"
+export KIND_WORKER_MEMORY="${KIND_WORKER_MEMORY:-2g}"
 
 export K8S_LAB_HOME="/opt/pocket-cluster"
 export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSION}"
 export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
+export K8S_LAB_CONFIG="$K8S_LAB_ROOT/$KIND_CLUSTER_CONFIG"
 
 if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" ]]; then
   echo "The pinned kubectl or kind binary is missing or not executable:" >&2
@@ -21,9 +27,9 @@ if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" ]]; then
   return 1
 fi
 
-if [[ ! -f "$K8S_LAB_ROOT/cluster.yaml" ]]; then
+if [[ ! -f "$K8S_LAB_CONFIG" ]]; then
   echo "kind cluster config is missing:" >&2
-  echo "  $K8S_LAB_ROOT/cluster.yaml" >&2
+  echo "  $K8S_LAB_CONFIG" >&2
   return 1
 fi
 
@@ -56,7 +62,7 @@ k8s_lab_require_docker() {
 }
 
 k8s_lab_node_image() {
-  awk '/^[[:space:]]*image:[[:space:]]*/ { sub(/^[[:space:]]*image:[[:space:]]*/, ""); print; exit }' "$K8S_LAB_ROOT/cluster.yaml"
+  awk '/^[[:space:]]*image:[[:space:]]*/ { sub(/^[[:space:]]*image:[[:space:]]*/, ""); print; exit }' "$K8S_LAB_CONFIG"
 }
 
 k8s_lab_info() {
@@ -66,9 +72,35 @@ k8s_lab_info() {
   printf '  KUBECTL_VERSION:    %s\n' "$KUBECTL_VERSION"
   printf '  KIND_VERSION:       %s\n' "$KIND_VERSION"
   printf '  KIND_CLUSTER_NAME:  %s\n' "$KIND_CLUSTER_NAME"
-  printf '  cluster.yaml:       %s\n' "$K8S_LAB_ROOT/cluster.yaml"
+  printf '  cluster config:     %s\n' "$K8S_LAB_CONFIG"
   printf '  Kubernetes image:   %s\n' "$(k8s_lab_node_image)"
+  printf '  control-plane:      %s CPU, %s RAM\n' "$KIND_CONTROL_PLANE_CPUS" "$KIND_CONTROL_PLANE_MEMORY"
+  printf '  each worker:        %s CPU, %s RAM\n' "$KIND_WORKER_CPUS" "$KIND_WORKER_MEMORY"
   printf '  KUBECONFIG:         %s\n' "$KUBECONFIG"
+}
+
+k8s_lab_limit_nodes() {
+  local node role cpus mem before after restarted=0
+  for node in $(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null); do
+    role="$(docker inspect -f '{{index .Config.Labels "io.x-k8s.kind.role"}}' "$node")"
+    if [[ "$role" == "control-plane" ]]; then
+      cpus="$KIND_CONTROL_PLANE_CPUS"
+      mem="$KIND_CONTROL_PLANE_MEMORY"
+    else
+      cpus="$KIND_WORKER_CPUS"
+      mem="$KIND_WORKER_MEMORY"
+    fi
+    before="$(docker inspect -f '{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}' "$node")"
+    docker update --cpus="$cpus" --memory="$mem" --memory-swap="$mem" "$node" >/dev/null
+    after="$(docker inspect -f '{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}' "$node")"
+    if [[ "$before" != "$after" ]]; then
+      docker exec "$node" systemctl restart kubelet
+      restarted=1
+    fi
+  done
+  if [[ "$restarted" == 1 ]]; then
+    kubectl wait --for=condition=Ready node --all --timeout=180s || return 1
+  fi
 }
 
 k8s_lab_label_workers() {
@@ -85,17 +117,23 @@ k8s_lab_start() {
     chmod 0600 "$KUBECONFIG"
     echo "Cluster ${KIND_CLUSTER_NAME} already exists. kubeconfig exported."
   else
-    kind create cluster --name="$KIND_CLUSTER_NAME" --config="$K8S_LAB_ROOT/cluster.yaml" --kubeconfig="$KUBECONFIG" --wait=2m || return 1
+    kind create cluster --name="$KIND_CLUSTER_NAME" --config="$K8S_LAB_CONFIG" --kubeconfig="$KUBECONFIG" --wait=2m || return 1
     chmod 0600 "$KUBECONFIG"
   fi
+  k8s_lab_limit_nodes || return 1
   kubectl wait --for=condition=Ready node --all --timeout=180s || return 1
   k8s_lab_label_workers
 }
 
 k8s_lab_status() {
+  local nodes
   kind get clusters
   kind get nodes --name="$KIND_CLUSTER_NAME"
   kubectl get nodes -o wide
+  nodes="$(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null)"
+  if [[ -n "$nodes" ]]; then
+    docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' $nodes
+  fi
 }
 
 k8s_lab_load_image() {
@@ -115,9 +153,11 @@ k8s_lab_deactivate() {
   if [[ -n "${K8S_LAB_OLD_PATH:-}" ]]; then
     export PATH="$K8S_LAB_OLD_PATH"
   fi
-  unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KUBECONFIG
+  unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN K8S_LAB_CONFIG
+  unset KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
+  unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   unalias k 2>/dev/null || true
-  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_info k8s_lab_label_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r
   echo "Pocket Cluster environment deactivated."
 }

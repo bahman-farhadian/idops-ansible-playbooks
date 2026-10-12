@@ -10,11 +10,13 @@ Small Kubernetes on Docker. One control plane, two workers.
 
 kind (Kubernetes IN Docker) starts it. Each node is a container, so the RAM cost stays small. Extra workers help you spread Pods and run DaemonSets. Extra control planes do not help: they still share one Docker host.
 
-The Kubernetes **cluster** version is the `image:` field on every node in [cluster.yaml](cluster.yaml). The kubectl **client** version is `KUBECTL_VERSION` in the install steps. Match those two minors.
+The Kubernetes **cluster** version is the `image:` field on every node in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). The kubectl **client** version is `KUBECTL_VERSION` in the install steps. Match those two minors.
 
 Tools live under `/opt/pocket-cluster`. That is the local-software tree. `sudo` is only for creating that directory and giving it to your user. Daily `source` and `kubectl` do not need root.
 
-kind sets each node hostname when it creates the Docker container. The first worker is `pocket-worker`, the second is `pocket-worker2`. There is no `worker1`. kind config has no hostname field. `docker rename` and `hostname` inside a running node do not change the Kubernetes node name. Recreate the cluster after you change [cluster.yaml](cluster.yaml); the same naming scheme still applies.
+kind sets each node hostname when it creates the Docker container. The first worker is `idops-pocket-k8s-cluster-worker`, the second is `idops-pocket-k8s-cluster-worker2`. There is no `worker1`. kind config has no hostname field. `docker rename` and `hostname` inside a running node do not change the Kubernetes node name.
+
+kind does not cap Docker CPU or RAM. Without a cap, each node container sees the whole laptop (for example 32g). `k8s_lab_start` runs `docker update`: control-plane 2 CPU / 3g, each worker 2 CPU / 2g. Check the cap with `docker stats`. kubelet may still report host memory in `kubectl get nodes`; the Docker limit is what the container can actually use.
 
 Every command in this file is safe to run again. A second pass keeps the same pins, reuses `/opt/pocket-cluster`, and starts the cluster only if it is missing.
 
@@ -32,7 +34,7 @@ This setup provides:
 
 - native Linux `amd64` or `arm64` binaries under `/opt/pocket-cluster`;
 - a step-by-step kubectl install with a pinned version and a checksum check;
-- the cluster Kubernetes version in one file, [cluster.yaml](cluster.yaml);
+- the cluster Kubernetes version in one file, [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml);
 - one control plane and two workers, with commented samples in that file;
 - no package-manager install of `kubectl` or kind;
 - a session-scoped `PATH` and an isolated kubeconfig;
@@ -77,12 +79,14 @@ Checked **2026-10-11**. Re-check before you run: [kind releases](https://github.
 | ---------------------- | -------------------------- | ------------------------------------------------------------- |
 | `kubectl` client       | v1.37.0                    | `KUBECTL_VERSION` in Part I, then the kubectl install step    |
 | kind CLI               | v0.33.0                    | `KIND_VERSION` in Part I, then the kind install step          |
-| Kubernetes cluster     | v1.37.0                    | `image: kindest/node:v1.37.0` in [cluster.yaml](cluster.yaml) |
-| Cluster name           | pocket                     | `name:` in [cluster.yaml](cluster.yaml)                       |
-| Nodes                  | 1 control plane, 2 workers | `nodes:` in [cluster.yaml](cluster.yaml)                      |
+| Kubernetes cluster     | v1.37.0                    | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
+| Cluster name           | idops-pocket-k8s-cluster   | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                       |
+| Nodes                  | 1 control plane, 2 workers | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                      |
+| Control-plane resources| 2 CPU, 3g RAM              | `docker update` in `k8s_lab_start`                            |
+| Each worker resources  | 2 CPU, 2g RAM              | `docker update` in `k8s_lab_start`                            |
 | Install tree           | `/opt/pocket-cluster`      | Part I, create `/opt`                                         |
 
-kind has no `kubernetesVersion` key. The cluster version is the node image tag, `kindest/node:v1.37.0`, on every node in [cluster.yaml](cluster.yaml). kubectl v1.37.0 matches that minor ([version skew](https://kubernetes.io/releases/version-skew-policy/)). The CKAD exam environment was Kubernetes v1.37 as of 2026-09-30 ([Linux Foundation FAQ](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks)).
+kind has no `kubernetesVersion` key. The cluster version is the node image tag, `kindest/node:v1.37.0`, on every node in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). kubectl v1.37.0 matches that minor ([version skew](https://kubernetes.io/releases/version-skew-policy/)). The CKAD exam environment was Kubernetes v1.37 as of 2026-09-30 ([Linux Foundation FAQ](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks)).
 
 No command in this guide uses `latest`, `stable.txt`, a floating release URL, or an unversioned package-manager formula for kubectl or kind.
 
@@ -90,11 +94,11 @@ No command in this guide uses `latest`, `stable.txt`, a floating release URL, or
 
 # Part I — One-Time Setup and Configuration
 
-Run these steps from the top whenever you need the cluster. Every command is idempotent: install overwrites the same pin, `k8s_lab_start` creates the cluster only if `pocket` is missing.
+Run these steps from the top whenever you need the cluster. Every command is idempotent: install overwrites the same pin, `k8s_lab_start` creates the cluster only if `idops-pocket-k8s-cluster` is missing.
 
 Run the commands from the `pocket-cluster/` directory of this clone.
 
-Work from this directory so `cluster.yaml` and `activate` are next to you.
+Work from this directory so `idops-pocket-k8s-cluster.yaml` and `activate` are next to you.
 
 ```sh
 cd /path/to/kubernetes-lab/pocket-cluster
@@ -182,7 +186,7 @@ The next steps install a second binary under `/opt/pocket-cluster`.
 
 ## 3. Pin the Tool Versions
 
-These pins are for the **binaries on this machine**. The **cluster** Kubernetes version is the `image:` in [cluster.yaml](cluster.yaml).
+These pins are for the **binaries on this machine**. The **cluster** Kubernetes version is the `image:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml).
 
 ```sh
 export KUBECTL_VERSION="v1.37.0"
@@ -193,7 +197,7 @@ export KIND_VERSION="v0.33.0"
 ```
 
 ```sh
-export KIND_CLUSTER_NAME="pocket"
+export KIND_CLUSTER_NAME="idops-pocket-k8s-cluster"
 ```
 
 Map `uname -m` to the Kubernetes arch name.
@@ -218,7 +222,7 @@ export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSIO
 export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
 ```
 
-`KUBECTL_VERSION` must stay in the same minor as the node `image:` in [cluster.yaml](cluster.yaml) (here both are 1.37).
+`KUBECTL_VERSION` must stay in the same minor as the node `image:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) (here both are 1.37).
 
 ## 4. Create the /opt Tree
 
@@ -328,14 +332,14 @@ Expected: `kind v0.33.0` plus the Go and arch suffix.
 
 ## 7. Install the Cluster Config and Activate Script
 
-**This is where the cluster version is defined.** Open [cluster.yaml](cluster.yaml). Every node has `image: kindest/node:v1.37.0`. That image is the Kubernetes version. kind has no `kubernetesVersion` field. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster.
+**This is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. That image is the Kubernetes version. kind has no `kubernetesVersion` field. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster.
 
 The file also has commented samples: three workers, and a control-plane-only layout.
 
 Copy the config into `/opt` so daily use does not depend on the git clone path.
 
 ```sh
-cp "$GUIDE_DIR/cluster.yaml" "$K8S_LAB_ROOT/cluster.yaml"
+cp "$GUIDE_DIR/idops-pocket-k8s-cluster.yaml" "$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml"
 ```
 
 Copy [activate](activate). It restores `PATH`, `KUBECONFIG`, and the helper functions.
@@ -372,7 +376,7 @@ Layout:
 ├── current -> kubectl-v1.37.0_kind-v0.33.0
 └── kubectl-v1.37.0_kind-v0.33.0/
     ├── activate
-    ├── cluster.yaml
+    ├── idops-pocket-k8s-cluster.yaml
     └── bin/
         ├── kubectl
         └── kind
@@ -428,11 +432,17 @@ actual_kind_version="$(kind version | awk '{ print $2; exit }')"
 
 ## 11. Create the Cluster
 
+If an old cluster named `pocket` is still around, delete it first. kind delete is idempotent if that name is already gone.
+
+```sh
+kind delete cluster --name pocket
+```
+
 ```sh
 k8s_lab_start
 ```
 
-kind reads `$K8S_LAB_ROOT/cluster.yaml`: name `pocket`, one control plane, two workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if `pocket` already exists. After the cluster is up, `k8s_lab_start` labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in cluster.yaml: kubelet will refuse it at join.
+kind reads `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`: name `idops-pocket-k8s-cluster`, one control plane, two workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if `idops-pocket-k8s-cluster` already exists. After the cluster is up, `k8s_lab_start` caps each Docker node (`docker update`) and labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in the yaml: kubelet will refuse it at join.
 
 ## 12. Verify the Cluster
 
@@ -464,11 +474,11 @@ kubectl wait --for=condition=Ready node --all --timeout=180s
 kubectl get nodes
 ```
 
-Expected names: `pocket-control-plane`, `pocket-worker`, `pocket-worker2`. Expected versions: client and server `v1.37.0`. Worker `ROLES` is `worker`.
+Expected names: `idops-pocket-k8s-cluster-control-plane`, `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-cluster-worker2`. Expected versions: client and server `v1.37.0`. Worker `ROLES` is `worker`.
 
 kind names the first worker `{cluster}-worker` and the next `{cluster}-worker2`. That is the container hostname and the Kubernetes node name. You cannot set `worker1` in kind config.
 
-kind ships Rancher local-path provisioner. Default StorageClass is `standard`. kubectl context name is `kind-pocket`.
+kind ships Rancher local-path provisioner. Default StorageClass is `standard`. kubectl context name is `kind-idops-pocket-k8s-cluster`.
 
 ## 13. Confirm Isolation
 
@@ -488,7 +498,15 @@ Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube
 
 ## 14. Ship a First Application
 
-Two replicas can land on the two workers. `nginx:1.27` is an example tag for this smoke.
+Two replicas can land on the two workers. kind nodes do not see images on the host Docker daemon until you load them. Pull on the laptop, load into the cluster, then apply. That avoids a rollout wait on Docker Hub from inside the nodes.
+
+```sh
+docker pull nginx:1.27
+```
+
+```sh
+k8s_lab_load_image nginx:1.27
+```
 
 ```sh
 kubectl create namespace demo --dry-run=client -o yaml | kubectl apply -f -
@@ -503,7 +521,13 @@ kubectl create service clusterip hello --tcp=80:80 -n demo --dry-run=client -o y
 ```
 
 ```sh
-kubectl rollout status deployment/hello -n demo --timeout=120s
+kubectl rollout status deployment/hello -n demo --timeout=180s
+```
+
+If this times out, list the pods. ImagePullBackOff means the image is not on the node; run the pull and load again.
+
+```sh
+kubectl get pods -n demo -o wide
 ```
 
 ```sh
@@ -568,7 +592,7 @@ The session alias `k` is `kubectl`. Example: `k get po -A`.
 | Pinned kind binary          | Yes                        | `/opt/pocket-cluster/.../bin`                                |
 | Stable activation link      | Yes                        | `/opt/pocket-cluster/activate`                               |
 | Isolated kubeconfig         | Yes                        | under the versioned directory                                |
-| kind cluster config         | Yes                        | `$K8S_LAB_ROOT/cluster.yaml` (`image:` is the cluster version) |
+| kind cluster config         | Yes                        | `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml` (`image:` is the cluster version) |
 | Running kind nodes          | Usually yes                | Docker containers, until deleted or Docker stops             |
 | Node image in Docker        | Yes                        | Docker image cache                                           |
 | Exported variables          | No                         | Restore by sourcing `activate`                               |
@@ -581,11 +605,11 @@ After activation:
 
 | Command                          | Effect                                                                  |
 | -------------------------------- | ----------------------------------------------------------------------- |
-| `k8s_lab_info`                   | Show paths, versions, cluster name, and the `image:` from cluster.yaml  |
-| `k8s_lab_start`                  | Create from cluster.yaml, or export kubeconfig; label workers           |
+| `k8s_lab_info`                   | Show paths, versions, cluster name, and the `image:` from idops-pocket-k8s-cluster.yaml  |
+| `k8s_lab_start`                  | Create or reuse the cluster; cap Docker CPU/RAM; label workers                          |
 | `k8s_lab_status`                 | List kind clusters, node containers, and Kubernetes nodes               |
 | `k8s_lab_load_image <image>`     | Load a local Docker image into the kind nodes                           |
-| `k8s_lab_delete_cluster`         | Delete the `pocket` cluster (kind delete is idempotent)                 |
+| `k8s_lab_delete_cluster`         | Delete the `idops-pocket-k8s-cluster` cluster (kind delete is idempotent)                 |
 | `k8s_lab_deactivate`             | Restore the shell's original PATH and variables                         |
 
 ## 4. Load a Local Image
@@ -658,7 +682,7 @@ source /opt/pocket-cluster/activate
 k8s_lab_delete_cluster
 ```
 
-This removes the `pocket` containers. kubectl, kind, and `/opt/pocket-cluster` stay.
+This removes the `idops-pocket-k8s-cluster` containers. kubectl, kind, and `/opt/pocket-cluster` stay.
 
 ```sh
 k8s_lab_start
@@ -709,11 +733,11 @@ k8s_lab_activate
 Treat an upgrade as a new versioned directory under `/opt/pocket-cluster`.
 
 1. Pick a `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases).
-2. Put that tag on every `image:` line in [cluster.yaml](cluster.yaml).
+2. Put that tag on every `image:` line in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml).
 3. Set `KUBECTL_VERSION` to the same minor and install that kubectl.
 4. Recheck the CKAD exam Kubernetes version if you are studying for the exam.
-5. Copy `cluster.yaml` and `activate` into the new versioned directory.
-6. Delete the old `pocket` cluster, or use a different `name:` in cluster.yaml.
+5. Copy `idops-pocket-k8s-cluster.yaml` and `activate` into the new versioned directory.
+6. Delete the old cluster, or use a different `name:` in idops-pocket-k8s-cluster.yaml.
 7. Point `current` at the new directory.
 
 ```sh
@@ -726,7 +750,7 @@ Daily activation stays:
 source /opt/pocket-cluster/activate
 ```
 
-Two versioned environments must not share the cluster name `pocket` at the same time.
+Two versioned environments must not share the cluster name `idops-pocket-k8s-cluster` at the same time.
 
 ---
 
@@ -825,7 +849,7 @@ k8s_lab_status
 kubectl config get-contexts
 ```
 
-Context name: `kind-pocket`.
+Context name: `kind-idops-pocket-k8s-cluster`.
 
 ## The Shell Variables Disappeared
 
@@ -849,7 +873,7 @@ k8s_lab_start
 
 ## Host Port 8080 or 8443 Is Already in Use
 
-kind create fails if those host ports are taken. Stop the other process, or change `hostPort` in `$K8S_LAB_ROOT/cluster.yaml` and recreate the cluster.
+kind create fails if those host ports are taken. Stop the other process, or change `hostPort` in `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml` and recreate the cluster.
 
 ## A Pod Stays ImagePullBackOff for a Local Image
 
@@ -857,7 +881,7 @@ kind create fails if those host ports are taken. Stop the other process, or chan
 k8s_lab_load_image my-app:dev
 ```
 
-Set `imagePullPolicy: IfNotPresent`. `--name pocket` is already inside `k8s_lab_load_image`.
+Set `imagePullPolicy: IfNotPresent`. `--name idops-pocket-k8s-cluster` is already inside `k8s_lab_load_image`.
 
 ## NetworkPolicy Seems to Do Nothing
 
@@ -865,19 +889,49 @@ Apply a default-deny in a test namespace and confirm traffic is dropped. If it i
 
 ## Cgroup v1
 
-Kubernetes 1.37 expects cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgroup2fs`, use a host with cgroup v2, or pick an older `kindest/node` tag. Change every `image:` in [cluster.yaml](cluster.yaml). This file stays on 1.37.
+Kubernetes 1.37 expects cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgroup2fs`, use a host with cgroup v2, or pick an older `kindest/node` tag. Change every `image:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). This file stays on 1.37.
+
+## Rollout Timed Out / 0 Replicas Available
+
+kind nodes pull images themselves. `nginx:1.27` from Docker Hub can sit in `ImagePullBackOff` past a 120s rollout wait.
+
+```sh
+kubectl get pods -n demo -o wide
+```
+
+```sh
+kubectl describe pod -n demo
+```
+
+Pull on the laptop and load into the cluster, then wait again.
+
+```sh
+docker pull nginx:1.27
+```
+
+```sh
+k8s_lab_load_image nginx:1.27
+```
+
+```sh
+kubectl rollout status deployment/hello -n demo --timeout=180s
+```
+
+## Docker Stats Show the Whole Laptop RAM
+
+kind does not set `--memory` or `--cpus` on node containers. `k8s_lab_start` runs `docker update` (control-plane 2 CPU / 3g, workers 2 CPU / 2g). Re-source `activate` and run `k8s_lab_start` so the limits apply. Confirm with `docker stats`. kubelet may still print host RAM in `kubectl get nodes`; the Docker limit is the real cap.
 
 ## Joining Worker Nodes Failed / kubelet healthz
 
 kind create can sit on "Joining worker nodes" for about four minutes, then delete the cluster. kubeadm reports kubelet healthz on `127.0.0.1:10248` connection refused.
 
-Do not put `node-role.kubernetes.io/worker` (or any reserved `kubernetes.io` label) in [cluster.yaml](cluster.yaml) `labels:`. kind hands those to kubelet `--node-labels`. kubelet refuses them and never becomes healthy. Set the worker role after the cluster is up: `k8s_lab_start` runs `kubectl label`.
+Do not put `node-role.kubernetes.io/worker` (or any reserved `kubernetes.io` label) in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) `labels:`. kind hands those to kubelet `--node-labels`. kubelet refuses them and never becomes healthy. Set the worker role after the cluster is up: `k8s_lab_start` runs `kubectl label`.
 
-Copy the repo [cluster.yaml](cluster.yaml) and [activate](activate) into `/opt/pocket-cluster` again, then retry `k8s_lab_start`.
+Copy the repo [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) and [activate](activate) into `/opt/pocket-cluster` again, then retry `k8s_lab_start`.
 
 ## Worker Names Are Not worker1 and worker2
 
-kind sets the hostname to `pocket-worker` and `pocket-worker2`. That is also the Kubernetes node name. kind has no hostname field. `docker rename` and `hostname` inside the container do not retarget kubelet.
+kind sets the hostname to `idops-pocket-k8s-cluster-worker` and `idops-pocket-k8s-cluster-worker2`. That is also the Kubernetes node name. kind has no hostname field. `docker rename` and `hostname` inside the container do not retarget kubelet.
 
 ---
 
