@@ -68,9 +68,12 @@ k8s_lab_node_image() {
 k8s_lab_resource() {
   local role="$1" key="$2" value
   value="$(awk -v role="$role" -v key="$key" '
-    $0 ~ "^# pocket\\." key "\\." role ":" {
-      sub(/^# pocket\.[^:]+:[[:space:]]*/, "")
-      print
+    /^---$/ { doc++; next }
+    doc >= 1 && $0 ~ "^" role ":" { inrole=1; next }
+    doc >= 1 && inrole && /^[^[:space:]#]/ { inrole=0 }
+    doc >= 1 && inrole && $1 == key ":" {
+      gsub(/["'\'']/, "", $2)
+      print $2
       exit
     }
   ' "$K8S_LAB_CONFIG")"

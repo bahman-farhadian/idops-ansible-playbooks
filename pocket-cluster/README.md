@@ -16,7 +16,7 @@ Tools live under `/opt/pocket-cluster`. That is the local-software tree. `sudo` 
 
 kind sets each node hostname when it creates the Docker container. The first worker is `idops-pocket-k8s-cluster-worker`, the second is `idops-pocket-k8s-cluster-worker2`. There is no `worker1`. kind config has no hostname field. `docker rename` and `hostname` inside a running node do not change the Kubernetes node name.
 
-kind Cluster YAML (`kind.x-k8s.io/v1alpha4`) has no CPU or memory fields. A `memory:` key on a node makes `kind create` fail. Caps are stored as `pocket.*` comments in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). `k8s_lab_start` reads those comments and runs `docker update`. Check the cap with `docker stats` (`MEM USAGE / LIMIT`). `docker ps` does not show RAM. kubelet may still report host memory in `kubectl get nodes`; it reads `/proc/meminfo`.
+kind Cluster YAML (`kind.x-k8s.io/v1alpha4`) has no CPU or memory fields on a node. Those keys on the Cluster object make `kind create` fail. Caps are the live `PocketResources` document in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) after `---`. kind reads only the Cluster document. `k8s_lab_start` applies PocketResources with `docker update`. Check the cap with `docker stats` (`MEM USAGE / LIMIT`). `docker ps` does not show RAM. kubelet may still report host memory in `kubectl get nodes`; it reads `/proc/meminfo`.
 
 Every command in this file is safe to run again. A second pass keeps the same pins, reuses `/opt/pocket-cluster`, and starts the cluster only if it is missing.
 
@@ -919,7 +919,7 @@ kubectl rollout status deployment/hello -n demo --timeout=180s
 
 ## Docker Stats Show the Whole Laptop RAM
 
-kind YAML cannot set `--memory` or `--cpus`. Caps are the `pocket.*` comments in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). `k8s_lab_start` applies them with `docker update`. Confirm with `docker stats` (`180MiB / 2GiB` means the cap is 2GiB). `docker ps` has no memory column. kubelet may still print host RAM in `kubectl get nodes`.
+kind YAML cannot set `--memory` or `--cpus` on the Cluster object. Caps are the `PocketResources` document in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). `k8s_lab_start` applies them with `docker update`. Confirm with `docker stats` (`180MiB / 2GiB` means the cap is 2GiB). `docker ps` has no memory column. kubelet may still print host RAM in `kubectl get nodes`.
 
 ## Joining Worker Nodes Failed / kubelet healthz
 
