@@ -5,10 +5,10 @@
 # Use the same image on the control plane and on each worker.
 #
 # Cluster name is idops-pocket-k8s-cluster. kind then names nodes
-# idops-pocket-k8s-cluster-control-plane, ...-worker, ...-worker2.
-# There is no worker1. kind config has no hostname field.
+# idops-pocket-k8s-cluster-control-plane, ...-worker, ...-worker2,
+# ...-worker3. There is no worker1. kind config has no hostname field.
 #
-# Shape: one control plane, two workers. Extra workers help with
+# Shape: one control plane, three workers. Extra workers help with
 # DaemonSet, nodeSelector, and spread. Extra control planes do not add
 # HA here: every node is a container on one Docker host.
 #
@@ -42,11 +42,13 @@ nodes:
     image: kindest/node:v1.37.0
   - role: worker
     image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0
 
 # ---------------------------------------------------------------------------
-# Sample: one control plane, three workers.
-# More scheduling room. Uses more RAM. Copy this `nodes:` list over the
-# list above, then recreate the cluster. Keep a single control-plane.
+# Sample: one control plane, two workers.
+# Copy this `nodes:` list over the list above, then recreate the cluster.
+# Keep a single control-plane.
 #
 # nodes:
 #   - role: control-plane
@@ -58,8 +60,6 @@ nodes:
 #       - containerPort: 443
 #         hostPort: 8443
 #         protocol: TCP
-#   - role: worker
-#     image: kindest/node:v1.37.0
 #   - role: worker
 #     image: kindest/node:v1.37.0
 #   - role: worker

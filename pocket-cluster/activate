@@ -134,8 +134,25 @@ k8s_lab_label_workers() {
   kubectl label --overwrite $nodes node-role.kubernetes.io/worker=worker
 }
 
+k8s_lab_desired_workers() {
+  awk '/^[[:space:]]*- role: worker[[:space:]]*$/ { c++ } END { print c+0 }' "$K8S_LAB_CONFIG"
+}
+
+k8s_lab_actual_workers() {
+  kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null | grep -c worker || true
+}
+
 k8s_lab_start() {
+  local desired actual
   k8s_lab_require_docker || return 1
+  desired="$(k8s_lab_desired_workers)"
+  if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
+    actual="$(k8s_lab_actual_workers)"
+    if [[ "$actual" != "$desired" ]]; then
+      echo "Cluster ${KIND_CLUSTER_NAME} has ${actual} workers, yaml wants ${desired}. Recreating."
+      kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+    fi
+  fi
   if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
     kind export kubeconfig --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
     chmod 0600 "$KUBECONFIG"
@@ -181,7 +198,7 @@ k8s_lab_deactivate() {
   unset KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
   unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   unalias k 2>/dev/null || true
-  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r
   echo "Pocket Cluster environment deactivated."
 }

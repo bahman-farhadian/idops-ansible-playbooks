@@ -72,7 +72,7 @@ Each row is under 128 GB. They are not added together. vCPU, disk, and the per-V
 1. **Stacked — current task.** On **Debian 13 first**, walk 02 → 09, then [11-update-kubernetes.md](11-update-kubernetes.md), then [12-update-ceph.md](12-update-ceph.md). Ubuntu 26 is the same path later, not at the same time.
 2. **External etcd** — same spine, the other bootstrap section in [05-deploy-kubernetes.md](05-deploy-kubernetes.md), after the stacked cluster has been removed.
 3. **Applications** — [apps/](apps/README.md), MariaDB Galera and PostgreSQL. Not part of the cluster bring-up. Open that directory only after step 1 has passed the smoke test.
-4. **Pocket Cluster** — [pocket-cluster/](pocket-cluster/README.md). Linux + Docker, one control plane and two workers, usable now while the VMs are still being delivered.
+4. **Pocket Cluster** — [pocket-cluster/](pocket-cluster/README.md). Linux + Docker, one control plane and three workers, usable now while the VMs are still being delivered.
 
 Record the exact pinned component versions used on each run in [15-deployment-log.md](15-deployment-log.md).
 

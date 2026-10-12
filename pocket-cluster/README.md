@@ -1,6 +1,6 @@
 # Pocket Cluster
 
-Small Kubernetes on Docker. One control plane, two workers.
+Small Kubernetes on Docker. One control plane, three workers.
 
 **Goal:** Learn how to ship applications (CKAD) and test manifests on a Linux box that already has Docker. Three containers. No kubeadm HA, no keepalived, no Ceph.
 
@@ -14,7 +14,7 @@ The Kubernetes **cluster** version is the `image:` field on every node in [idops
 
 Tools live under `/opt/pocket-cluster`. That is the local-software tree. `sudo` is only for creating that directory and giving it to your user. Daily `source` and `kubectl` do not need root.
 
-kind sets each node hostname when it creates the Docker container. The first worker is `idops-pocket-k8s-cluster-worker`, the second is `idops-pocket-k8s-cluster-worker2`. There is no `worker1`. kind config has no hostname field. `docker rename` and `hostname` inside a running node do not change the Kubernetes node name.
+kind sets each node hostname when it creates the Docker container. Workers are `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-cluster-worker2`, `idops-pocket-k8s-cluster-worker3`. There is no `worker1`. kind config has no hostname field. `docker rename` and `hostname` inside a running node do not change the Kubernetes node name.
 
 kind Cluster YAML (`kind.x-k8s.io/v1alpha4`) has no CPU or memory fields on a node. Those keys on the Cluster object make `kind create` fail. Caps are the live `PocketResources` document in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) after `---`. kind reads only the Cluster document. `k8s_lab_start` applies PocketResources with `docker update`. Check the cap with `docker stats` (`MEM USAGE / LIMIT`). `docker ps` does not show RAM. kubelet may still report host memory in `kubectl get nodes`; it reads `/proc/meminfo`.
 
@@ -35,7 +35,7 @@ This setup provides:
 - native Linux `amd64` or `arm64` binaries under `/opt/pocket-cluster`;
 - a step-by-step kubectl install with a pinned version and a checksum check;
 - the cluster Kubernetes version in one file, [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml);
-- one control plane and two workers, with commented samples in that file;
+- one control plane and three workers, with commented samples in that file;
 - no package-manager install of `kubectl` or kind;
 - a session-scoped `PATH` and an isolated kubeconfig;
 - a stable activation command after you close the terminal.
@@ -81,7 +81,7 @@ Checked **2026-10-11**. Re-check before you run: [kind releases](https://github.
 | kind CLI               | v0.33.0                    | `KIND_VERSION` in Part I, then the kind install step          |
 | Kubernetes cluster     | v1.37.0                    | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
 | Cluster name           | idops-pocket-k8s-cluster   | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                       |
-| Nodes                  | 1 control plane, 2 workers | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                      |
+| Nodes                  | 1 control plane, 3 workers | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                      |
 | Control-plane resources| 2 CPU, 3g RAM              | `docker update` in `k8s_lab_start`                            |
 | Each worker resources  | 2 CPU, 2g RAM              | `docker update` in `k8s_lab_start`                            |
 | Install tree           | `/opt/pocket-cluster`      | Part I, create `/opt`                                         |
@@ -94,7 +94,7 @@ No command in this guide uses `latest`, `stable.txt`, a floating release URL, or
 
 # Part I — One-Time Setup and Configuration
 
-Run these steps from the top whenever you need the cluster. Every command is idempotent: install overwrites the same pin, `k8s_lab_start` creates the cluster only if `idops-pocket-k8s-cluster` is missing.
+Run these steps from the top whenever you need the cluster. Every command is idempotent: install overwrites the same pin, `k8s_lab_start` creates the cluster if it is missing, and recreates it if the worker count in the yaml changed.
 
 Run the commands from the `pocket-cluster/` directory of this clone.
 
@@ -442,7 +442,7 @@ kind delete cluster --name pocket
 k8s_lab_start
 ```
 
-kind reads `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`: name `idops-pocket-k8s-cluster`, one control plane, two workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if `idops-pocket-k8s-cluster` already exists. After the cluster is up, `k8s_lab_start` caps each Docker node (`docker update`) and labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in the yaml: kubelet will refuse it at join.
+kind reads `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`: name `idops-pocket-k8s-cluster`, one control plane, three workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if the cluster already exists and the worker count matches the yaml. If the yaml wants more workers than the running cluster has, `k8s_lab_start` deletes and recreates. After the cluster is up, it caps each Docker node (`docker update`) and labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in the yaml: kubelet will refuse it at join.
 
 ## 12. Verify the Cluster
 
@@ -474,9 +474,9 @@ kubectl wait --for=condition=Ready node --all --timeout=180s
 kubectl get nodes
 ```
 
-Expected names: `idops-pocket-k8s-cluster-control-plane`, `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-cluster-worker2`. Expected versions: client and server `v1.37.0`. Worker `ROLES` is `worker`.
+Expected names: `idops-pocket-k8s-cluster-control-plane`, `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-cluster-worker2`, `idops-pocket-k8s-cluster-worker3`. Expected versions: client and server `v1.37.0`. Worker `ROLES` is `worker`.
 
-kind names the first worker `{cluster}-worker` and the next `{cluster}-worker2`. That is the container hostname and the Kubernetes node name. You cannot set `worker1` in kind config.
+kind names the first worker `{cluster}-worker`, then `{cluster}-worker2`, `{cluster}-worker3`. That is the container hostname and the Kubernetes node name. You cannot set `worker1` in kind config.
 
 kind ships Rancher local-path provisioner. Default StorageClass is `standard`. kubectl context name is `kind-idops-pocket-k8s-cluster`.
 
@@ -498,7 +498,7 @@ Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube
 
 ## 14. Ship a First Application
 
-Two replicas can land on the two workers. kind nodes do not see images on the host Docker daemon until you load them. Pull on the laptop, load into the cluster, then apply. That avoids a rollout wait on Docker Hub from inside the nodes.
+Replicas can land on the three workers. kind nodes do not see images on the host Docker daemon until you load them. Pull on the laptop, load into the cluster, then apply. That avoids a rollout wait on Docker Hub from inside the nodes.
 
 ```sh
 docker pull nginx:1.27
@@ -763,7 +763,7 @@ This cluster is for practice. It is not the exam environment and it is not a dum
 | Domain                                                      | Weight | What works on this cluster out of the box                                                                                      |
 | ----------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Application Environment, Configuration and Security         | 25%    | ConfigMaps, Secrets, ServiceAccounts, SecurityContext, requests/limits/quotas                                                  |
-| Application Design and Build                                | 20%    | Deployments, DaemonSets (two workers), Jobs, CronJobs, multi-container Pods, local-path PVCs (`standard`)                      |
+| Application Design and Build                                | 20%    | Deployments, DaemonSets (three workers), Jobs, CronJobs, multi-container Pods, local-path PVCs (`standard`)                    |
 | Application Deployment                                      | 20%    | Rolling updates, canary via two Deployments + Service labels, `kubectl apply -k` (Kustomize is in kubectl)                     |
 | Services and Networking                                     | 20%    | ClusterIP/NodePort Services, NetworkPolicy on kindnet, Ingress objects (an ingress controller is still required to serve HTTP) |
 | Application Observability and Maintenance                   | 15%    | probes, `kubectl logs`, `kubectl exec`, `kubectl describe`, debug Pods                                                         |
