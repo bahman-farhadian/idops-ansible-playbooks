@@ -82,7 +82,7 @@ Checked **2026-10-11**. Re-check before you run: [kind releases](https://github.
 | Kubernetes cluster     | v1.37.0                    | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
 | Cluster name           | idops-pocket-k8s-cluster   | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                       |
 | Nodes                  | 1 control plane, 3 workers | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                      |
-| Control-plane resources| 2 CPU, 3g RAM              | `docker update` in `k8s_lab_start`                            |
+| Control-plane resources| 2 CPU, 2g RAM              | `docker update` in `k8s_lab_start`                            |
 | Each worker resources  | 2 CPU, 2g RAM              | `docker update` in `k8s_lab_start`                            |
 | Install tree           | `/opt/pocket-cluster`      | Part I, create `/opt`                                         |
 
@@ -931,7 +931,7 @@ Copy the repo [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) and
 
 ## Worker Names Are Not worker1 and worker2
 
-kind sets the hostname to `idops-pocket-k8s-cluster-worker` and `idops-pocket-k8s-cluster-worker2`. That is also the Kubernetes node name. kind has no hostname field. `docker rename` and `hostname` inside the container do not retarget kubelet.
+kind sets the hostname to `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-cluster-worker2`, `idops-pocket-k8s-cluster-worker3`. That is also the Kubernetes node name. kind has no hostname field. `docker rename` and `hostname` inside the container do not retarget kubelet.
 
 ---
 

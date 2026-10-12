@@ -83,7 +83,7 @@ nodes:
 kind: PocketResources
 control-plane:
   cpus: "2"
-  memory: "3g"
+  memory: "2g"
 worker:
   cpus: "2"
   memory: "2g"
