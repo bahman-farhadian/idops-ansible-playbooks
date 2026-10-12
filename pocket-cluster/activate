@@ -65,6 +65,18 @@ k8s_lab_node_image() {
   awk '/^[[:space:]]*image:[[:space:]]*/ { sub(/^[[:space:]]*image:[[:space:]]*/, ""); print; exit }' "$K8S_LAB_CONFIG"
 }
 
+k8s_lab_resource() {
+  local role="$1" key="$2" value
+  value="$(awk -v role="$role" -v key="$key" '
+    $0 ~ "^# pocket\\." key "\\." role ":" {
+      sub(/^# pocket\.[^:]+:[[:space:]]*/, "")
+      print
+      exit
+    }
+  ' "$K8S_LAB_CONFIG")"
+  printf '%s\n' "$value"
+}
+
 k8s_lab_info() {
   printf 'Pocket Cluster\n'
   printf '  kubectl:            %s\n' "$(command -v kubectl 2>/dev/null || printf 'not found')"
@@ -81,6 +93,15 @@ k8s_lab_info() {
 
 k8s_lab_limit_nodes() {
   local node role cpus mem before after restarted=0
+  KIND_CONTROL_PLANE_CPUS="$(k8s_lab_resource control-plane cpus)"
+  KIND_CONTROL_PLANE_MEMORY="$(k8s_lab_resource control-plane memory)"
+  KIND_WORKER_CPUS="$(k8s_lab_resource worker cpus)"
+  KIND_WORKER_MEMORY="$(k8s_lab_resource worker memory)"
+  KIND_CONTROL_PLANE_CPUS="${KIND_CONTROL_PLANE_CPUS:-2}"
+  KIND_CONTROL_PLANE_MEMORY="${KIND_CONTROL_PLANE_MEMORY:-3g}"
+  KIND_WORKER_CPUS="${KIND_WORKER_CPUS:-2}"
+  KIND_WORKER_MEMORY="${KIND_WORKER_MEMORY:-2g}"
+  export KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   for node in $(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null); do
     role="$(docker inspect -f '{{index .Config.Labels "io.x-k8s.kind.role"}}' "$node")"
     if [[ "$role" == "control-plane" ]]; then
@@ -157,7 +178,7 @@ k8s_lab_deactivate() {
   unset KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
   unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   unalias k 2>/dev/null || true
-  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r
   echo "Pocket Cluster environment deactivated."
 }

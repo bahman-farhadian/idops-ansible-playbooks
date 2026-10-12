@@ -12,9 +12,16 @@
 # DaemonSet, nodeSelector, and spread. Extra control planes do not add
 # HA here: every node is a container on one Docker host.
 #
-# kind does not set Docker CPU or memory on nodes. Without a cap each
-# container sees the whole laptop. k8s_lab_start runs docker update:
-# control-plane 2 CPU / 3g, each worker 2 CPU / 2g.
+# kind Cluster YAML has no cpu/memory fields (kind v1alpha4). Adding them
+# makes kind create fail. Caps live in the pocket.* comments below.
+# k8s_lab_start reads them and runs docker update. Confirm with docker stats
+# (MEM USAGE / LIMIT). docker ps does not show RAM. kubectl get nodes may
+# still print host RAM; kubelet reads /proc/meminfo.
+#
+# pocket.cpus.control-plane: 2
+# pocket.memory.control-plane: 3g
+# pocket.cpus.worker: 2
+# pocket.memory.worker: 2g
 #
 # Do not set node-role.kubernetes.io/* here. kind passes extra labels to
 # kubelet --node-labels. kubelet refuses reserved kubernetes.io labels and
