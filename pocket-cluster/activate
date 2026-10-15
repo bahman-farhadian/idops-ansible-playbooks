@@ -9,6 +9,8 @@ fi
 
 export KUBECTL_VERSION="v1.37.0"
 export KIND_VERSION="v0.33.0"
+export HELM_VERSION="v3.22.0"
+export TRAEFIK_CHART_VERSION="41.7.1"
 export KIND_CLUSTER_NAME="idops-pocket-k8s-cluster"
 export KIND_CLUSTER_CONFIG="idops-pocket-k8s-cluster.yaml"
 export KIND_CONTROL_PLANE_CPUS="${KIND_CONTROL_PLANE_CPUS:-2}"
@@ -21,8 +23,8 @@ export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSIO
 export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
 export K8S_LAB_CONFIG="$K8S_LAB_ROOT/$KIND_CLUSTER_CONFIG"
 
-if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" ]]; then
-  echo "The pinned kubectl or kind binary is missing or not executable:" >&2
+if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" || ! -x "$K8S_LAB_BIN/helm" ]]; then
+  echo "The pinned kubectl, kind, or helm binary is missing or not executable:" >&2
   echo "  $K8S_LAB_BIN" >&2
   return 1
 fi
@@ -81,8 +83,11 @@ k8s_lab_info() {
   printf 'Pocket Cluster\n'
   printf '  kubectl:            %s\n' "$(command -v kubectl 2>/dev/null || printf 'not found')"
   printf '  kind:               %s\n' "$(command -v kind 2>/dev/null || printf 'not found')"
+  printf '  helm:               %s\n' "$(command -v helm 2>/dev/null || printf 'not found')"
   printf '  KUBECTL_VERSION:    %s\n' "$KUBECTL_VERSION"
   printf '  KIND_VERSION:       %s\n' "$KIND_VERSION"
+  printf '  HELM_VERSION:       %s\n' "$HELM_VERSION"
+  printf '  TRAEFIK_CHART:      %s\n' "$TRAEFIK_CHART_VERSION"
   printf '  KIND_CLUSTER_NAME:  %s\n' "$KIND_CLUSTER_NAME"
   printf '  cluster config:     %s\n' "$K8S_LAB_CONFIG"
   printf '  Kubernetes image:   %s\n' "$(k8s_lab_node_image)"
@@ -151,6 +156,9 @@ k8s_lab_start() {
     elif ! docker port "${KIND_CLUSTER_NAME}-control-plane" 30080 2>/dev/null | grep -q 8080; then
       echo "Cluster ${KIND_CLUSTER_NAME} does not map host 8080 to NodePort 30080. Recreating."
       kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+    elif ! docker port "${KIND_CLUSTER_NAME}-control-plane" 30443 2>/dev/null | grep -q 8443; then
+      echo "Cluster ${KIND_CLUSTER_NAME} does not map host 8443 to NodePort 30443. Recreating."
+      kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
     fi
   fi
   if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
@@ -195,7 +203,7 @@ k8s_lab_deactivate() {
     export PATH="$K8S_LAB_OLD_PATH"
   fi
   unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN K8S_LAB_CONFIG
-  unset KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
+  unset KUBECTL_VERSION KIND_VERSION HELM_VERSION TRAEFIK_CHART_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
   unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r

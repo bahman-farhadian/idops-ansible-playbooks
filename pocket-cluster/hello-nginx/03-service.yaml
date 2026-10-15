@@ -1,5 +1,5 @@
-# NodePort 30080 matches extraPortMappings on the control-plane
-# (laptop :8080 -> node :30080).
+# ClusterIP only. The host reaches this Service through Traefik Ingress,
+# not through a NodePort on the app.
 apiVersion: v1
 kind: Service
 metadata:
@@ -8,11 +8,10 @@ metadata:
   labels:
     app: hello-nginx
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: hello-nginx
   ports:
     - name: http
       port: 80
       targetPort: http
-      nodePort: 30080

@@ -1,0 +1,20 @@
+# Ingress for Traefik. Host hello.localhost on the laptop:
+# curl -sS -H "Host: hello.localhost" http://127.0.0.1:8080
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-nginx
+  namespace: idops-nginx-demo
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: hello.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hello-nginx
+                port:
+                  number: 80

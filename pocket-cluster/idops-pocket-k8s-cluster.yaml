@@ -22,8 +22,8 @@
 # the worker kubelet never becomes healthy. Set the worker role after
 # create with kubectl label (k8s_lab_start does this).
 #
-# extraPortMappings: laptop :8080 reaches NodePort 30080 on the control-plane
-# (hello-nginx Service). :8443 maps node :443 for later TLS.
+# extraPortMappings: laptop :8080 -> Traefik NodePort 30080 (HTTP).
+# laptop :8443 -> Traefik NodePort 30443 (HTTPS, unused until TLS).
 
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -35,7 +35,7 @@ nodes:
       - containerPort: 30080
         hostPort: 8080
         protocol: TCP
-      - containerPort: 443
+      - containerPort: 30443
         hostPort: 8443
         protocol: TCP
   - role: worker

@@ -1,12 +1,12 @@
 # idops-demo-hello-nginx
 
-Six stateless nginx Pods on Pocket Cluster. Each response prints the Pod hostname. You reach the app from the laptop at `http://127.0.0.1:8080`.
+Six stateless nginx Pods on Pocket Cluster. Each response prints the Pod hostname. You reach the app from the laptop through Traefik at `http://127.0.0.1:8080` with Host `hello.localhost`.
 
 ## Teaching Note
 
-Apply objects in this order: namespace, then config, then Pods, then the Service. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim. A ConfigMap holds the nginx page.
+Apply objects in this order: namespace, then config, then Pods, then the Service, then the Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim. A ConfigMap holds the nginx page.
 
-The Service is NodePort `30080`. kind maps that port on the control-plane node to port `8080` on the host (`extraPortMappings` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)).
+The Service is ClusterIP. Traefik is the door: Ingress `hello.localhost` on the Traefik NodePort that kind maps to host port `8080`. Install Traefik first: [idops-pocket-traefik.md](idops-pocket-traefik.md).
 
 Type `kubectl`. There is no `k` alias.
 
@@ -14,7 +14,7 @@ Every command here is safe to run again.
 
 ## Prerequisites
 
-Pocket Cluster is running. Follow [README.md](README.md) Part I, then:
+Pocket Cluster is running and Traefik is installed.
 
 ```sh
 source /opt/pocket-cluster/activate
@@ -24,15 +24,7 @@ source /opt/pocket-cluster/activate
 k8s_lab_start
 ```
 
-If this cluster was created when `8080` still mapped to node port `80`, delete and start so the mapping is `30080`.
-
-```sh
-k8s_lab_delete_cluster
-```
-
-```sh
-k8s_lab_start
-```
+Follow [idops-pocket-traefik.md](idops-pocket-traefik.md) if `kubectl get ingressclass traefik` fails.
 
 ## 1. Load the nginx Image
 
@@ -94,24 +86,32 @@ Expected: six Running Pods on the workers.
 
 ## 6. Service
 
-Publish NodePort `30080` so the host can reach the Pods.
+ClusterIP only. The host does not talk to this port directly.
 
 ```sh
 kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
 ```
 
+## 7. Ingress
+
+Traefik reads this object and routes Host `hello.localhost` to the Service.
+
 ```sh
-kubectl get deploy,po,svc -n idops-nginx-demo -o wide
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/04-ingress.yaml"
 ```
 
-Expected: Deployment `hello-nginx` 6/6, Service type NodePort `80:30080/TCP`.
+```sh
+kubectl get deploy,po,svc,ingress -n idops-nginx-demo -o wide
+```
 
-## 7. Access from the Host
+Expected: Deployment `hello-nginx` 6/6, Service type ClusterIP, Ingress host `hello.localhost` class `traefik`.
 
-Hit the app from outside the cluster. Run curl several times. The `pod=` line is the Pod that served that request.
+## 8. Access from the Host
+
+Hit the app from outside the cluster through Traefik. The Host header must match the Ingress rule. Run curl several times. The `pod=` line is the Pod that served that request.
 
 ```sh
-curl -sS http://127.0.0.1:8080
+curl -sS -H "Host: hello.localhost" http://127.0.0.1:8080
 ```
 
 Expected body:
@@ -121,7 +121,7 @@ Pocket Cluster
 pod=hello-nginx-xxxxxxxx-xxxxx
 ```
 
-## 8. Logs
+## 9. Logs
 
 nginx writes access logs to stdout.
 
@@ -135,7 +135,7 @@ If a replica is not Ready:
 kubectl describe pod -n idops-nginx-demo -l app=hello-nginx
 ```
 
-## 9. Remove the App
+## 10. Remove the App
 
 The cluster stays.
 
@@ -171,7 +171,15 @@ kubectl rollout status deployment/hello-nginx -n idops-nginx-demo --timeout=180s
 
 ### curl to localhost:8080 Fails
 
-kind maps laptop `:8080` to NodePort `30080` on the control-plane. If this cluster was created with `:8080` mapped to node `:80`, delete and start, then apply again in order.
+Send the Host header. Traefik 404 without it.
+
+```sh
+curl -sS -H "Host: hello.localhost" http://127.0.0.1:8080
+```
+
+Confirm Traefik is Ready: [idops-pocket-traefik.md](idops-pocket-traefik.md).
+
+kind maps laptop `:8080` to Traefik NodePort `30080`. If this cluster was created with `:8080` mapped to node `:80`, delete and start, then apply Traefik and this app again.
 
 ```sh
 k8s_lab_delete_cluster
@@ -179,20 +187,4 @@ k8s_lab_delete_cluster
 
 ```sh
 k8s_lab_start
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/00-namespace.yaml"
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/01-configmap.yaml"
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/02-deployment.yaml"
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
 ```
