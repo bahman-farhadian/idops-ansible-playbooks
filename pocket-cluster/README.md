@@ -20,12 +20,16 @@ kind Cluster YAML (`kind.x-k8s.io/v1alpha4`) has no CPU or memory fields on a no
 
 Every command in this file is safe to run again. A second pass keeps the same pins, reuses `/opt/pocket-cluster`, and starts the cluster only if it is missing.
 
+## Follow Order
+
+1. This [README.md](README.md) — deploy Pocket Cluster (tools, kind, cloud-provider-kind, `k8s_lab_start`).
+2. [hello-nginx/README.md](hello-nginx/README.md) — first app (namespace `idops-nginx-demo`, six nginx Pods, Ingress). Curl the Ingress IP, not 127.0.0.1.
+
 ## Contents
 
 - [Part I — One-Time Setup and Configuration](#part-i--one-time-setup-and-configuration)
 - [Part II — Daily Use and Lifecycle](#part-ii--daily-use-and-lifecycle)
-- [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md)
-- [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md)
+- [hello-nginx/README.md](hello-nginx/README.md)
 - [CKAD Practice Map](#ckad-practice-map)
 - [Troubleshooting](#troubleshooting)
 - [Official References](#official-references)
@@ -561,7 +565,13 @@ kind delete cluster --name pocket
 k8s_lab_start
 ```
 
-kind reads `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`: name `idops-pocket-k8s-cluster`, one control plane, three workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if the cluster already exists and the worker count matches the yaml. If the yaml wants more workers than the running cluster has, `k8s_lab_start` deletes and recreates. After the cluster is up, it caps each Docker node (`docker update`) and labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in the yaml: kubelet will refuse it at join.
+kind reads `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`: name `idops-pocket-k8s-cluster`, one control plane, three workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if the cluster already exists and the worker count matches the yaml. If the yaml wants more workers than the running cluster has, `k8s_lab_start` deletes and recreates. After the cluster is up, it caps each Docker node (`docker update`), labels workers, and starts Cloud Provider KIND so Ingress gets an ADDRESS on the docker network. Do not put a worker role label in the yaml: kubelet will refuse it at join.
+
+Confirm Cloud Provider KIND is running:
+
+```sh
+tail -n 20 "$K8S_LAB_ROOT/cloud-provider-kind.log"
+```
 
 ## 14. Verify the Cluster
 
@@ -617,7 +627,7 @@ Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube
 
 ## 16. Ship a First Application
 
-kind has no addon system. Ingress uses Cloud Provider KIND: [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md). Then ship the sample app: [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md). Curl the Ingress ADDRESS IP, not 127.0.0.1.
+Deployment of the cluster is this README. The first app is [hello-nginx/README.md](hello-nginx/README.md). Follow that file next. Curl the Ingress ADDRESS IP, not 127.0.0.1.
 
 ---
 
@@ -845,10 +855,10 @@ Add later, when a domain needs it:
 
 - **Helm 3** — CKAD lists Helm. Install a pinned tarball the same way [05-deploy-kubernetes.md](../05-deploy-kubernetes.md) does on the bastion. Debian's apt package named `helm` is Emacs.
 - **metrics-server** — needed for `kubectl top` and HorizontalPodAutoscaler. kind does not ship it.
-- **Ingress** — Cloud Provider KIND. See [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md). Curl the Ingress IP, not localhost.
+- **Ingress** — Cloud Provider KIND, started by `k8s_lab_start`. Curl the Ingress IP, not localhost. See [hello-nginx/README.md](hello-nginx/README.md).
 - **Calico** — only if you disable kindnet (`networking.disableDefaultCNI: true`) and replace it. Default kindnet in kind v0.33.x includes a NetworkPolicy controller; confirm with a deny-all test the first time you study that domain.
 
-Exam-day habits to use here: `k` as kubectl, `--dry-run=client -o yaml` into a file, then `kubectl apply -f`, and the official Kubernetes docs as the reference.
+Exam-day habits: type `kubectl`, `--dry-run=client -o yaml` into a file, then `kubectl apply -f`, and the official Kubernetes docs as the reference.
 
 ---
 
@@ -966,7 +976,23 @@ Kubernetes 1.37 expects cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgrou
 
 ## First App (nginx)
 
-Application steps, logs, host access, and app-specific failures are in [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md).
+Application steps, logs, host access, and app-specific failures are in [hello-nginx/README.md](hello-nginx/README.md).
+
+## Ingress ADDRESS Stays Empty
+
+Cloud Provider KIND is not running, or it cannot talk to Docker.
+
+```sh
+source /opt/pocket-cluster/activate
+```
+
+```sh
+k8s_lab_start
+```
+
+```sh
+tail -n 50 "$K8S_LAB_ROOT/cloud-provider-kind.log"
+```
 
 ## Docker Stats Show the Whole Laptop RAM
 
@@ -992,6 +1018,7 @@ kind sets the hostname to `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-c
 - [kind Configuration](https://kind.sigs.k8s.io/docs/user/configuration/)
 - [kind Known Issues](https://kind.sigs.k8s.io/docs/user/known-issues/)
 - [kind Ingress](https://kind.sigs.k8s.io/docs/user/ingress/)
+- [kind LoadBalancer / Cloud Provider KIND](https://kind.sigs.k8s.io/docs/user/loadbalancer/)
 - [Install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
 - [Kubernetes releases](https://kubernetes.io/releases/)
 - [Kubernetes version-skew policy](https://kubernetes.io/releases/version-skew-policy/)

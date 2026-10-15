@@ -1,18 +1,20 @@
-# idops-demo-hello-nginx
+# hello-nginx
 
-Six stateless nginx Pods on Pocket Cluster. Each response prints the Pod hostname. You reach the app by curling the Ingress ADDRESS that Cloud Provider KIND assigns. Do not curl 127.0.0.1.
+Six stateless nginx Pods on Pocket Cluster. Each response prints the Pod hostname. Curl the Ingress ADDRESS that Cloud Provider KIND assigns. Do not curl 127.0.0.1.
 
 ## Teaching Note
 
 Apply objects in this order: namespace, then config, then Pods, then the Service, then the Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim. A ConfigMap holds the nginx page.
 
-The Service is ClusterIP. Cloud Provider KIND is the door: it gives the Ingress an external IP on the docker network. Start it with [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md). `k8s_lab_start` starts that process.
+The Service is ClusterIP. Cloud Provider KIND gives the Ingress an external IP on the docker network. Deploy the cluster first: [../README.md](../README.md). `k8s_lab_start` starts that process.
 
 Type `kubectl`. There is no `k` alias.
 
 Every command here is safe to run again.
 
 ## Prerequisites
+
+The cluster is up from [../README.md](../README.md).
 
 ```sh
 source /opt/pocket-cluster/activate
@@ -175,10 +177,14 @@ kubectl rollout status deployment/hello-nginx -n idops-nginx-demo --timeout=180s
 
 ### Ingress ADDRESS Is Empty / curl Fails
 
-Cloud Provider KIND must be running. Follow [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md).
+Cloud Provider KIND must be running. Go back to [../README.md](../README.md) and run `k8s_lab_start`.
 
 ```sh
 k8s_lab_start
+```
+
+```sh
+tail -n 50 "$K8S_LAB_ROOT/cloud-provider-kind.log"
 ```
 
 ```sh
