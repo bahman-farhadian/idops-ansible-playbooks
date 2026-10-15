@@ -342,6 +342,12 @@ Copy the config into `/opt` so daily use does not depend on the git clone path.
 cp "$GUIDE_DIR/idops-pocket-k8s-cluster.yaml" "$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml"
 ```
 
+Copy the first-app manifest so `kubectl apply` works from any directory after activation.
+
+```sh
+cp "$GUIDE_DIR/hello-nginx.yaml" "$K8S_LAB_ROOT/hello-nginx.yaml"
+```
+
 Copy [activate](activate). It restores `PATH`, `KUBECONFIG`, and the helper functions.
 
 ```sh
@@ -376,6 +382,7 @@ Layout:
 ├── current -> kubectl-v1.37.0_kind-v0.33.0
 └── kubectl-v1.37.0_kind-v0.33.0/
     ├── activate
+    ├── hello-nginx.yaml
     ├── idops-pocket-k8s-cluster.yaml
     └── bin/
         ├── kubectl
@@ -498,7 +505,19 @@ Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube
 
 ## 14. Ship a First Application
 
-Replicas can land on the three workers. kind nodes do not see images on the host Docker daemon until you load them. Pull on the laptop, load into the cluster, then apply. That avoids a rollout wait on Docker Hub from inside the nodes.
+[hello-nginx.yaml](hello-nginx.yaml) is a stateless nginx app: six identical Pods, one Service. Each response body is the Pod hostname (`$hostname` in nginx), so you can see the Service pick a different replica. The Service is NodePort `30080`. kind maps that port on the control-plane node to `http://127.0.0.1:8080` on the laptop (`extraPortMappings` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)).
+
+If this cluster was created when `8080` still mapped to node port `80`, delete and start so the mapping is `30080`. kind delete is idempotent if the cluster is already gone.
+
+```sh
+k8s_lab_delete_cluster
+```
+
+```sh
+k8s_lab_start
+```
+
+kind nodes do not see images on the host Docker daemon until you load them. Pull on the laptop, then load.
 
 ```sh
 docker pull nginx:1.27
@@ -508,42 +527,53 @@ docker pull nginx:1.27
 k8s_lab_load_image nginx:1.27
 ```
 
+Apply the manifest. `kubectl apply` is idempotent.
+
 ```sh
-kubectl create namespace demo --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx.yaml"
 ```
 
-```sh
-kubectl create deployment hello --image=nginx:1.27 --replicas=2 -n demo --dry-run=client -o yaml | kubectl apply -f -
-```
+Wait until all six replicas are Ready.
 
 ```sh
-kubectl create service clusterip hello --tcp=80:80 -n demo --dry-run=client -o yaml | kubectl apply -f -
-```
-
-```sh
-kubectl rollout status deployment/hello -n demo --timeout=180s
-```
-
-If this times out, list the pods. ImagePullBackOff means the image is not on the node; run the pull and load again.
-
-```sh
-kubectl get pods -n demo -o wide
+kubectl rollout status deployment/hello-nginx -n demo --timeout=180s
 ```
 
 ```sh
 kubectl get deploy,po,svc -n demo -o wide
 ```
 
-Reach the Service from inside the cluster.
+Expected: Deployment `hello-nginx` with 6/6, six Running Pods on the workers, Service `hello-nginx` of type NodePort with `80:30080/TCP`.
+
+Hit the app from the host, outside the cluster. Run the curl several times. The `pod=` line is the Pod name that served that request.
 
 ```sh
-kubectl run curl --rm -it --restart=Never -n demo --image=busybox:1.36 -- wget -qO- http://hello
+curl -sS http://127.0.0.1:8080
 ```
 
-Expected: nginx HTML, then the curl pod exits.
+Expected body:
+
+```
+Pocket Cluster
+pod=hello-nginx-xxxxxxxx-xxxxx
+```
+
+Read access logs from every replica (nginx writes to stdout).
 
 ```sh
-kubectl delete namespace demo --ignore-not-found
+kubectl logs -n demo -l app=hello-nginx --tail=20
+```
+
+Inspect one Pod if a replica is not Ready.
+
+```sh
+kubectl describe pod -n demo -l app=hello-nginx
+```
+
+Remove the app. The cluster stays.
+
+```sh
+kubectl delete -f "$K8S_LAB_ROOT/hello-nginx.yaml" --ignore-not-found
 ```
 
 ---
@@ -893,14 +923,14 @@ Kubernetes 1.37 expects cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgrou
 
 ## Rollout Timed Out / 0 Replicas Available
 
-kind nodes pull images themselves. `nginx:1.27` from Docker Hub can sit in `ImagePullBackOff` past a 120s rollout wait.
+kind nodes pull images themselves. `nginx:1.27` from Docker Hub can sit in `ImagePullBackOff`.
 
 ```sh
 kubectl get pods -n demo -o wide
 ```
 
 ```sh
-kubectl describe pod -n demo
+kubectl describe pod -n demo -l app=hello-nginx
 ```
 
 Pull on the laptop and load into the cluster, then wait again.
@@ -914,7 +944,23 @@ k8s_lab_load_image nginx:1.27
 ```
 
 ```sh
-kubectl rollout status deployment/hello -n demo --timeout=180s
+kubectl rollout status deployment/hello-nginx -n demo --timeout=180s
+```
+
+## curl to localhost:8080 Fails
+
+kind maps laptop `:8080` to NodePort `30080` on the control-plane. If this cluster was created with `:8080` mapped to node `:80`, delete and start, then apply again.
+
+```sh
+k8s_lab_delete_cluster
+```
+
+```sh
+k8s_lab_start
+```
+
+```sh
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx.yaml"
 ```
 
 ## Docker Stats Show the Whole Laptop RAM

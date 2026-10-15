@@ -151,6 +151,9 @@ k8s_lab_start() {
     if [[ "$actual" != "$desired" ]]; then
       echo "Cluster ${KIND_CLUSTER_NAME} has ${actual} workers, yaml wants ${desired}. Recreating."
       kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+    elif ! docker port "${KIND_CLUSTER_NAME}-control-plane" 30080 2>/dev/null | grep -q 8080; then
+      echo "Cluster ${KIND_CLUSTER_NAME} does not map host 8080 to NodePort 30080. Recreating."
+      kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
     fi
   fi
   if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then

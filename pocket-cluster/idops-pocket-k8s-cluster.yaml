@@ -22,8 +22,8 @@
 # the worker kubelet never becomes healthy. Set the worker role after
 # create with kubectl label (k8s_lab_start does this).
 #
-# extraPortMappings publish node :80 and :443 on the laptop at 8080 and 8443
-# (unprivileged host ports).
+# extraPortMappings: laptop :8080 reaches NodePort 30080 on the control-plane
+# (hello-nginx Service). :8443 maps node :443 for later TLS.
 
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -32,7 +32,7 @@ nodes:
   - role: control-plane
     image: kindest/node:v1.37.0
     extraPortMappings:
-      - containerPort: 80
+      - containerPort: 30080
         hostPort: 8080
         protocol: TCP
       - containerPort: 443
