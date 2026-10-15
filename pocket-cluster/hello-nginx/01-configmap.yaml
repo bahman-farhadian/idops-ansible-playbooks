@@ -1,0 +1,19 @@
+# nginx config as a ConfigMap. This app is stateless: no PersistentVolume
+# or PersistentVolumeClaim. A ConfigMap is enough for the hostname page.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-nginx
+  namespace: demo
+data:
+  default.conf: |
+    server {
+        listen 80 default_server;
+        server_name _;
+        access_log /dev/stdout;
+        error_log /dev/stderr;
+        location / {
+            default_type text/plain;
+            return 200 "Pocket Cluster\npod=$hostname\n";
+        }
+    }

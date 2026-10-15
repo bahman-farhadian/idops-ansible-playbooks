@@ -1,0 +1,5 @@
+# Namespace first. Every later object in this app lives here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo

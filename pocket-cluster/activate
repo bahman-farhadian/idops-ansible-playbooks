@@ -47,11 +47,8 @@ fi
 chmod 0600 "$KUBECONFIG"
 hash -r
 
-alias k=kubectl
-
 if command -v kubectl >/dev/null 2>&1; then
   source <(kubectl completion bash 2>/dev/null) || true
-  complete -o default -F __start_kubectl k 2>/dev/null || true
 fi
 
 k8s_lab_require_docker() {
@@ -200,7 +197,6 @@ k8s_lab_deactivate() {
   unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN K8S_LAB_CONFIG
   unset KUBECTL_VERSION KIND_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
   unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
-  unalias k 2>/dev/null || true
   unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r
   echo "Pocket Cluster environment deactivated."

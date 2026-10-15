@@ -342,10 +342,10 @@ Copy the config into `/opt` so daily use does not depend on the git clone path.
 cp "$GUIDE_DIR/idops-pocket-k8s-cluster.yaml" "$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml"
 ```
 
-Copy the first-app manifest so `kubectl apply` works from any directory after activation.
+Copy the first-app manifests so `kubectl apply` works from any directory after activation.
 
 ```sh
-cp "$GUIDE_DIR/hello-nginx.yaml" "$K8S_LAB_ROOT/hello-nginx.yaml"
+cp -a "$GUIDE_DIR/hello-nginx" "$K8S_LAB_ROOT/hello-nginx"
 ```
 
 Copy [activate](activate). It restores `PATH`, `KUBECONFIG`, and the helper functions.
@@ -382,7 +382,7 @@ Layout:
 ├── current -> kubectl-v1.37.0_kind-v0.33.0
 └── kubectl-v1.37.0_kind-v0.33.0/
     ├── activate
-    ├── hello-nginx.yaml
+    ├── hello-nginx/
     ├── idops-pocket-k8s-cluster.yaml
     └── bin/
         ├── kubectl
@@ -505,7 +505,9 @@ Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube
 
 ## 14. Ship a First Application
 
-[hello-nginx.yaml](hello-nginx.yaml) is a stateless nginx app: six identical Pods, one Service. Each response body is the Pod hostname (`$hostname` in nginx), so you can see the Service pick a different replica. The Service is NodePort `30080`. kind maps that port on the control-plane node to `http://127.0.0.1:8080` on the laptop (`extraPortMappings` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)).
+[hello-nginx/](hello-nginx/) is a stateless nginx app: six identical Pods, one Service. Apply the files in order. Namespace first. This app does not need a PersistentVolume or PersistentVolumeClaim; it keeps no data on disk. A ConfigMap holds the nginx page. Then the Deployment (Pods), then the Service so the host can reach them.
+
+Each response body is the Pod hostname (`$hostname` in nginx), so you can see the Service pick a different replica. The Service is NodePort `30080`. kind maps that port on the control-plane node to `http://127.0.0.1:8080` on the laptop (`extraPortMappings` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)).
 
 If this cluster was created when `8080` still mapped to node port `80`, delete and start so the mapping is `30080`. kind delete is idempotent if the cluster is already gone.
 
@@ -527,10 +529,28 @@ docker pull nginx:1.27
 k8s_lab_load_image nginx:1.27
 ```
 
-Apply the manifest. `kubectl apply` is idempotent.
+Create the namespace.
 
 ```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx.yaml"
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/00-namespace.yaml"
+```
+
+Apply the nginx config. No PV or PVC: the Pods are stateless.
+
+```sh
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/01-configmap.yaml"
+```
+
+Create the six Pods.
+
+```sh
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/02-deployment.yaml"
+```
+
+Publish them on NodePort 30080.
+
+```sh
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
 ```
 
 Wait until all six replicas are Ready.
@@ -573,7 +593,7 @@ kubectl describe pod -n demo -l app=hello-nginx
 Remove the app. The cluster stays.
 
 ```sh
-kubectl delete -f "$K8S_LAB_ROOT/hello-nginx.yaml" --ignore-not-found
+kubectl delete -f "$K8S_LAB_ROOT/hello-nginx" --ignore-not-found
 ```
 
 ---
@@ -612,7 +632,7 @@ kubectl get nodes
 kubectl get pods --all-namespaces
 ```
 
-The session alias `k` is `kubectl`. Example: `k get po -A`.
+Use `kubectl`, not a short alias. Type the full command while you learn.
 
 ## 2. Understand What Survives Terminal Closure
 
@@ -960,7 +980,7 @@ k8s_lab_start
 ```
 
 ```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx.yaml"
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/00-namespace.yaml"
 ```
 
 ## Docker Stats Show the Whole Laptop RAM
