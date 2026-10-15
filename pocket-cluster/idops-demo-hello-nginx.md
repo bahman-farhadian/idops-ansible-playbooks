@@ -1,20 +1,18 @@
 # idops-demo-hello-nginx
 
-Six stateless nginx Pods on Pocket Cluster. Each response prints the Pod hostname. You reach the app from the laptop through Traefik at `http://127.0.0.1:8080` with Host `hello.localhost`.
+Six stateless nginx Pods on Pocket Cluster. Each response prints the Pod hostname. You reach the app by curling the Ingress ADDRESS that Cloud Provider KIND assigns. Do not curl 127.0.0.1.
 
 ## Teaching Note
 
 Apply objects in this order: namespace, then config, then Pods, then the Service, then the Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim. A ConfigMap holds the nginx page.
 
-The Service is ClusterIP. Traefik is the door: Ingress `hello.localhost` on the Traefik NodePort that kind maps to host port `8080`. Install Traefik first: [idops-pocket-traefik.md](idops-pocket-traefik.md).
+The Service is ClusterIP. Cloud Provider KIND is the door: it gives the Ingress an external IP on the docker network. Start it with [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md). `k8s_lab_start` starts that process.
 
 Type `kubectl`. There is no `k` alias.
 
 Every command here is safe to run again.
 
 ## Prerequisites
-
-Pocket Cluster is running and Traefik is installed.
 
 ```sh
 source /opt/pocket-cluster/activate
@@ -23,8 +21,6 @@ source /opt/pocket-cluster/activate
 ```sh
 k8s_lab_start
 ```
-
-Follow [idops-pocket-traefik.md](idops-pocket-traefik.md) if `kubectl get ingressclass traefik` fails.
 
 ## 1. Load the nginx Image
 
@@ -94,7 +90,7 @@ kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
 
 ## 7. Ingress
 
-Traefik reads this object and routes Host `hello.localhost` to the Service.
+Cloud Provider KIND assigns an ADDRESS to this Ingress. Path `/` goes to the Service.
 
 ```sh
 kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/04-ingress.yaml"
@@ -104,14 +100,22 @@ kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/04-ingress.yaml"
 kubectl get deploy,po,svc,ingress -n idops-nginx-demo -o wide
 ```
 
-Expected: Deployment `hello-nginx` 6/6, Service type ClusterIP, Ingress host `hello.localhost` class `traefik`.
+Expected: Deployment `hello-nginx` 6/6, Service type ClusterIP, Ingress with an ADDRESS IP (not `<none>`).
 
 ## 8. Access from the Host
 
-Hit the app from outside the cluster through Traefik. The Host header must match the Ingress rule. Run curl several times. The `pod=` line is the Pod that served that request.
+Curl the Ingress IP. That is the kind approach. Do not use 127.0.0.1. Run curl several times. The `pod=` line is the Pod that served that request.
 
 ```sh
-curl -sS -H "Host: hello.localhost" http://127.0.0.1:8080
+INGRESS_IP=$(kubectl get ingress hello-nginx -n idops-nginx-demo -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
+
+```sh
+printf 'INGRESS_IP=%s\n' "$INGRESS_IP"
+```
+
+```sh
+curl -sS "http://${INGRESS_IP}/"
 ```
 
 Expected body:
@@ -169,22 +173,22 @@ k8s_lab_load_image nginx:1.27
 kubectl rollout status deployment/hello-nginx -n idops-nginx-demo --timeout=180s
 ```
 
-### curl to localhost:8080 Fails
+### Ingress ADDRESS Is Empty / curl Fails
 
-Send the Host header. Traefik 404 without it.
-
-```sh
-curl -sS -H "Host: hello.localhost" http://127.0.0.1:8080
-```
-
-Confirm Traefik is Ready: [idops-pocket-traefik.md](idops-pocket-traefik.md).
-
-kind maps laptop `:8080` to Traefik NodePort `30080`. If this cluster was created with `:8080` mapped to node `:80`, delete and start, then apply Traefik and this app again.
-
-```sh
-k8s_lab_delete_cluster
-```
+Cloud Provider KIND must be running. Follow [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md).
 
 ```sh
 k8s_lab_start
+```
+
+```sh
+kubectl get ingress hello-nginx -n idops-nginx-demo
+```
+
+```sh
+INGRESS_IP=$(kubectl get ingress hello-nginx -n idops-nginx-demo -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
+
+```sh
+curl -sS "http://${INGRESS_IP}/"
 ```

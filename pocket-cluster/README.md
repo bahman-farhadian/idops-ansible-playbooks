@@ -24,7 +24,7 @@ Every command in this file is safe to run again. A second pass keeps the same pi
 
 - [Part I — One-Time Setup and Configuration](#part-i--one-time-setup-and-configuration)
 - [Part II — Daily Use and Lifecycle](#part-ii--daily-use-and-lifecycle)
-- [idops-pocket-traefik.md](idops-pocket-traefik.md)
+- [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md)
 - [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md)
 - [CKAD Practice Map](#ckad-practice-map)
 - [Troubleshooting](#troubleshooting)
@@ -82,7 +82,7 @@ Checked **2026-10-11**. Re-check before you run: [kind releases](https://github.
 | `kubectl` client       | v1.37.0                    | `KUBECTL_VERSION` in Part I, then the kubectl install step    |
 | kind CLI               | v0.33.0                    | `KIND_VERSION` in Part I, then the kind install step          |
 | Helm 3                 | v3.22.0                    | `HELM_VERSION` in Part I, then the Helm install step          |
-| Traefik chart          | 41.7.1 (Proxy v3.7.14)     | [idops-pocket-traefik.md](idops-pocket-traefik.md)            |
+| cloud-provider-kind    | v0.12.0                    | Part I install, then `k8s_lab_start`                          |
 | Kubernetes cluster     | v1.37.0                    | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
 | Cluster name           | idops-pocket-k8s-cluster   | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                       |
 | Nodes                  | 1 control plane, 3 workers | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                      |
@@ -382,7 +382,53 @@ rm -rf "$K8S_LAB_ROOT/helm.tgz" "$K8S_LAB_ROOT/helm.sha256" "$K8S_LAB_ROOT/linux
 
 Expected: version `v3.22.0`.
 
-## 8. Install the Cluster Config and Activate Script
+## 8. Install cloud-provider-kind
+
+This is the official kind Ingress and LoadBalancer provider. Pin `v0.12.0`. Recheck [cloud-provider-kind releases](https://github.com/kubernetes-sigs/cloud-provider-kind/releases).
+
+```sh
+export CLOUD_PROVIDER_KIND_VERSION="v0.12.0"
+```
+
+```sh
+curl --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz"
+```
+
+```sh
+curl --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_checksums.txt"
+```
+
+```sh
+( cd "$K8S_LAB_ROOT" && grep "cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz$" cloud-provider-kind.checksums.txt | sha256sum --check )
+```
+
+Expected: `OK`. Stop if this fails.
+
+```sh
+mkdir -p "$K8S_LAB_ROOT/cpk-extract"
+```
+
+```sh
+tar -xzf "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" -C "$K8S_LAB_ROOT/cpk-extract"
+```
+
+```sh
+cp "$K8S_LAB_ROOT/cpk-extract/cloud-provider-kind" "$K8S_LAB_BIN/cloud-provider-kind"
+```
+
+```sh
+chmod 0755 "$K8S_LAB_BIN/cloud-provider-kind"
+```
+
+```sh
+rm -rf "$K8S_LAB_ROOT/cpk-extract" "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt"
+```
+
+```sh
+"$K8S_LAB_BIN/cloud-provider-kind" --help >/dev/null && echo "cloud-provider-kind is installed"
+```
+
+## 9. Install the Cluster Config and Activate Script
 
 **This is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. That image is the Kubernetes version. kind has no `kubernetesVersion` field. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster.
 
@@ -400,10 +446,6 @@ Copy the first-app manifests so `kubectl apply` works from any directory after a
 cp -a "$GUIDE_DIR/hello-nginx" "$K8S_LAB_ROOT/hello-nginx"
 ```
 
-```sh
-cp "$GUIDE_DIR/traefik-kind-values.yaml" "$K8S_LAB_ROOT/traefik-kind-values.yaml"
-```
-
 Copy [activate](activate). It restores `PATH`, `KUBECONFIG`, and the helper functions.
 
 ```sh
@@ -416,7 +458,7 @@ chmod 0644 "$K8S_LAB_ROOT/activate"
 
 kind has no `stop` or `pause`. To free RAM, delete the cluster. The node image stays in Docker, so the next start is faster.
 
-## 9. Create Stable Activation Links
+## 10. Create Stable Activation Links
 
 Point `current` at this versioned directory so later upgrades can retarget one link.
 
@@ -443,10 +485,11 @@ Layout:
     └── bin/
         ├── kubectl
         ├── kind
-        └── helm
+        ├── helm
+        └── cloud-provider-kind
 ```
 
-## 10. Activate the Environment
+## 11. Activate the Environment
 
 ```sh
 source /opt/pocket-cluster/activate
@@ -468,9 +511,13 @@ type -a kind
 type -a helm
 ```
 
-The first `kubectl`, `kind`, and `helm` must resolve under `$K8S_LAB_BIN`.
+```sh
+type -a cloud-provider-kind
+```
 
-## 11. Verify the Pinned Client Versions
+The first `kubectl`, `kind`, and `cloud-provider-kind` must resolve under `$K8S_LAB_BIN`. Helm 3 is for CKAD practice.
+
+## 12. Verify the Pinned Client Versions
 
 ```sh
 kubectl version --client --output=yaml
@@ -484,7 +531,7 @@ kind version
 helm version
 ```
 
-Expected: kubectl `v1.37.0`, kind `v0.33.0`, helm `v3.22.0`.
+Expected: kubectl `v1.37.0`, kind `v0.33.0`, helm `v3.22.0`. `cloud-provider-kind` is on PATH.
 
 ```sh
 actual_kubectl_version="$(kubectl version --client --output=json | awk -F'"' '/"gitVersion"/ { print $4; exit }')"
@@ -502,7 +549,7 @@ actual_kind_version="$(kind version | awk '{ print $2; exit }')"
 [[ "$actual_kind_version" == "$KIND_VERSION" ]] && echo "kind version is correct" || { echo "Unexpected kind version: $actual_kind_version" >&2; return 1 2>/dev/null || exit 1; }
 ```
 
-## 12. Create the Cluster
+## 13. Create the Cluster
 
 If an old cluster named `pocket` is still around, delete it first. kind delete is idempotent if that name is already gone.
 
@@ -516,7 +563,7 @@ k8s_lab_start
 
 kind reads `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`: name `idops-pocket-k8s-cluster`, one control plane, three workers, image `kindest/node:v1.37.0`. The first run pulls that image. Run it again and it exports kubeconfig if the cluster already exists and the worker count matches the yaml. If the yaml wants more workers than the running cluster has, `k8s_lab_start` deletes and recreates. After the cluster is up, it caps each Docker node (`docker update`) and labels workers with `kubectl` so `ROLES` shows `worker`. Do not put that label in the yaml: kubelet will refuse it at join.
 
-## 13. Verify the Cluster
+## 14. Verify the Cluster
 
 ```sh
 k8s_lab_status
@@ -552,7 +599,7 @@ kind names the first worker `{cluster}-worker`, then `{cluster}-worker2`, `{clus
 
 kind ships Rancher local-path provisioner. Default StorageClass is `standard`. kubectl context name is `kind-idops-pocket-k8s-cluster`.
 
-## 14. Confirm Isolation
+## 15. Confirm Isolation
 
 ```sh
 printf 'kubectl=%s kind=%s KUBECONFIG=%s\n' "$(command -v kubectl)" "$(command -v kind)" "$KUBECONFIG"
@@ -568,9 +615,9 @@ docker ps --filter "label=io.x-k8s.kind.cluster=${KIND_CLUSTER_NAME}" --format '
 
 Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube/config` stay untouched.
 
-## 15. Ship a First Application
+## 16. Ship a First Application
 
-kind has no addon system. Install Traefik with Helm: [idops-pocket-traefik.md](idops-pocket-traefik.md). Then ship the sample app: [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md). That document applies namespace `idops-nginx-demo`, ConfigMap, six nginx Pods, ClusterIP Service, then Ingress. No PersistentVolume and no PersistentVolumeClaim: the app is stateless.
+kind has no addon system. Ingress uses Cloud Provider KIND: [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md). Then ship the sample app: [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md). Curl the Ingress ADDRESS IP, not 127.0.0.1.
 
 ---
 
@@ -798,7 +845,7 @@ Add later, when a domain needs it:
 
 - **Helm 3** — CKAD lists Helm. Install a pinned tarball the same way [05-deploy-kubernetes.md](../05-deploy-kubernetes.md) does on the bastion. Debian's apt package named `helm` is Emacs.
 - **metrics-server** — needed for `kubectl top` and HorizontalPodAutoscaler. kind does not ship it.
-- **Ingress** — Traefik is in [idops-pocket-traefik.md](idops-pocket-traefik.md). kind has no addon for it.
+- **Ingress** — Cloud Provider KIND. See [idops-pocket-cloud-provider-kind.md](idops-pocket-cloud-provider-kind.md). Curl the Ingress IP, not localhost.
 - **Calico** — only if you disable kindnet (`networking.disableDefaultCNI: true`) and replace it. Default kindnet in kind v0.33.x includes a NetworkPolicy controller; confirm with a deny-all test the first time you study that domain.
 
 Exam-day habits to use here: `k` as kubectl, `--dry-run=client -o yaml` into a file, then `kubectl apply -f`, and the official Kubernetes docs as the reference.
