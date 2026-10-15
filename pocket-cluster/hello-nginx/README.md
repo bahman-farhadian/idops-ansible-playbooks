@@ -8,7 +8,7 @@ The YAML files are numbered so `kubectl apply -f .` creates them in order: names
 
 The Service is ClusterIP. Cloud Provider KIND gives the Ingress an external IP on the docker network. Deploy the cluster first: [../README.md](../README.md). `k8s_lab_start` starts that process.
 
-Type `kubectl`. There is no `k` alias.
+`k` is an alias for `kubectl` after you source `activate`. Tab-complete works on both.
 
 Every command here is safe to run again.
 
