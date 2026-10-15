@@ -665,7 +665,7 @@ kubectl get nodes
 kubectl get pods --all-namespaces
 ```
 
-Use `kubectl`, not a short alias. Type the full command while you learn.
+`k` is `kubectl`. Tab-complete works on both after `source /opt/pocket-cluster/activate`.
 
 ## 2. Understand What Survives Terminal Closure
 
