@@ -4,7 +4,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: hello-nginx
-  namespace: demo
+  namespace: idops-nginx-demo
   labels:
     app: hello-nginx
 spec:

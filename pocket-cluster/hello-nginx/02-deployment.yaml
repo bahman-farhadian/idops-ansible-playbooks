@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello-nginx
-  namespace: demo
+  namespace: idops-nginx-demo
   labels:
     app: hello-nginx
 spec:

@@ -24,6 +24,7 @@ Every command in this file is safe to run again. A second pass keeps the same pi
 
 - [Part I — One-Time Setup and Configuration](#part-i--one-time-setup-and-configuration)
 - [Part II — Daily Use and Lifecycle](#part-ii--daily-use-and-lifecycle)
+- [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md)
 - [CKAD Practice Map](#ckad-practice-map)
 - [Troubleshooting](#troubleshooting)
 - [Official References](#official-references)
@@ -505,96 +506,7 @@ Project-specific state is under `/opt/pocket-cluster`. Host kubectl and `~/.kube
 
 ## 14. Ship a First Application
 
-[hello-nginx/](hello-nginx/) is a stateless nginx app: six identical Pods, one Service. Apply the files in order. Namespace first. This app does not need a PersistentVolume or PersistentVolumeClaim; it keeps no data on disk. A ConfigMap holds the nginx page. Then the Deployment (Pods), then the Service so the host can reach them.
-
-Each response body is the Pod hostname (`$hostname` in nginx), so you can see the Service pick a different replica. The Service is NodePort `30080`. kind maps that port on the control-plane node to `http://127.0.0.1:8080` on the laptop (`extraPortMappings` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)).
-
-If this cluster was created when `8080` still mapped to node port `80`, delete and start so the mapping is `30080`. kind delete is idempotent if the cluster is already gone.
-
-```sh
-k8s_lab_delete_cluster
-```
-
-```sh
-k8s_lab_start
-```
-
-kind nodes do not see images on the host Docker daemon until you load them. Pull on the laptop, then load.
-
-```sh
-docker pull nginx:1.27
-```
-
-```sh
-k8s_lab_load_image nginx:1.27
-```
-
-Create the namespace.
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/00-namespace.yaml"
-```
-
-Apply the nginx config. No PV or PVC: the Pods are stateless.
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/01-configmap.yaml"
-```
-
-Create the six Pods.
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/02-deployment.yaml"
-```
-
-Publish them on NodePort 30080.
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
-```
-
-Wait until all six replicas are Ready.
-
-```sh
-kubectl rollout status deployment/hello-nginx -n demo --timeout=180s
-```
-
-```sh
-kubectl get deploy,po,svc -n demo -o wide
-```
-
-Expected: Deployment `hello-nginx` with 6/6, six Running Pods on the workers, Service `hello-nginx` of type NodePort with `80:30080/TCP`.
-
-Hit the app from the host, outside the cluster. Run the curl several times. The `pod=` line is the Pod name that served that request.
-
-```sh
-curl -sS http://127.0.0.1:8080
-```
-
-Expected body:
-
-```
-Pocket Cluster
-pod=hello-nginx-xxxxxxxx-xxxxx
-```
-
-Read access logs from every replica (nginx writes to stdout).
-
-```sh
-kubectl logs -n demo -l app=hello-nginx --tail=20
-```
-
-Inspect one Pod if a replica is not Ready.
-
-```sh
-kubectl describe pod -n demo -l app=hello-nginx
-```
-
-Remove the app. The cluster stays.
-
-```sh
-kubectl delete -f "$K8S_LAB_ROOT/hello-nginx" --ignore-not-found
-```
+Follow [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md). That document applies the YAML in order: namespace `idops-nginx-demo`, ConfigMap, six nginx Pods, then the Service. No PersistentVolume and no PersistentVolumeClaim: the app is stateless.
 
 ---
 
@@ -981,6 +893,18 @@ k8s_lab_start
 
 ```sh
 kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/00-namespace.yaml"
+```
+
+```sh
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/01-configmap.yaml"
+```
+
+```sh
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/02-deployment.yaml"
+```
+
+```sh
+kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
 ```
 
 ## Docker Stats Show the Whole Laptop RAM
