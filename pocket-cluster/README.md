@@ -853,59 +853,9 @@ Apply a default-deny in a test namespace and confirm traffic is dropped. If it i
 
 Kubernetes 1.37 expects cgroup v2. If `stat -fc %T /sys/fs/cgroup` is not `cgroup2fs`, use a host with cgroup v2, or pick an older `kindest/node` tag. Change every `image:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). This file stays on 1.37.
 
-## Rollout Timed Out / 0 Replicas Available
+## First App (nginx)
 
-kind nodes pull images themselves. `nginx:1.27` from Docker Hub can sit in `ImagePullBackOff`.
-
-```sh
-kubectl get pods -n demo -o wide
-```
-
-```sh
-kubectl describe pod -n demo -l app=hello-nginx
-```
-
-Pull on the laptop and load into the cluster, then wait again.
-
-```sh
-docker pull nginx:1.27
-```
-
-```sh
-k8s_lab_load_image nginx:1.27
-```
-
-```sh
-kubectl rollout status deployment/hello-nginx -n demo --timeout=180s
-```
-
-## curl to localhost:8080 Fails
-
-kind maps laptop `:8080` to NodePort `30080` on the control-plane. If this cluster was created with `:8080` mapped to node `:80`, delete and start, then apply again.
-
-```sh
-k8s_lab_delete_cluster
-```
-
-```sh
-k8s_lab_start
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/00-namespace.yaml"
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/01-configmap.yaml"
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/02-deployment.yaml"
-```
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
-```
+Application steps, logs, host access, and app-specific failures are in [idops-demo-hello-nginx.md](idops-demo-hello-nginx.md).
 
 ## Docker Stats Show the Whole Laptop RAM
 
