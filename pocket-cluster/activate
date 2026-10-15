@@ -51,8 +51,7 @@ hash -r
 
 # Interactive bash only. Type kubectl, kind, helm — no k alias.
 if [[ -n "${BASH_VERSION:-}" ]]; then
-  if [[ -f /usr/share/bash-completion/bash_completion ]]; then
-    # provides _init_completion that kubectl's script expects
+  if ! declare -F _init_completion >/dev/null 2>&1 && [[ -f /usr/share/bash-completion/bash_completion ]]; then
     source /usr/share/bash-completion/bash_completion
   fi
   eval "$(kubectl completion bash)"
