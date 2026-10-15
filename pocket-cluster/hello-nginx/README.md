@@ -4,7 +4,7 @@ Six stateless nginx Pods on Pocket Cluster. Each response prints the Pod hostnam
 
 ## Teaching Note
 
-Apply objects in this order: namespace, then config, then Pods, then the Service, then the Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim. A ConfigMap holds the nginx page.
+The YAML files are numbered so `kubectl apply -f .` creates them in order: namespace, ConfigMap, Deployment (Pods), Service, Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim. A ConfigMap holds the nginx page.
 
 The Service is ClusterIP. Cloud Provider KIND gives the Ingress an external IP on the docker network. Deploy the cluster first: [../README.md](../README.md). `k8s_lab_start` starts that process.
 
@@ -36,75 +36,45 @@ docker pull nginx:1.27
 k8s_lab_load_image nginx:1.27
 ```
 
-## 2. Namespace
+## 2. Apply the Manifests
 
-Create `idops-nginx-demo` first. Every later object in this app lives there.
+The files in this directory are:
+
+| File | Object |
+| ---- | ------ |
+| `00-namespace.yaml` | Namespace `idops-nginx-demo` |
+| `01-configmap.yaml` | nginx page config |
+| `02-deployment.yaml` | six stateless Pods |
+| `03-service.yaml` | ClusterIP Service |
+| `04-ingress.yaml` | Ingress (Cloud Provider KIND ADDRESS) |
+
+No PersistentVolume and no PersistentVolumeClaim. These Pods are stateless.
 
 ```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/00-namespace.yaml"
+cd "$K8S_LAB_ROOT/hello-nginx"
 ```
+
+```sh
+kubectl apply -f .
+```
+
+Check what the YAML created.
 
 ```sh
 kubectl get namespace idops-nginx-demo
 ```
 
-## 3. PersistentVolume and PersistentVolumeClaim
-
-Skip both. These Pods are stateless. They do not write application data to a volume. The hostname page comes from a ConfigMap, not from a disk.
-
-## 4. ConfigMap
-
-Apply the nginx config.
-
 ```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/01-configmap.yaml"
-```
-
-```sh
-kubectl get configmap hello-nginx -n idops-nginx-demo
-```
-
-## 5. Pods
-
-Create six identical replicas.
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/02-deployment.yaml"
+kubectl get cm,deploy,po,svc,ingress -n idops-nginx-demo -o wide
 ```
 
 ```sh
 kubectl rollout status deployment/hello-nginx -n idops-nginx-demo --timeout=180s
 ```
 
-```sh
-kubectl get pods -n idops-nginx-demo -o wide
-```
+Expected: namespace exists, ConfigMap `hello-nginx`, Deployment `hello-nginx` 6/6, six Running Pods, Service type ClusterIP, Ingress with an ADDRESS IP (not `<none>`).
 
-Expected: six Running Pods on the workers.
-
-## 6. Service
-
-ClusterIP only. The host does not talk to this port directly.
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/03-service.yaml"
-```
-
-## 7. Ingress
-
-Cloud Provider KIND assigns an ADDRESS to this Ingress. Path `/` goes to the Service.
-
-```sh
-kubectl apply -f "$K8S_LAB_ROOT/hello-nginx/04-ingress.yaml"
-```
-
-```sh
-kubectl get deploy,po,svc,ingress -n idops-nginx-demo -o wide
-```
-
-Expected: Deployment `hello-nginx` 6/6, Service type ClusterIP, Ingress with an ADDRESS IP (not `<none>`).
-
-## 8. Access from the Host
+## 3. Access from the Host
 
 Curl the Ingress IP. That is the kind approach. Do not use 127.0.0.1. Run curl several times. The `pod=` line is the Pod that served that request.
 
@@ -127,7 +97,7 @@ Pocket Cluster
 pod=hello-nginx-xxxxxxxx-xxxxx
 ```
 
-## 9. Logs
+## 4. Logs
 
 nginx writes access logs to stdout.
 
@@ -141,12 +111,16 @@ If a replica is not Ready:
 kubectl describe pod -n idops-nginx-demo -l app=hello-nginx
 ```
 
-## 10. Remove the App
+## 5. Remove the App
 
 The cluster stays.
 
 ```sh
-kubectl delete -f "$K8S_LAB_ROOT/hello-nginx" --ignore-not-found
+cd "$K8S_LAB_ROOT/hello-nginx"
+```
+
+```sh
+kubectl delete -f . --ignore-not-found
 ```
 
 ## Troubleshooting

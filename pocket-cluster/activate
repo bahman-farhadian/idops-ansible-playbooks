@@ -49,8 +49,19 @@ fi
 chmod 0600 "$KUBECONFIG"
 hash -r
 
-if command -v kubectl >/dev/null 2>&1; then
-  source <(kubectl completion bash 2>/dev/null) || true
+# Interactive bash only. Type kubectl, kind, helm — no k alias.
+if [[ -n "${BASH_VERSION:-}" ]]; then
+  if [[ -f /usr/share/bash-completion/bash_completion ]]; then
+    # provides _init_completion that kubectl's script expects
+    source /usr/share/bash-completion/bash_completion
+  fi
+  eval "$(kubectl completion bash)"
+  complete -o default -o nospace -F __start_kubectl kubectl
+  eval "$(kind completion bash)"
+  if command -v helm >/dev/null 2>&1; then
+    eval "$(helm completion bash)"
+    complete -o default -o nospace -F __start_helm helm
+  fi
 fi
 
 k8s_lab_require_docker() {
