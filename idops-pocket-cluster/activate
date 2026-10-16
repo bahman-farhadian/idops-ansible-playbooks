@@ -149,6 +149,23 @@ k8s_lab_label_workers() {
   kubectl label --overwrite $nodes node-role.kubernetes.io/worker=worker
 }
 
+k8s_lab_taint_control_plane() {
+  # kind removes the kubeadm control-plane taint so workloads can land there.
+  # Put the kubeadm taint back. Application Pods stay on workers.
+  kubectl taint nodes -l node-role.kubernetes.io/control-plane node-role.kubernetes.io/control-plane:NoSchedule --overwrite
+}
+
+k8s_lab_worker_nodes_csv() {
+  local node role csv=""
+  for node in $(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null); do
+    role="$(docker inspect -f '{{index .Config.Labels "io.x-k8s.kind.role"}}' "$node" 2>/dev/null)"
+    if [[ "$role" == "worker" ]]; then
+      csv="${csv:+$csv,}$node"
+    fi
+  done
+  printf '%s\n' "$csv"
+}
+
 k8s_lab_desired_workers() {
   awk '/^[[:space:]]*- role: worker[[:space:]]*$/ { c++ } END { print c+0 }' "$K8S_LAB_CONFIG"
 }
@@ -195,7 +212,7 @@ k8s_lab_start() {
   k8s_lab_limit_nodes || return 1
   kubectl wait --for=condition=Ready node --all --timeout=180s || return 1
   k8s_lab_label_workers
-  kubectl label node -l node-role.kubernetes.io/control-plane node.kubernetes.io/exclude-from-external-load-balancers- --overwrite 2>/dev/null || true
+  k8s_lab_taint_control_plane || return 1
   k8s_lab_cloud_provider_start
 }
 
@@ -204,6 +221,7 @@ k8s_lab_status() {
   kind get clusters
   kind get nodes --name="$KIND_CLUSTER_NAME"
   kubectl get nodes -o wide
+  kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.taints[*]}{.key}:{.effect}{" "}{end}{"\n"}{end}'
   nodes="$(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null)"
   if [[ -n "$nodes" ]]; then
     docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' $nodes
@@ -211,12 +229,19 @@ k8s_lab_status() {
 }
 
 k8s_lab_load_image() {
+  local workers
   if [[ $# -lt 1 ]]; then
     echo "usage: k8s_lab_load_image <image> [image...]" >&2
     return 1
   fi
   k8s_lab_require_docker || return 1
-  kind load docker-image "$@" --name="$KIND_CLUSTER_NAME"
+  workers="$(k8s_lab_worker_nodes_csv)"
+  if [[ -z "$workers" ]]; then
+    echo "No worker nodes. Application images are loaded onto workers only." >&2
+    return 1
+  fi
+  echo "Loading onto workers: ${workers}"
+  kind load docker-image "$@" --name="$KIND_CLUSTER_NAME" --nodes="$workers"
 }
 
 k8s_lab_delete_cluster() {
@@ -231,7 +256,7 @@ k8s_lab_deactivate() {
   unset KUBECTL_VERSION KIND_VERSION HELM_VERSION CLOUD_PROVIDER_KIND_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
   unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   unalias k 2>/dev/null || true
-  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_cloud_provider_start k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_taint_control_plane k8s_lab_worker_nodes_csv k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_cloud_provider_start k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r
   echo "Pocket Cluster environment deactivated."
 }

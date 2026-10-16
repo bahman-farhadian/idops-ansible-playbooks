@@ -22,6 +22,12 @@
 # the worker kubelet never becomes healthy. Set the worker role after
 # create with kubectl label (k8s_lab_start does this).
 #
+# kind removes the kubeadm control-plane taint so workloads can land on
+# the control plane. k8s_lab_start puts it back:
+# node-role.kubernetes.io/control-plane:NoSchedule
+# Application Pods run on workers. kube-system static pods stay on the
+# control plane. k8s_lab_load_image loads images onto workers only.
+#
 # Ingress and LoadBalancer use Cloud Provider KIND. Do not map host
 # ports here. Curl the Ingress ADDRESS (a docker network IP), not 127.0.0.1.
 
@@ -59,8 +65,9 @@ nodes:
 #     image: kindest/node:v1.37.0
 #
 # Sample: smallest — control plane only.
-# Use this when RAM is very tight. DaemonSet and nodeSelector practice
-# is weaker with a single node.
+# Pocket Cluster taints the control plane, so application Pods have
+# nowhere to run. Keep at least one worker. Use this only to study the
+# API with no workloads. DaemonSet and nodeSelector practice is weaker.
 #
 # nodes:
 #   - role: control-plane

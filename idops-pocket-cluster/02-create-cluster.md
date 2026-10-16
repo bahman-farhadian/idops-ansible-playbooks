@@ -6,7 +6,7 @@
 
 kind reads `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`: name `idops-pocket-k8s-cluster`, one control plane, three workers, image `kindest/node:v1.37.0`. The first run pulls that image.
 
-`k8s_lab_start` creates the cluster if it is missing. If the cluster exists and the worker count matches the yaml, it only exports kubeconfig. If the yaml wants a different worker count, it deletes and recreates. After the cluster is up it caps each Docker node (`docker update`), labels workers, and starts Cloud Provider KIND so Ingress gets an ADDRESS on the docker network.
+`k8s_lab_start` creates the cluster if it is missing. If the cluster exists and the worker count matches the yaml, it only exports kubeconfig. If the yaml wants a different worker count, it deletes and recreates. After the cluster is up it caps each Docker node (`docker update`), labels workers, taints the control plane (`node-role.kubernetes.io/control-plane:NoSchedule`), and starts Cloud Provider KIND so Ingress gets an ADDRESS on the docker network. Application Pods run on workers. `k8s_lab_load_image` loads images onto workers only.
 
 Do not put a worker role label in the yaml: kubelet will refuse it at join.
 
@@ -30,7 +30,7 @@ k8s_lab_start
 tail -n 20 "$K8S_LAB_ROOT/cloud-provider-kind.log"           # Cloud Provider KIND must be running
 ```
 
-**2. Verify** — expected names: `idops-pocket-k8s-cluster-control-plane`, `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-cluster-worker2`, `idops-pocket-k8s-cluster-worker3`. Client and server `v1.37.0`. Worker `ROLES` is `worker`. `docker stats` LIMIT is `2GiB` on each node.
+**2. Verify** — expected names: `idops-pocket-k8s-cluster-control-plane`, `idops-pocket-k8s-cluster-worker`, `idops-pocket-k8s-cluster-worker2`, `idops-pocket-k8s-cluster-worker3`. Client and server `v1.37.0`. Worker `ROLES` is `worker`. Control plane taint is `node-role.kubernetes.io/control-plane:NoSchedule`. `docker stats` LIMIT is `2GiB` on each node.
 ```sh
 k8s_lab_status
 kubectl version
@@ -70,9 +70,9 @@ After activation:
 | Command | Effect |
 | ------- | ------ |
 | `k8s_lab_info` | Show paths, versions, cluster name, and the `image:` from the yaml |
-| `k8s_lab_start` | Create or reuse the cluster; cap Docker CPU/RAM; label workers; start Cloud Provider KIND |
-| `k8s_lab_status` | List kind clusters, node containers, Kubernetes nodes, and `docker stats` |
-| `k8s_lab_load_image <image>` | Load a local Docker image into the kind nodes |
+| `k8s_lab_start` | Create or reuse the cluster; cap Docker CPU/RAM; label workers; taint the control plane; start Cloud Provider KIND |
+| `k8s_lab_status` | List kind clusters, node containers, Kubernetes nodes, taints, and `docker stats` |
+| `k8s_lab_load_image <image>` | Load a local Docker image onto worker nodes only |
 | `k8s_lab_delete_cluster` | Delete `idops-pocket-k8s-cluster` (kind delete is idempotent) |
 | `k8s_lab_deactivate` | Restore the shell's original PATH and variables |
 
@@ -82,7 +82,7 @@ Optional shorter activate in your Bash startup file:
 k8s_lab_activate() { source /opt/idops-pocket-cluster/activate; }
 ```
 
-**4. Load a local image** — kind nodes do not see images that exist only on the host Docker daemon. In the Pod spec, set `imagePullPolicy: IfNotPresent` (or `Never`). See [kind load](https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster).
+**4. Load a local image** — kind worker nodes do not see images that exist only on the host Docker daemon. `k8s_lab_load_image` loads onto workers only; the control plane is skipped. In the Pod spec, set `imagePullPolicy: IfNotPresent` (or `Never`). See [kind load](https://kind.sigs.k8s.io/docs/user/quick-start/#loading-an-image-into-your-cluster).
 ```sh
 k8s_lab_load_image my-app:dev
 ```
@@ -181,7 +181,7 @@ tail -n 50 "$K8S_LAB_ROOT/cloud-provider-kind.log"
 
 **A Pod stays ImagePullBackOff for a local image**
 ```sh
-k8s_lab_load_image my-app:dev                                # --name is already inside the helper
+k8s_lab_load_image my-app:dev                                # workers only; --name is already inside the helper
 ```
 
 Set `imagePullPolicy: IfNotPresent`.

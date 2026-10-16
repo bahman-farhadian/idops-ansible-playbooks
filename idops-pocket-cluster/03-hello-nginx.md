@@ -18,7 +18,7 @@ Every command here is safe to run again.
 
 ## Steps
 
-**1. Load the nginx image** — kind nodes do not see images on the host Docker daemon until you load them.
+**1. Load the nginx image** — kind worker nodes do not see images on the host Docker daemon until you load them. `k8s_lab_load_image` loads onto workers only. The control plane is tainted and does not run application Pods.
 ```sh
 source /opt/idops-pocket-cluster/activate
 k8s_lab_start
@@ -44,7 +44,7 @@ kubectl get cm,deploy,po,svc,ingress -n idops-nginx-demo -o wide
 kubectl rollout status deployment/hello-nginx -n idops-nginx-demo --timeout=180s
 ```
 
-Expected: namespace exists, ConfigMap `hello-nginx`, Deployment `hello-nginx` 6/6, six Running Pods, Service type ClusterIP, Ingress with an ADDRESS IP (not `<none>`).
+Expected: namespace exists, ConfigMap `hello-nginx`, Deployment `hello-nginx` 6/6, six Running Pods on workers (NODE is not the control plane), Service type ClusterIP, Ingress with an ADDRESS IP (not `<none>`).
 
 **3. Access from the host** — run curl several times. The `pod=` line is the Pod that served that request.
 ```sh

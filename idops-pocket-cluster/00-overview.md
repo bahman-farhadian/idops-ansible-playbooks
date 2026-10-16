@@ -83,6 +83,8 @@ kind Cluster YAML (`kind.x-k8s.io/v1alpha4`) has no CPU or memory fields on a no
 
 Do not put `node-role.kubernetes.io/*` in the kind yaml. kind passes extra labels to kubelet `--node-labels`. kubelet refuses reserved `kubernetes.io` labels and the worker never becomes healthy. `k8s_lab_start` labels workers after they are Ready.
 
+kind removes the kubeadm control-plane taint so workloads can land there. `k8s_lab_start` puts `node-role.kubernetes.io/control-plane:NoSchedule` back. Application Pods run on the three workers. kube-system static pods stay on the control plane. `k8s_lab_load_image` loads images onto workers only.
+
 Ingress and LoadBalancer use Cloud Provider KIND. Curl the Ingress ADDRESS (a docker network IP). Do not curl `127.0.0.1`.
 
 kind has no `stop` or `pause`. To free RAM, delete the cluster. The node image stays in Docker, so the next start is faster.
