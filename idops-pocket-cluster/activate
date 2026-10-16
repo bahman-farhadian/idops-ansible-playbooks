@@ -3,7 +3,7 @@
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   echo "This file must be sourced:" >&2
-  echo '  source /opt/pocket-cluster/activate' >&2
+  echo '  source /opt/idops-pocket-cluster/activate' >&2
   exit 1
 fi
 
@@ -18,7 +18,7 @@ export KIND_CONTROL_PLANE_MEMORY="${KIND_CONTROL_PLANE_MEMORY:-2g}"
 export KIND_WORKER_CPUS="${KIND_WORKER_CPUS:-2}"
 export KIND_WORKER_MEMORY="${KIND_WORKER_MEMORY:-2g}"
 
-export K8S_LAB_HOME="/opt/pocket-cluster"
+export K8S_LAB_HOME="/opt/idops-pocket-cluster"
 export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSION}"
 export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
 export K8S_LAB_CONFIG="$K8S_LAB_ROOT/$KIND_CLUSTER_CONFIG"
