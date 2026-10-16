@@ -4,13 +4,13 @@
 
 ## Teaching note
 
-The YAML files in [hello-nginx/](hello-nginx/) are numbered so `kubectl apply -f .` creates them in order: namespace, ConfigMap, Deployment (Pods), Service, Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim. A ConfigMap holds the nginx page.
+The app is one file, [hello-nginx.yaml](hello-nginx.yaml), in this clone. `/opt` is the toolchain. Read the comments in that file: each object and the keys that matter are marked. Objects are in create order: namespace, ConfigMap, Deployment, Service, Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim.
 
-The Service is ClusterIP. Cloud Provider KIND gives the Ingress an external IP on the docker network. Curl that IP. Do not curl `127.0.0.1`.
+The Service is ClusterIP. Cloud Provider KIND gives the Ingress an ADDRESS on the docker network. Run `kubectl get ingress`, read ADDRESS, and type that IP into curl. Do not curl `127.0.0.1`.
 
 `k` is an alias for `kubectl` after you source `activate`. Tab-complete works on both.
 
-Every command here is safe to run again.
+Every command here is idempotent.
 
 ## Prerequisites
 
@@ -26,34 +26,24 @@ docker pull nginx:1.27
 k8s_lab_load_image nginx:1.27
 ```
 
-**2. Apply the manifests**
-
-| File | Object |
-| ---- | ------ |
-| `00-namespace.yaml` | Namespace `idops-nginx-demo` |
-| `01-configmap.yaml` | nginx page config |
-| `02-deployment.yaml` | six stateless Pods |
-| `03-service.yaml` | ClusterIP Service |
-| `04-ingress.yaml` | Ingress (Cloud Provider KIND ADDRESS) |
-
+**2. Apply the manifest** — work from the clone. Open [hello-nginx.yaml](hello-nginx.yaml) and read it before you apply.
 ```sh
-cd "$K8S_LAB_ROOT/hello-nginx"
-kubectl apply -f .
+cd /path/to/kubernetes-lab/idops-pocket-cluster
+kubectl apply -f hello-nginx.yaml
 kubectl get namespace idops-nginx-demo
 kubectl get cm,deploy,po,svc,ingress -n idops-nginx-demo -o wide
 kubectl rollout status deployment/hello-nginx -n idops-nginx-demo --timeout=180s
 ```
 
-Expected: namespace exists, ConfigMap `hello-nginx`, Deployment `hello-nginx` 6/6, six Running Pods on workers (NODE is not the control plane), Service type ClusterIP, Ingress with an ADDRESS IP (not `<none>`).
+Expected: namespace exists, ConfigMap `hello-nginx`, Deployment `hello-nginx` 6/6, six Running Pods on workers (NODE is a worker), Service type ClusterIP, Ingress with an ADDRESS IP.
 
-**3. Access from the host** — run curl several times. The `pod=` line is the Pod that served that request.
+**3. Access from the host** — `kubectl get ingress` prints ADDRESS. Copy that IP. Run curl several times. The `pod=` line is the Pod that served that request.
 ```sh
-INGRESS_IP=$(kubectl get ingress hello-nginx -n idops-nginx-demo -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-printf 'INGRESS_IP=%s\n' "$INGRESS_IP"
-curl -sS "http://${INGRESS_IP}/"
+kubectl get ingress -n idops-nginx-demo
+curl -sS http://ADDRESS/
 ```
 
-Expected body:
+Replace `ADDRESS` with the IP from the ADDRESS column. Expected body:
 
 ```
 Pocket Cluster
@@ -68,8 +58,8 @@ kubectl describe pod -n idops-nginx-demo -l app=hello-nginx   # if a replica is 
 
 **5. Remove the app** — the cluster stays.
 ```sh
-cd "$K8S_LAB_ROOT/hello-nginx"
-kubectl delete -f . --ignore-not-found
+cd /path/to/kubernetes-lab/idops-pocket-cluster
+kubectl delete -f hello-nginx.yaml --ignore-not-found
 ```
 
 ## Troubleshooting
@@ -83,13 +73,12 @@ k8s_lab_load_image nginx:1.27
 kubectl rollout status deployment/hello-nginx -n idops-nginx-demo --timeout=180s
 ```
 
-**Ingress ADDRESS is empty / curl fails** — Cloud Provider KIND must be running. Go back to [02-create-cluster.md](02-create-cluster.md) and run `k8s_lab_start`.
+**Ingress ADDRESS is empty / curl fails** — Cloud Provider KIND must be running. Go back to [02-create-cluster.md](02-create-cluster.md) and run `k8s_lab_start`. Then get ingress again and curl the ADDRESS column.
 ```sh
 k8s_lab_start
 tail -n 50 "$K8S_LAB_ROOT/cloud-provider-kind.log"
-kubectl get ingress hello-nginx -n idops-nginx-demo
-INGRESS_IP=$(kubectl get ingress hello-nginx -n idops-nginx-demo -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-curl -sS "http://${INGRESS_IP}/"
+kubectl get ingress -n idops-nginx-demo
+curl -sS http://ADDRESS/
 ```
 
 ## Next

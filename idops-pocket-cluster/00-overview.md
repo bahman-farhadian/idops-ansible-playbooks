@@ -21,7 +21,7 @@ Every command in 01–03 is idempotent. Run the same block again: pins stay the 
 | [02-create-cluster.md](02-create-cluster.md) | Create the cluster, verify, daily use, lifecycle |
 | [03-hello-nginx.md](03-hello-nginx.md) | First app: six nginx Pods, Ingress |
 
-Manifests for the first app live in [hello-nginx/](hello-nginx/). Cluster config is [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Session helpers are in [activate](activate).
+The first app is [hello-nginx.yaml](hello-nginx.yaml) in this clone. `/opt` holds the toolchain only. Cluster config is [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Session helpers are in [activate](activate).
 
 ## Where this sits in the repo
 

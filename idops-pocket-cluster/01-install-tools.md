@@ -109,10 +109,9 @@ rm -rf "$K8S_LAB_ROOT/cpk-extract" "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_lin
 "$K8S_LAB_BIN/cloud-provider-kind" --help >/dev/null && echo "cloud-provider-kind is installed"
 ```
 
-**7. Copy config and activate** — **this is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster. Copy into `/opt` so daily use does not depend on the git clone path.
+**7. Copy config and activate** — **this is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster. Copy into `/opt` so daily use does not depend on the git clone path. App manifests stay in the clone; `/opt` is the toolchain.
 ```sh
 cp "$GUIDE_DIR/idops-pocket-k8s-cluster.yaml" "$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml"
-cp -a "$GUIDE_DIR/hello-nginx" "$K8S_LAB_ROOT/hello-nginx"
 cp "$GUIDE_DIR/activate" "$K8S_LAB_ROOT/activate"
 chmod 0644 "$K8S_LAB_ROOT/activate"
 ln -sfn "$K8S_LAB_ROOT" "$K8S_LAB_HOME/current"              # later upgrades retarget this one link
@@ -127,7 +126,6 @@ Layout:
 ├── current -> kubectl-v1.37.0_kind-v0.33.0
 └── kubectl-v1.37.0_kind-v0.33.0/
     ├── activate
-    ├── hello-nginx/
     ├── idops-pocket-k8s-cluster.yaml
     └── bin/
         ├── kubectl
