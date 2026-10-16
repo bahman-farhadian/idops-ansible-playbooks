@@ -4,13 +4,13 @@
 
 ## Teaching note
 
-**Pocket Cluster** is the small lab. You already have an API. You practice Deployments, Services, ConfigMaps, Jobs, probes, and the rest of the application language. The numbered files at the repo root teach how a production-shaped cluster is built. That work waits on VMs.
+**Pocket Cluster** is the small lab. You already have an API. You practice Deployments, Services, ConfigMaps, Jobs, probes, and the rest of the application language. You also use it every day as a local test cluster for manifests and other Kubernetes tasks. The numbered files at the repo root teach how a production-shaped cluster is built. That work waits on VMs.
 
 kind (Kubernetes IN Docker) starts it. Each node is a container, so the RAM cost stays small. Extra workers help you spread Pods and run DaemonSets. Extra control planes do not help: they still share one Docker host.
 
 These files are documents, numbered like the HA lab. The repo [README.md](../README.md) is the project index. Walk **00 → 03** in this directory.
 
-Every command in 01–03 is safe to run again.
+Every command in 01–03 is idempotent. Run the same block again: pins stay the same, `/opt/idops-pocket-cluster` is reused, and the cluster is created only if it is missing.
 
 ## Follow order
 
@@ -31,7 +31,7 @@ Manifests for the first app live in [hello-nginx/](hello-nginx/). Cluster config
 | KVM HA lab | [00-overview.md](../00-overview.md) through [09-smoke-test.md](../09-smoke-test.md) | Building the cluster (kubeadm, Calico, Ceph, Traefik) |
 | In-cluster databases | [apps/](../apps/README.md) | MariaDB Galera and PostgreSQL, after the HA cluster is healthy |
 
-Use this directory while the VMs are still being delivered. It does not replace the HA lab, and it does not wait on [apps/](../apps/README.md).
+Pocket Cluster is for learning and for daily work. Use it to practice Kubernetes and CKAD. Use it the same way as a small test cluster: apply a manifest, check the result, change it, and apply again. Use this directory while the VMs are still being delivered. It does not replace the HA lab, and it does not wait on [apps/](../apps/README.md).
 
 ## Reference environment
 
