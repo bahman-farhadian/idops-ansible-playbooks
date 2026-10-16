@@ -14,22 +14,22 @@ Every command in 01–03 is idempotent. Run the same block again: pins stay the 
 
 ## Follow order
 
-| Doc | Covers |
-| --- | ------ |
-| [00-overview.md](00-overview.md) | This file: purpose, pins, isolation, CKAD map |
-| [01-install-tools.md](01-install-tools.md) | Host check, `/opt` tree, kubectl, kind, Helm 3, cloud-provider-kind |
-| [02-create-cluster.md](02-create-cluster.md) | Create the cluster, verify, daily use, lifecycle |
-| [03-hello-nginx.md](03-hello-nginx.md) | First app: six nginx Pods, Ingress |
+| Doc                                          | Covers                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------- |
+| [00-overview.md](00-overview.md)             | This file: purpose, pins, isolation, CKAD map                       |
+| [01-install-tools.md](01-install-tools.md)   | Host check, `/opt` tree, kubectl, kind, Helm 3, cloud-provider-kind |
+| [02-create-cluster.md](02-create-cluster.md) | Create the cluster, verify, daily use, lifecycle                    |
+| [03-hello-nginx.md](03-hello-nginx.md)       | First app: six nginx Pods, Ingress                                  |
 
 The first app is [hello-nginx.yaml](hello-nginx.yaml) in this clone. `/opt` holds the toolchain only. Cluster config is [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Session helpers are in [activate](activate).
 
 ## Where this sits in the repo
 
-| Track | Directory | What you practice |
-| ----- | --------- | ----------------- |
-| Pocket Cluster | [idops-pocket-cluster/](00-overview.md) | Application delivery, CKAD, kubectl against a local API |
-| KVM HA lab | [00-overview.md](../00-overview.md) through [09-smoke-test.md](../09-smoke-test.md) | Building the cluster (kubeadm, Calico, Ceph, Traefik) |
-| In-cluster databases | [apps/](../apps/README.md) | MariaDB Galera and PostgreSQL, after the HA cluster is healthy |
+| Track                | Directory                                                                           | What you practice                                              |
+| -------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Pocket Cluster       | [idops-pocket-cluster/](00-overview.md)                                             | Application delivery, CKAD, kubectl against a local API        |
+| KVM HA lab           | [00-overview.md](../00-overview.md) through [09-smoke-test.md](../09-smoke-test.md) | Building the cluster (kubeadm, Calico, Ceph, Traefik)          |
+| In-cluster databases | [apps/](../apps/README.md)                                                          | MariaDB Galera and PostgreSQL, after the HA cluster is healthy |
 
 Pocket Cluster is for learning and for daily work. Use it to practice Kubernetes and CKAD. Use it the same way as a small test cluster: apply a manifest, check the result, change it, and apply again. Use this directory while the VMs are still being delivered. It does not replace the HA lab, and it does not wait on [apps/](../apps/README.md).
 
@@ -37,13 +37,13 @@ Pocket Cluster is for learning and for daily work. Use it to practice Kubernetes
 
 Linux workstation or laptop with Docker Engine. Pins checked against upstream on **2026-10-11**.
 
-| Item | Value |
-| ---- | ----- |
-| OS | Linux |
-| Architecture | `x86_64` (`amd64`) or `aarch64` (`arm64`) |
-| Runtime | Docker Engine, user in the `docker` group |
-| cgroup | v2 (`cgroup2fs`) |
-| Install tree | `/opt/idops-pocket-cluster` |
+| Item               | Value                                     |
+| ------------------ | ----------------------------------------- |
+| OS                 | Linux                                     |
+| Architecture       | `x86_64` (`amd64`) or `aarch64` (`arm64`) |
+| Runtime            | Docker Engine, user in the `docker` group |
+| cgroup             | v2 (`cgroup2fs`)                          |
+| Install tree       | `/opt/idops-pocket-cluster`               |
 | Existing `kubectl` | left in place if the host already has one |
 
 ## Isolation model
@@ -58,18 +58,18 @@ kind stores node state in Docker containers and in a Docker network named `kind`
 
 Re-check before you run: [kind releases](https://github.com/kubernetes-sigs/kind/releases), [kubectl downloads](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/), [CKAD exam version](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks).
 
-| Component | Version | Where it is set |
-| --------- | ------- | --------------- |
-| `kubectl` client | v1.37.0 | `KUBECTL_VERSION` in [01-install-tools.md](01-install-tools.md) |
-| kind CLI | v0.33.0 | `KIND_VERSION` in [01-install-tools.md](01-install-tools.md) |
-| Helm 3 | v3.22.0 | `HELM_VERSION` in [01-install-tools.md](01-install-tools.md) |
-| cloud-provider-kind | v0.12.0 | [01-install-tools.md](01-install-tools.md), started by `k8s_lab_start` |
-| Kubernetes cluster | v1.37.0 | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
-| Cluster name | idops-pocket-k8s-cluster | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
-| Nodes | 1 control plane, 3 workers | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
-| Control-plane resources | 2 CPU, 2g RAM | `PocketResources` in the yaml; `docker update` in `k8s_lab_start` |
-| Each worker resources | 2 CPU, 2g RAM | same |
-| Install tree | `/opt/idops-pocket-cluster` | [01-install-tools.md](01-install-tools.md) |
+| Component               | Version                     | Where it is set                                                                                 |
+| ----------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `kubectl` client        | v1.37.0                     | `KUBECTL_VERSION` in [01-install-tools.md](01-install-tools.md)                                 |
+| kind CLI                | v0.33.0                     | `KIND_VERSION` in [01-install-tools.md](01-install-tools.md)                                    |
+| Helm 3                  | v3.22.0                     | `HELM_VERSION` in [01-install-tools.md](01-install-tools.md)                                    |
+| cloud-provider-kind     | v0.12.0                     | [01-install-tools.md](01-install-tools.md), started by `k8s_lab_start`                          |
+| Kubernetes cluster      | v1.37.0                     | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
+| Cluster name            | idops-pocket-k8s-cluster    | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                       |
+| Nodes                   | 1 control plane, 3 workers  | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                      |
+| Control-plane resources | 2 CPU, 2g RAM               | `PocketResources` in the yaml; `docker update` in `k8s_lab_start`                               |
+| Each worker resources   | 2 CPU, 2g RAM               | same                                                                                            |
+| Install tree            | `/opt/idops-pocket-cluster` | [01-install-tools.md](01-install-tools.md)                                                      |
 
 kind has no `kubernetesVersion` key. The cluster version is the node image tag on every node. kubectl v1.37.0 matches that minor ([version skew](https://kubernetes.io/releases/version-skew-policy/)). The CKAD exam environment was Kubernetes v1.37 as of 2026-09-30 ([Linux Foundation FAQ](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks)).
 
@@ -95,13 +95,13 @@ The CKAD exam is a two-hour, performance-based kubectl test. Domains below are f
 
 This cluster is for practice. It is not the exam environment and it is not a dump of exam tasks.
 
-| Domain | Weight | What works on this cluster out of the box |
-| ------ | ------ | ----------------------------------------- |
-| Application Environment, Configuration and Security | 25% | ConfigMaps, Secrets, ServiceAccounts, SecurityContext, requests/limits/quotas |
-| Application Design and Build | 20% | Deployments, DaemonSets (three workers), Jobs, CronJobs, multi-container Pods, local-path PVCs (`standard`) |
-| Application Deployment | 20% | Rolling updates, canary via two Deployments + Service labels, `kubectl apply -k` (Kustomize is in kubectl) |
-| Services and Networking | 20% | ClusterIP/NodePort Services, NetworkPolicy on kindnet, Ingress (Cloud Provider KIND) |
-| Application Observability and Maintenance | 15% | probes, `kubectl logs`, `kubectl exec`, `kubectl describe`, debug Pods |
+| Domain                                              | Weight | What works on this cluster out of the box                                                                   |
+| --------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------- |
+| Application Environment, Configuration and Security | 25%    | ConfigMaps, Secrets, ServiceAccounts, SecurityContext, requests/limits/quotas                               |
+| Application Design and Build                        | 20%    | Deployments, DaemonSets (three workers), Jobs, CronJobs, multi-container Pods, local-path PVCs (`standard`) |
+| Application Deployment                              | 20%    | Rolling updates, canary via two Deployments + Service labels, `kubectl apply -k` (Kustomize is in kubectl)  |
+| Services and Networking                             | 20%    | ClusterIP/NodePort Services, NetworkPolicy on kindnet, Ingress (Cloud Provider KIND)                        |
+| Application Observability and Maintenance           | 15%    | probes, `kubectl logs`, `kubectl exec`, `kubectl describe`, debug Pods                                      |
 
 Helm 3 is on `PATH` after [01-install-tools.md](01-install-tools.md). Debian's apt package named `helm` is Emacs.
 

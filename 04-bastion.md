@@ -180,15 +180,15 @@ Datasource URL from inside Grafana: `http://host.docker.internal:9090`. From a b
 
 Create apt proxies for the distro of *this* cluster only, plus docker proxies. Enable a LAN HTTP docker connector on **8082**.
 
-| Name (example)                       | Format | Remote URL                                     |
-| ------------------------------------ | ------ | ---------------------------------------------- |
-| `apt-debian` / `apt-debian-security` | apt    | Debian mirrors (Debian 13 instance only)       |
-| `apt-ubuntu`                         | apt    | Ubuntu archive (Ubuntu 26 instance only)       |
+| Name (example)                       | Format | Remote URL                                                                                   |
+| ------------------------------------ | ------ | -------------------------------------------------------------------------------------------- |
+| `apt-debian` / `apt-debian-security` | apt    | Debian mirrors (Debian 13 instance only)                                                     |
+| `apt-ubuntu`                         | apt    | Ubuntu archive (Ubuntu 26 instance only)                                                     |
 | `apt-kubernetes`                     | apt    | `https://pkgs.k8s.io/core:/stable:/v1.36/deb/` (same minor as [05](05-deploy-kubernetes.md)) |
-| `apt-ceph`                           | apt    | `https://download.ceph.com/debian-umbrella/` (Debian 13) |
-| `docker-dockerio`                    | docker | `https://registry-1.docker.io`                 |
-| `docker-k8s`                         | docker | `https://registry.k8s.io`                      |
-| `docker-quay`                        | docker | `https://quay.io`                              |
+| `apt-ceph`                           | apt    | `https://download.ceph.com/debian-umbrella/` (Debian 13)                                     |
+| `docker-dockerio`                    | docker | `https://registry-1.docker.io`                                                               |
+| `docker-k8s`                         | docker | `https://registry.k8s.io`                                                                    |
+| `docker-quay`                        | docker | `https://quay.io`                                                                            |
 
 ## Steps — point the cluster at Nexus
 

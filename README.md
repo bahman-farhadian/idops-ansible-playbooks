@@ -16,25 +16,25 @@ Tables are padded so the columns line up in a text editor and still render as ta
 
 One numbered spine. Circle a profile × scenario in [01-inventory.md](01-inventory.md) and one distro (Debian 13 or Ubuntu 26), then walk 02 → 09. The only branch is inside [05-deploy-kubernetes.md](05-deploy-kubernetes.md) (stacked or external bootstrap). Upgrades are 11, then 12, after the smoke test. GPU adds [14-gpu.md](14-gpu.md) after a healthy stacked or external cluster. Application databases are [apps/](apps/README.md) and stay blocked until that cluster is healthy. A small Docker Kubernetes for CKAD and application delivery is [idops-pocket-cluster/](idops-pocket-cluster/00-overview.md) (**Pocket Cluster**) and is independent of the VMs. Site WAN/LAN addresses stay out of this repo — tables use example LAN IPs.
 
-| Doc                                                  | Covers                                                           |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| [00-overview.md](00-overview.md)                     | Scope, profiles, scenarios, version pins                         |
-| [01-inventory.md](01-inventory.md)                   | VM tables and the LAN plan, including the API load-balancer pair |
-| [02-prepare.md](02-prepare.md)                       | Prerequisites and OS baseline                                    |
-| [03-firewall.md](03-firewall.md)                     | Gateway keepalived pair                                          |
-| [04-bastion.md](04-bastion.md)                       | Docker Compose: Nexus, Prometheus, Grafana                       |
-| [05-deploy-kubernetes.md](05-deploy-kubernetes.md)   | containerd, API pair, bootstrap, join, Calico, kubectl, k9s      |
-| [06-ceph.md](06-ceph.md)                             | Ceph deploy                                                      |
-| [07-ingress.md](07-ingress.md)                       | Traefik, published on the API pair                               |
-| [08-observability.md](08-observability.md)           | node_exporter                                                    |
-| [09-smoke-test.md](09-smoke-test.md)                 | Smoke and stress                                                 |
-| [10-security.md](10-security.md)                     | Hardening outline                                                |
-| [11-update-kubernetes.md](11-update-kubernetes.md)   | Kubernetes, Calico, and external-etcd upgrades                   |
-| [12-update-ceph.md](12-update-ceph.md)               | Ceph upgrade                                                     |
-| [13-troubleshooting.md](13-troubleshooting.md)       | Notes filled in as a run hits them                               |
-| [14-gpu.md](14-gpu.md)                               | GPU profile only                                                 |
-| [15-deployment-log.md](15-deployment-log.md)         | What was actually pinned, per run                                |
-| [apps/README.md](apps/README.md)                     | Application databases, after the cluster is healthy              |
+| Doc                                                                        | Covers                                                                              |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [00-overview.md](00-overview.md)                                           | Scope, profiles, scenarios, version pins                                            |
+| [01-inventory.md](01-inventory.md)                                         | VM tables and the LAN plan, including the API load-balancer pair                    |
+| [02-prepare.md](02-prepare.md)                                             | Prerequisites and OS baseline                                                       |
+| [03-firewall.md](03-firewall.md)                                           | Gateway keepalived pair                                                             |
+| [04-bastion.md](04-bastion.md)                                             | Docker Compose: Nexus, Prometheus, Grafana                                          |
+| [05-deploy-kubernetes.md](05-deploy-kubernetes.md)                         | containerd, API pair, bootstrap, join, Calico, kubectl, k9s                         |
+| [06-ceph.md](06-ceph.md)                                                   | Ceph deploy                                                                         |
+| [07-ingress.md](07-ingress.md)                                             | Traefik, published on the API pair                                                  |
+| [08-observability.md](08-observability.md)                                 | node_exporter                                                                       |
+| [09-smoke-test.md](09-smoke-test.md)                                       | Smoke and stress                                                                    |
+| [10-security.md](10-security.md)                                           | Hardening outline                                                                   |
+| [11-update-kubernetes.md](11-update-kubernetes.md)                         | Kubernetes, Calico, and external-etcd upgrades                                      |
+| [12-update-ceph.md](12-update-ceph.md)                                     | Ceph upgrade                                                                        |
+| [13-troubleshooting.md](13-troubleshooting.md)                             | Notes filled in as a run hits them                                                  |
+| [14-gpu.md](14-gpu.md)                                                     | GPU profile only                                                                    |
+| [15-deployment-log.md](15-deployment-log.md)                               | What was actually pinned, per run                                                   |
+| [apps/README.md](apps/README.md)                                           | Application databases, after the cluster is healthy                                 |
 | [idops-pocket-cluster/00-overview.md](idops-pocket-cluster/00-overview.md) | Pocket Cluster: numbered docs 00–03, small kind on Docker for CKAD and app practice |
 
 ```mermaid

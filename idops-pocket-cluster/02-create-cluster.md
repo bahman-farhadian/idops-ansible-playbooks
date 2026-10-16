@@ -55,26 +55,26 @@ kubectl get nodes
 kubectl get pods --all-namespaces
 ```
 
-| Item | Survives terminal closure? | Location or behavior |
-| ---- | -------------------------- | -------------------- |
-| Pinned binaries | Yes | `/opt/idops-pocket-cluster/.../bin` |
-| Stable activation link | Yes | `/opt/idops-pocket-cluster/activate` |
-| Isolated kubeconfig | Yes | under the versioned directory |
-| kind cluster config | Yes | `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml` |
-| Running kind nodes | Usually yes | Docker containers, until deleted or Docker stops |
-| Node image in Docker | Yes | Docker image cache |
-| Exported variables, PATH, `k` | No | Restore by sourcing `activate` |
+| Item                          | Survives terminal closure? | Location or behavior                             |
+| ----------------------------- | -------------------------- | ------------------------------------------------ |
+| Pinned binaries               | Yes                        | `/opt/idops-pocket-cluster/.../bin`              |
+| Stable activation link        | Yes                        | `/opt/idops-pocket-cluster/activate`             |
+| Isolated kubeconfig           | Yes                        | under the versioned directory                    |
+| kind cluster config           | Yes                        | `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`    |
+| Running kind nodes            | Usually yes                | Docker containers, until deleted or Docker stops |
+| Node image in Docker          | Yes                        | Docker image cache                               |
+| Exported variables, PATH, `k` | No                         | Restore by sourcing `activate`                   |
 
 After activation:
 
-| Command | Effect |
-| ------- | ------ |
-| `k8s_lab_info` | Show paths, versions, cluster name, and the `image:` from the yaml |
-| `k8s_lab_start` | Create or reuse the cluster; cap Docker CPU/RAM; label workers; taint the control plane; start Cloud Provider KIND |
-| `k8s_lab_status` | List kind clusters, node containers, Kubernetes nodes, taints, and `docker stats` |
-| `k8s_lab_load_image <image>` | Load a local Docker image onto worker nodes only |
-| `k8s_lab_delete_cluster` | Delete `idops-pocket-k8s-cluster` (kind delete is idempotent) |
-| `k8s_lab_deactivate` | Restore the shell's original PATH and variables |
+| Command                      | Effect                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `k8s_lab_info`               | Show paths, versions, cluster name, and the `image:` from the yaml                                                 |
+| `k8s_lab_start`              | Create or reuse the cluster; cap Docker CPU/RAM; label workers; taint the control plane; start Cloud Provider KIND |
+| `k8s_lab_status`             | List kind clusters, node containers, Kubernetes nodes, taints, and `docker stats`                                  |
+| `k8s_lab_load_image <image>` | Load a local Docker image onto worker nodes only                                                                   |
+| `k8s_lab_delete_cluster`     | Delete `idops-pocket-k8s-cluster` (kind delete is idempotent)                                                      |
+| `k8s_lab_deactivate`         | Restore the shell's original PATH and variables                                                                    |
 
 Optional shorter activate in your Bash startup file:
 

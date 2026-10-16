@@ -30,12 +30,12 @@ kubectl describe nodes k8s-work-1 k8s-work-2 k8s-work-3 | grep -A5 "Allocated re
 ```
 Write down: total allocatable CPU/memory across the workers, and what's already requested. The gap between "80% of allocatable" and "already requested" is what steps 4–5 need to add — work this out with your own numbers, not the ones below, which are illustrative only:
 
-|                                   | Example (illustrative — use your own numbers)                   |
-| --------------------------------- | --------------------------------------------------------------- |
-| Allocatable, 3 workers combined   | 12 vCPU / 12 GB (3 × 4 vCPU/4 GB, minus kubelet/system reserve) |
-| Already requested (Calico + CSI)  | ~1.5 vCPU / ~1.5 GB                                             |
-| 80% target                        | 9.6 vCPU / 9.6 GB                                               |
-| Additional load to add            | ~8.1 vCPU / ~8.1 GB                                             |
+|                                  | Example (illustrative — use your own numbers)                   |
+| -------------------------------- | --------------------------------------------------------------- |
+| Allocatable, 3 workers combined  | 12 vCPU / 12 GB (3 × 4 vCPU/4 GB, minus kubelet/system reserve) |
+| Already requested (Calico + CSI) | ~1.5 vCPU / ~1.5 GB                                             |
+| 80% target                       | 9.6 vCPU / 9.6 GB                                               |
+| Additional load to add           | ~8.1 vCPU / ~8.1 GB                                             |
 
 **3. Deploy the baseline nginx workload** — small, fixed size, just proving ordinary app deployment + Service + Ingress still works normally under everything else running:
 ```yaml
