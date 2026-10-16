@@ -1,115 +1,106 @@
 # Pocket Cluster first app. Apply from this clone, not from /opt:
 #   kubectl apply -f hello-nginx.yaml
 # Objects are in create order. This app is stateless: no PersistentVolume
-# and no PersistentVolumeClaim.
+# and no PersistentVolumeClaim. Every line below is commented for study.
 
----
-# Namespace: a name for every later object. Create this first.
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: idops-nginx-demo
+---                                                        # next object in this file
+apiVersion: v1                                             # core group; Namespace lives here
+kind: Namespace                                            # a name scope; create this first
+metadata:                                                  # identity of this object
+  name: idops-nginx-demo                                   # every later object sets namespace: this name
 
----
-# ConfigMap: the nginx page. No disk; a ConfigMap is enough.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hello-nginx
-  namespace: idops-nginx-demo
-data:
-  # Mounted into the container as /etc/nginx/conf.d/default.conf.
-  default.conf: |
-    server {
-        listen 80 default_server;
-        server_name _;
-        access_log /dev/stdout;
-        error_log /dev/stderr;
-        location / {
-            default_type text/plain;
-            return 200 "Pocket Cluster\npod=$hostname\n";
-        }
-    }
+---                                                        # next object in this file
+apiVersion: v1                                             # core group; ConfigMap lives here
+kind: ConfigMap                                            # key/value data the Pods mount as a file
+metadata:                                                  # identity of this object
+  name: hello-nginx                                        # Deployment volume refers to this name
+  namespace: idops-nginx-demo                              # must match the Namespace above
+data:                                                      # the keys become files when mounted
+  default.conf: |                                          # nginx reads this as /etc/nginx/conf.d/default.conf
+    server {                                               # one virtual host
+        listen 80 default_server;                          # listen on the container port
+        server_name _;                                     # match any Host header
+        access_log /dev/stdout;                            # kubectl logs can read this
+        error_log /dev/stderr;                             # errors go to stderr
+        location / {                                       # every HTTP path
+            default_type text/plain;                       # body is plain text, not HTML
+            return 200 "Pocket Cluster\npod=$hostname\n";  # $hostname is the Pod name
+        }                                                  # end location
+    }                                                      # end server
 
----
-# Deployment: six identical Pods. Any replica can serve any request.
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: hello-nginx
-  namespace: idops-nginx-demo
-  labels:
-    app: hello-nginx
-spec:
-  replicas: 6                          # spread across the three workers
-  selector:
-    matchLabels:
-      app: hello-nginx                 # must match template.metadata.labels
-  template:
-    metadata:
-      labels:
-        app: hello-nginx
-    spec:
-      containers:
-        - name: nginx
-          image: nginx:1.27
-          imagePullPolicy: IfNotPresent  # use the image k8s_lab_load_image put on workers
-          ports:
-            - name: http
-              containerPort: 80
-          volumeMounts:
-            - name: nginx-config
-              mountPath: /etc/nginx/conf.d/default.conf
-              subPath: default.conf      # one file from the ConfigMap, not the whole dir
-          readinessProbe:                # Service traffic only after GET / succeeds
-            httpGet:
-              path: /
-              port: http
-          livenessProbe:                 # kubelet restarts the container if GET / fails
-            httpGet:
-              path: /
-              port: http
-      volumes:
-        - name: nginx-config
-          configMap:
-            name: hello-nginx
+---                                                        # next object in this file
+apiVersion: apps/v1                                        # apps group; Deployment lives here
+kind: Deployment                                           # replica Pods with a rolling update
+metadata:                                                  # identity of this object
+  name: hello-nginx                                        # kubectl get deploy hello-nginx
+  namespace: idops-nginx-demo                              # must match the Namespace
+  labels:                                                  # labels on the Deployment object itself
+    app: hello-nginx                                       # a name you can select with -l app=hello-nginx
+spec:                                                      # desired state of the Deployment
+  replicas: 6                                              # six Pods, spread across the three workers
+  selector:                                                # which Pods this Deployment owns
+    matchLabels:                                           # must equal template.metadata.labels
+      app: hello-nginx                                     # Pods with this label belong here
+  template:                                                # blueprint for each Pod
+    metadata:                                              # identity of each Pod ReplicaSet creates
+      labels:                                              # must match spec.selector.matchLabels
+        app: hello-nginx                                   # Service selector uses this too
+    spec:                                                  # desired state of each Pod
+      containers:                                          # list of containers in the Pod
+        - name: nginx                                      # name inside the Pod (logs, exec)
+          image: nginx:1.27                                # pin; load it with k8s_lab_load_image first
+          imagePullPolicy: IfNotPresent                    # use the image already on the worker
+          ports:                                           # ports this container listens on
+            - name: http                                   # named port; Service targetPort can use this
+              containerPort: 80                            # nginx listen 80
+          volumeMounts:                                    # files injected into the container
+            - name: nginx-config                           # must match spec.volumes[].name
+              mountPath: /etc/nginx/conf.d/default.conf    # nginx default site file
+              subPath: default.conf                        # one ConfigMap key, not the whole directory
+          readinessProbe:                                  # kubelet: ready for Service traffic?
+            httpGet:                                       # HTTP check
+              path: /                                      # same path curl will hit
+              port: http                                   # named port above
+          livenessProbe:                                   # kubelet: restart this container if this fails
+            httpGet:                                       # HTTP check
+              path: /                                      # same path
+              port: http                                   # named port above
+      volumes:                                             # volumes the containers may mount
+        - name: nginx-config                               # must match volumeMounts[].name
+          configMap:                                       # source is a ConfigMap
+            name: hello-nginx                              # the ConfigMap in this namespace
 
----
-# Service: ClusterIP. Pods are reached by this name inside the cluster.
-# The host uses Ingress, not a NodePort on this Service.
-apiVersion: v1
-kind: Service
-metadata:
-  name: hello-nginx
-  namespace: idops-nginx-demo
-  labels:
-    app: hello-nginx
-spec:
-  type: ClusterIP
-  selector:
-    app: hello-nginx                   # same label as the Pods
-  ports:
-    - name: http
-      port: 80                         # port the Ingress talks to
-      targetPort: http                 # named port on the container
+---                                                        # next object in this file
+apiVersion: v1                                             # core group; Service lives here
+kind: Service                                              # stable ClusterIP in front of the Pods
+metadata:                                                  # identity of this object
+  name: hello-nginx                                        # Ingress backend.service.name
+  namespace: idops-nginx-demo                              # must match the Namespace
+  labels:                                                  # labels on the Service object
+    app: hello-nginx                                       # same app name as the rest
+spec:                                                      # desired state of the Service
+  type: ClusterIP                                          # reachable inside the cluster only
+  selector:                                                # which Pods receive traffic
+    app: hello-nginx                                       # must match Pod template labels
+  ports:                                                   # ports this Service exposes
+    - name: http                                           # a name for this port
+      port: 80                                             # port the Ingress talks to
+      targetPort: http                                     # named container port on the Pod
 
----
-# Ingress: Cloud Provider KIND writes ADDRESS (a docker network IP).
-# Read it with: kubectl get ingress -n idops-nginx-demo
-# Curl that IP. Do not curl 127.0.0.1.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: hello-nginx
-  namespace: idops-nginx-demo
-spec:
-  rules:
-    - http:                            # no host: every Host header matches
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: hello-nginx
-                port:
-                  number: 80
+---                                                        # next object in this file
+apiVersion: networking.k8s.io/v1                           # networking group; Ingress lives here
+kind: Ingress                                              # HTTP path from outside to the Service
+metadata:                                                  # identity of this object
+  name: hello-nginx                                        # kubectl get ingress hello-nginx
+  namespace: idops-nginx-demo                              # must match the Namespace
+spec:                                                      # desired state of the Ingress
+  rules:                                                   # how HTTP requests are matched
+    - http:                                                # no host: every Host header matches
+        paths:                                             # URL paths
+          - path: /                                        # prefix / is the whole site
+            pathType: Prefix                               # / and everything under it
+            backend:                                       # where matching requests go
+              service:                                     # a Service in this namespace
+                name: hello-nginx                          # the ClusterIP Service above
+                port:                                      # which Service port
+                  number: 80                               # spec.ports[].port on that Service

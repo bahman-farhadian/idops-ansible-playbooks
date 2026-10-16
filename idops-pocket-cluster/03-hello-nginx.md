@@ -4,7 +4,7 @@
 
 ## Teaching note
 
-The app is one file, [hello-nginx.yaml](hello-nginx.yaml), in this clone. `/opt` is the toolchain. Read the comments in that file: each object and the keys that matter are marked. Objects are in create order: namespace, ConfigMap, Deployment, Service, Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim.
+The app is one file, [hello-nginx.yaml](hello-nginx.yaml), in this clone. `/opt` is the toolchain. Every line in that file has a comment. Objects are in create order: namespace, ConfigMap, Deployment, Service, Ingress. This app keeps no data on disk, so there is no PersistentVolume and no PersistentVolumeClaim.
 
 The Service is ClusterIP. Cloud Provider KIND gives the Ingress an ADDRESS on the docker network. Run `kubectl get ingress`, read ADDRESS, and type that IP into curl. Do not curl `127.0.0.1`.
 
