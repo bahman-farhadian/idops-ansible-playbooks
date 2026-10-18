@@ -122,7 +122,7 @@ Exam-day habits: type `kubectl`, `--dry-run=client -o yaml` into a file, then `k
 - [kind Ingress](https://kind.sigs.k8s.io/docs/user/ingress/)
 - [kind LoadBalancer / Cloud Provider KIND](https://kind.sigs.k8s.io/docs/user/loadbalancer/)
 - [Install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
-- [k9s](https://k9scli.io/) / [k9s config reference](https://k9scli.io/topics/config/)
+- [k9s](https://k9scli.io/) / [k9s config reference](https://k9scli.io/topics/config/) / [k9s skins reference](https://k9scli.io/topics/skins/)
 - [Kubernetes releases](https://kubernetes.io/releases/)
 - [Kubernetes version-skew policy](https://kubernetes.io/releases/version-skew-policy/)
 - [CKAD certification](https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/)

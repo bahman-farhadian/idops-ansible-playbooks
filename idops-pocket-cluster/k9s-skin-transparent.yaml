@@ -1,0 +1,51 @@
+# Pocket Cluster k9s skin: disables k9s's own background color so every
+# panel shows the terminal's own background instead.
+#
+# Pinned verbatim from derailed/k9s tag v0.51.0 (skins/transparent.yaml) —
+# https://raw.githubusercontent.com/derailed/k9s/v0.51.0/skins/transparent.yaml
+# k9s does not bundle this skin inside the binary; it only works copied into
+# $K9S_CONFIG_DIR/skins/transparent.yaml with `skin: transparent` set in
+# config.yaml (see k9s-config.yaml), which 01-install-tools.md does.
+#
+# "default" means "whatever the terminal already paints there", not a named
+# color. This has regressed upstream before (derailed/k9s#821, broken again
+# as late as v0.31.5) — confirm it actually looks transparent in your own
+# terminal after running k9s; it is a real option, not a guaranteed one.
+k9s:
+  body:
+    bgColor: default
+  prompt:
+    bgColor: default
+  info:
+    sectionColor: default
+  dialog:
+    bgColor: default
+    labelFgColor: default
+    fieldFgColor: default
+  frame:
+    crumbs:
+      bgColor: default
+    title:
+      bgColor: default
+      counterColor: default
+    menu:
+      fgColor: default
+  views:
+    charts:
+      bgColor: default
+    table:
+      bgColor: default
+      header:
+        fgColor: default
+        bgColor: default
+    xray:
+      bgColor: default
+    logs:
+      bgColor: default
+      indicator:
+        bgColor: default
+        toggleOnColor: default
+        toggleOffColor: default
+    yaml:
+      colonColor: default
+      valueColor: default

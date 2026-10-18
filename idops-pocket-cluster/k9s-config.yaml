@@ -8,11 +8,16 @@
 # Same logoless intent as the bastion k9s config in ../05-deploy-kubernetes.md,
 # with splashless added so neither the startup splash nor the top-bar logo
 # shows. `thresholds` is required: k9s has crashed on a config that omits it.
+#
+# skin: transparent turns off k9s's own background color (see
+# k9s-skin-transparent.yaml); it only works with that file present at
+# $K9S_CONFIG_DIR/skins/transparent.yaml, which 01-install-tools.md copies in.
 k9s:
   refreshRate: 2
   ui:
     logoless: true
     splashless: true
+    skin: transparent
   thresholds:
     cpu:
       critical: 90

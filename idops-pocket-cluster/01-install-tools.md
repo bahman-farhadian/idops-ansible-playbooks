@@ -124,14 +124,15 @@ file "$K8S_LAB_BIN/k9s"
 "$K8S_LAB_BIN/k9s" version                                   # expected: v0.51.0
 ```
 
-**8. Copy config and activate** — **this is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster. Copy into `/opt` so daily use does not depend on the git clone path. App manifests stay in the clone; `/opt` is the toolchain. [k9s-config.yaml](k9s-config.yaml) is the same copy-in treatment, into its own subdirectory so it never touches `~/.config/k9s`.
+**8. Copy config and activate** — **this is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster. Copy into `/opt` so daily use does not depend on the git clone path. App manifests stay in the clone; `/opt` is the toolchain. [k9s-config.yaml](k9s-config.yaml) and [k9s-skin-transparent.yaml](k9s-skin-transparent.yaml) are the same copy-in treatment, into their own subdirectory so they never touch `~/.config/k9s`. The skin turns off k9s's own background color (`ui.skin: transparent` in the config, pointing at this skin file) — k9s does not bundle it, so without the copy the `skin: transparent` setting has nothing to load.
 ```sh
 cp "$GUIDE_DIR/idops-pocket-k8s-cluster.yaml" "$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml"
 cp "$GUIDE_DIR/activate" "$K8S_LAB_ROOT/activate"
 chmod 0644 "$K8S_LAB_ROOT/activate"
-mkdir -p "$K8S_LAB_ROOT/k9s-config"
+mkdir -p "$K8S_LAB_ROOT/k9s-config/skins"
 cp "$GUIDE_DIR/k9s-config.yaml" "$K8S_LAB_ROOT/k9s-config/config.yaml"
-chmod 0644 "$K8S_LAB_ROOT/k9s-config/config.yaml"
+cp "$GUIDE_DIR/k9s-skin-transparent.yaml" "$K8S_LAB_ROOT/k9s-config/skins/transparent.yaml"
+chmod 0644 "$K8S_LAB_ROOT/k9s-config/config.yaml" "$K8S_LAB_ROOT/k9s-config/skins/transparent.yaml"
 ln -sfn "$K8S_LAB_ROOT" "$K8S_LAB_HOME/current"              # later upgrades retarget this one link
 ln -sfn "current/activate" "$K8S_LAB_HOME/activate"
 ```
@@ -146,7 +147,9 @@ Layout:
     ├── activate
     ├── idops-pocket-k8s-cluster.yaml
     ├── k9s-config/
-    │   └── config.yaml
+    │   ├── config.yaml
+    │   └── skins/
+    │       └── transparent.yaml
     └── bin/
         ├── kubectl
         ├── kind
@@ -171,9 +174,13 @@ actual_k9s_version="$(k9s version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n
 [[ "$actual_kind_version" == "$KIND_VERSION" ]] && echo "kind version is correct" || { echo "Unexpected kind version: $actual_kind_version" >&2; return 1 2>/dev/null || exit 1; }
 [[ "$actual_k9s_version" == "$K9S_VERSION" ]] && echo "k9s version is correct" || { echo "Unexpected k9s version: $actual_k9s_version" >&2; return 1 2>/dev/null || exit 1; }
 grep -n logoless "$K9S_CONFIG_DIR/config.yaml"               # true; k9s reads this on start, no splash either
+grep -n "skin: transparent" "$K9S_CONFIG_DIR/config.yaml"
+ls "$K9S_CONFIG_DIR/skins/transparent.yaml"                  # must exist or the skin setting has nothing to load
 ```
 
 Expected: kubectl `v1.37.0`, kind `v0.33.0`, helm `v3.22.0`, k9s `v0.51.0`. `k` is `kubectl`. Tab-complete works on `kubectl`, `k`, `kind`, `helm`, and `k9s`.
+
+`skin: transparent` turns off k9s's own background color so every panel shows your terminal's own background. Confirm it visually: run `k9s`, look at the body/table panels, `Ctrl-c` out. This exact mechanism has regressed upstream before ([derailed/k9s#821](https://github.com/derailed/k9s/issues/821), broken again as late as v0.31.5) — if panels still show a solid background at `v0.51.0`, that's a k9s-side regression to report upstream, not a sign this config is wrong.
 
 ## Next
 
