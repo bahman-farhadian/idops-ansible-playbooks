@@ -1,0 +1,22 @@
+# Pocket Cluster k9s config.
+#
+# 01-install-tools.md copies this file to $K8S_LAB_ROOT/k9s-config/config.yaml.
+# `activate` sets K9S_CONFIG_DIR to that directory, so k9s reads it instead of
+# the default ~/.config/k9s — same isolation as KUBECONFIG: nothing under
+# /opt/idops-pocket-cluster touches a host-wide dotfile.
+#
+# Same logoless intent as the bastion k9s config in ../05-deploy-kubernetes.md,
+# with splashless added so neither the startup splash nor the top-bar logo
+# shows. `thresholds` is required: k9s has crashed on a config that omits it.
+k9s:
+  refreshRate: 2
+  ui:
+    logoless: true
+    splashless: true
+  thresholds:
+    cpu:
+      critical: 90
+      warn: 70
+    memory:
+      critical: 90
+      warn: 70

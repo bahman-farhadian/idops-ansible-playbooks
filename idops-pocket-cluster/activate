@@ -11,6 +11,7 @@ export KUBECTL_VERSION="v1.37.0"
 export KIND_VERSION="v0.33.0"
 export HELM_VERSION="v3.22.0"
 export CLOUD_PROVIDER_KIND_VERSION="v0.12.0"
+export K9S_VERSION="v0.51.0"
 export KIND_CLUSTER_NAME="idops-pocket-k8s-cluster"
 export KIND_CLUSTER_CONFIG="idops-pocket-k8s-cluster.yaml"
 export KIND_CONTROL_PLANE_CPUS="${KIND_CONTROL_PLANE_CPUS:-2}"
@@ -22,10 +23,17 @@ export K8S_LAB_HOME="/opt/idops-pocket-cluster"
 export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSION}"
 export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
 export K8S_LAB_CONFIG="$K8S_LAB_ROOT/$KIND_CLUSTER_CONFIG"
+export K9S_CONFIG_DIR="$K8S_LAB_ROOT/k9s-config"
 
-if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" || ! -x "$K8S_LAB_BIN/cloud-provider-kind" ]]; then
-  echo "The pinned kubectl, kind, or cloud-provider-kind binary is missing or not executable:" >&2
+if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" || ! -x "$K8S_LAB_BIN/cloud-provider-kind" || ! -x "$K8S_LAB_BIN/k9s" ]]; then
+  echo "The pinned kubectl, kind, cloud-provider-kind, or k9s binary is missing or not executable:" >&2
   echo "  $K8S_LAB_BIN" >&2
+  return 1
+fi
+
+if [[ ! -f "$K9S_CONFIG_DIR/config.yaml" ]]; then
+  echo "k9s config is missing:" >&2
+  echo "  $K9S_CONFIG_DIR/config.yaml" >&2
   return 1
 fi
 
@@ -63,6 +71,9 @@ if [[ -n "${BASH_VERSION:-}" ]]; then
     eval "$(helm completion bash)"
     complete -o default -o nospace -F __start_helm helm
   fi
+  if command -v k9s >/dev/null 2>&1; then
+    eval "$(k9s completion bash)"
+  fi
 fi
 
 k8s_lab_require_docker() {
@@ -97,10 +108,13 @@ k8s_lab_info() {
   printf '  kind:               %s\n' "$(command -v kind 2>/dev/null || printf 'not found')"
   printf '  helm:               %s\n' "$(command -v helm 2>/dev/null || printf 'not found')"
   printf '  cloud-provider-kind: %s\n' "$(command -v cloud-provider-kind 2>/dev/null || printf 'not found')"
+  printf '  k9s:                %s\n' "$(command -v k9s 2>/dev/null || printf 'not found')"
   printf '  KUBECTL_VERSION:    %s\n' "$KUBECTL_VERSION"
   printf '  KIND_VERSION:       %s\n' "$KIND_VERSION"
   printf '  HELM_VERSION:       %s\n' "$HELM_VERSION"
   printf '  CPK_VERSION:        %s\n' "$CLOUD_PROVIDER_KIND_VERSION"
+  printf '  K9S_VERSION:        %s\n' "$K9S_VERSION"
+  printf '  K9S_CONFIG_DIR:     %s\n' "$K9S_CONFIG_DIR"
   printf '  KIND_CLUSTER_NAME:  %s\n' "$KIND_CLUSTER_NAME"
   printf '  cluster config:     %s\n' "$K8S_LAB_CONFIG"
   printf '  Kubernetes image:   %s\n' "$(k8s_lab_node_image)"
@@ -252,8 +266,8 @@ k8s_lab_deactivate() {
   if [[ -n "${K8S_LAB_OLD_PATH:-}" ]]; then
     export PATH="$K8S_LAB_OLD_PATH"
   fi
-  unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN K8S_LAB_CONFIG
-  unset KUBECTL_VERSION KIND_VERSION HELM_VERSION CLOUD_PROVIDER_KIND_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
+  unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN K8S_LAB_CONFIG K9S_CONFIG_DIR
+  unset KUBECTL_VERSION KIND_VERSION HELM_VERSION CLOUD_PROVIDER_KIND_VERSION K9S_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
   unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   unalias k 2>/dev/null || true
   unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_taint_control_plane k8s_lab_worker_nodes_csv k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_cloud_provider_start k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate

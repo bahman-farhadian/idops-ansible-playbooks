@@ -53,13 +53,17 @@ k8s_lab_info
 k8s_lab_start                                                # create if missing; export kubeconfig if it exists
 kubectl get nodes
 kubectl get pods --all-namespaces
+k9s                                                          # TUI, same KUBECONFIG, logo- and splash-free
 ```
+
+`k9s` with no arguments reads `$KUBECONFIG`, the same file `kubectl` uses — no separate setup. `:q` or `Ctrl-c` exits back to the shell.
 
 | Item                          | Survives terminal closure? | Location or behavior                             |
 | ----------------------------- | -------------------------- | ------------------------------------------------ |
 | Pinned binaries               | Yes                        | `/opt/idops-pocket-cluster/.../bin`              |
 | Stable activation link        | Yes                        | `/opt/idops-pocket-cluster/activate`             |
 | Isolated kubeconfig           | Yes                        | under the versioned directory                    |
+| Isolated k9s config           | Yes                        | `$K9S_CONFIG_DIR/config.yaml`, under the versioned directory |
 | kind cluster config           | Yes                        | `$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml`    |
 | Running kind nodes            | Usually yes                | Docker containers, until deleted or Docker stops |
 | Node image in Docker          | Yes                        | Docker image cache                               |
@@ -123,7 +127,7 @@ If `/opt/pocket-cluster` is left from an older install, remove it the same way a
 2. Put that tag on every `image:` line in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml).
 3. Set `KUBECTL_VERSION` to the same minor and re-run [01-install-tools.md](01-install-tools.md) into the new directory.
 4. Recheck the CKAD exam Kubernetes version if you are studying for the exam.
-5. Copy `idops-pocket-k8s-cluster.yaml` and `activate` into the new versioned directory.
+5. Copy `idops-pocket-k8s-cluster.yaml`, `activate`, and `k9s-config.yaml` (into a new `k9s-config/config.yaml`) into the new versioned directory. `K9S_VERSION` is independent of the cluster version — recheck [github.com/derailed/k9s/releases](https://github.com/derailed/k9s/releases) on its own schedule, it does not need to move just because the cluster did.
 6. Delete the old cluster, or use a different `name:` in the yaml.
 7. Point `current` at the new directory: `ln -sfn "$NEW_K8S_LAB_ROOT" /opt/idops-pocket-cluster/current`.
 

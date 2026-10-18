@@ -1,6 +1,6 @@
 # 01. Install Tools
 
-**Goal:** Put pinned kubectl, kind, Helm 3, and cloud-provider-kind under `/opt/idops-pocket-cluster`, then activate the session.
+**Goal:** Put pinned kubectl, kind, Helm 3, cloud-provider-kind, and k9s under `/opt/idops-pocket-cluster`, then activate the session.
 
 ## Teaching note
 
@@ -42,6 +42,7 @@ export KIND_VERSION="v0.33.0"
 export KIND_CLUSTER_NAME="idops-pocket-k8s-cluster"
 export HELM_VERSION="v3.22.0"
 export CLOUD_PROVIDER_KIND_VERSION="v0.12.0"
+export K9S_VERSION="v0.51.0"
 case "$(uname -m)" in x86_64) export K8S_ARCH=amd64 ;; aarch64) export K8S_ARCH=arm64 ;; *) echo "This guide supports Linux amd64 (x86_64) and arm64 (aarch64) only." >&2; return 1 2>/dev/null || exit 1 ;; esac
 [ "$(uname -s)" = Linux ] || { echo "This guide is Linux only." >&2; return 1 2>/dev/null || exit 1; }
 export K8S_LAB_HOME="/opt/idops-pocket-cluster"
@@ -109,11 +110,28 @@ rm -rf "$K8S_LAB_ROOT/cpk-extract" "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_lin
 "$K8S_LAB_BIN/cloud-provider-kind" --help >/dev/null && echo "cloud-provider-kind is installed"
 ```
 
-**7. Copy config and activate** — **this is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster. Copy into `/opt` so daily use does not depend on the git clone path. App manifests stay in the clone; `/opt` is the toolchain.
+**7. Install k9s** — terminal UI for the cluster, same kind of install as cloud-provider-kind: a pinned GitHub release tarball, checksum-verified, not a distro package. Same pin (`v0.51.0`) as the bastion k9s in the KVM HA lab (`../05-deploy-kubernetes.md`). The archive extracts a flat `k9s` binary, no subdirectory.
+```sh
+curl --fail --location --output "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K8S_ARCH}.tar.gz"
+curl --fail --location --output "$K8S_LAB_ROOT/k9s.checksums.sha256" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.sha256"
+( cd "$K8S_LAB_ROOT" && grep "k9s_Linux_${K8S_ARCH}.tar.gz$" k9s.checksums.sha256 | sha256sum --check )
+mkdir -p "$K8S_LAB_ROOT/k9s-extract"
+tar -xzf "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" -C "$K8S_LAB_ROOT/k9s-extract"
+cp "$K8S_LAB_ROOT/k9s-extract/k9s" "$K8S_LAB_BIN/k9s"
+chmod 0755 "$K8S_LAB_BIN/k9s"
+rm -rf "$K8S_LAB_ROOT/k9s-extract" "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "$K8S_LAB_ROOT/k9s.checksums.sha256"
+file "$K8S_LAB_BIN/k9s"
+"$K8S_LAB_BIN/k9s" version                                   # expected: v0.51.0
+```
+
+**8. Copy config and activate** — **this is where the cluster version is defined.** Open [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Every node has `image: kindest/node:v1.37.0`. Change the cluster version by changing every `image:` to a new `kindest/node:vX.Y.Z` from the [kind release notes](https://github.com/kubernetes-sigs/kind/releases), then recreate the cluster. Copy into `/opt` so daily use does not depend on the git clone path. App manifests stay in the clone; `/opt` is the toolchain. [k9s-config.yaml](k9s-config.yaml) is the same copy-in treatment, into its own subdirectory so it never touches `~/.config/k9s`.
 ```sh
 cp "$GUIDE_DIR/idops-pocket-k8s-cluster.yaml" "$K8S_LAB_ROOT/idops-pocket-k8s-cluster.yaml"
 cp "$GUIDE_DIR/activate" "$K8S_LAB_ROOT/activate"
 chmod 0644 "$K8S_LAB_ROOT/activate"
+mkdir -p "$K8S_LAB_ROOT/k9s-config"
+cp "$GUIDE_DIR/k9s-config.yaml" "$K8S_LAB_ROOT/k9s-config/config.yaml"
+chmod 0644 "$K8S_LAB_ROOT/k9s-config/config.yaml"
 ln -sfn "$K8S_LAB_ROOT" "$K8S_LAB_HOME/current"              # later upgrades retarget this one link
 ln -sfn "current/activate" "$K8S_LAB_HOME/activate"
 ```
@@ -127,28 +145,35 @@ Layout:
 └── kubectl-v1.37.0_kind-v0.33.0/
     ├── activate
     ├── idops-pocket-k8s-cluster.yaml
+    ├── k9s-config/
+    │   └── config.yaml
     └── bin/
         ├── kubectl
         ├── kind
         ├── helm
-        └── cloud-provider-kind
+        ├── cloud-provider-kind
+        └── k9s
 ```
 
-**8. Activate and check versions** — `activate` puts `$K8S_LAB_BIN` first on `PATH`, sets `KUBECONFIG`, aliases `k` to `kubectl`, and loads bash completion. The first `kubectl`, `kind`, and `cloud-provider-kind` must resolve under `$K8S_LAB_BIN`.
+**9. Activate and check versions** — `activate` puts `$K8S_LAB_BIN` first on `PATH`, sets `KUBECONFIG` and `K9S_CONFIG_DIR`, aliases `k` to `kubectl`, and loads bash completion. The first `kubectl`, `kind`, `cloud-provider-kind`, and `k9s` must resolve under `$K8S_LAB_BIN`.
 ```sh
 source /opt/idops-pocket-cluster/activate
 k8s_lab_info
-type -a kubectl kind helm cloud-provider-kind
+type -a kubectl kind helm cloud-provider-kind k9s
 kubectl version --client --output=yaml
 kind version
 helm version
+k9s version
 actual_kubectl_version="$(kubectl version --client --output=json | awk -F'"' '/"gitVersion"/ { print $4; exit }')"
 actual_kind_version="$(kind version | awk '{ print $2; exit }')"
+actual_k9s_version="$(k9s version | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -n1)"
 [[ "$actual_kubectl_version" == "$KUBECTL_VERSION" ]] && echo "kubectl version is correct" || { echo "Unexpected kubectl version: $actual_kubectl_version" >&2; return 1 2>/dev/null || exit 1; }
 [[ "$actual_kind_version" == "$KIND_VERSION" ]] && echo "kind version is correct" || { echo "Unexpected kind version: $actual_kind_version" >&2; return 1 2>/dev/null || exit 1; }
+[[ "$actual_k9s_version" == "$K9S_VERSION" ]] && echo "k9s version is correct" || { echo "Unexpected k9s version: $actual_k9s_version" >&2; return 1 2>/dev/null || exit 1; }
+grep -n logoless "$K9S_CONFIG_DIR/config.yaml"               # true; k9s reads this on start, no splash either
 ```
 
-Expected: kubectl `v1.37.0`, kind `v0.33.0`, helm `v3.22.0`. `k` is `kubectl`. Tab-complete works on both.
+Expected: kubectl `v1.37.0`, kind `v0.33.0`, helm `v3.22.0`, k9s `v0.51.0`. `k` is `kubectl`. Tab-complete works on `kubectl`, `k`, `kind`, `helm`, and `k9s`.
 
 ## Next
 

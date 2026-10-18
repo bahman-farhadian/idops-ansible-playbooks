@@ -51,25 +51,27 @@ Linux workstation or laptop with Docker Engine. Pins checked against upstream on
 1. Binaries live under `/opt/idops-pocket-cluster`. `/opt` is the local-software tree. `sudo` is only for creating that directory and giving it to your user. Daily `source` and `kubectl` do not need root.
 2. The isolated `bin` directory is first on `PATH` only after you source `activate`.
 3. `KUBECONFIG` points at a file in that tree, not `~/.kube/config`.
+4. `K9S_CONFIG_DIR` points at a directory in that tree, not `~/.config/k9s`. k9s is pinned and checksum-verified the same way as the other binaries.
 
 kind stores node state in Docker containers and in a Docker network named `kind`. Closing a terminal drops session variables and helper functions. Binaries, kubeconfig, and running containers stay.
 
 ## Pinned version matrix
 
-Re-check before you run: [kind releases](https://github.com/kubernetes-sigs/kind/releases), [kubectl downloads](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/), [CKAD exam version](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks).
+Re-check before you run: [kind releases](https://github.com/kubernetes-sigs/kind/releases), [kubectl downloads](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/), [k9s releases](https://github.com/derailed/k9s/releases), [CKAD exam version](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks).
 
-| Component               | Version                     | Where it is set                                                                                 |
-| ----------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
-| `kubectl` client        | v1.37.0                     | `KUBECTL_VERSION` in [01-install-tools.md](01-install-tools.md)                                 |
-| kind CLI                | v0.33.0                     | `KIND_VERSION` in [01-install-tools.md](01-install-tools.md)                                    |
-| Helm 3                  | v3.22.0                     | `HELM_VERSION` in [01-install-tools.md](01-install-tools.md)                                    |
-| cloud-provider-kind     | v0.12.0                     | [01-install-tools.md](01-install-tools.md), started by `k8s_lab_start`                          |
-| Kubernetes cluster      | v1.37.0                     | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml) |
-| Cluster name            | idops-pocket-k8s-cluster    | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                       |
-| Nodes                   | 1 control plane, 3 workers  | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                      |
-| Control-plane resources | 2 CPU, 2g RAM               | `PocketResources` in the yaml; `docker update` in `k8s_lab_start`                               |
-| Each worker resources   | 2 CPU, 2g RAM               | same                                                                                            |
-| Install tree            | `/opt/idops-pocket-cluster` | [01-install-tools.md](01-install-tools.md)                                                      |
+| Component               | Version                     | Where it is set                                                                                                          |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `kubectl` client        | v1.37.0                     | `KUBECTL_VERSION` in [01-install-tools.md](01-install-tools.md)                                                          |
+| kind CLI                | v0.33.0                     | `KIND_VERSION` in [01-install-tools.md](01-install-tools.md)                                                             |
+| Helm 3                  | v3.22.0                     | `HELM_VERSION` in [01-install-tools.md](01-install-tools.md)                                                             |
+| cloud-provider-kind     | v0.12.0                     | [01-install-tools.md](01-install-tools.md), started by `k8s_lab_start`                                                   |
+| k9s                     | v0.51.0                     | `K9S_VERSION` in [01-install-tools.md](01-install-tools.md); same pin as the bastion k9s in `../05-deploy-kubernetes.md` |
+| Kubernetes cluster      | v1.37.0                     | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                          |
+| Cluster name            | idops-pocket-k8s-cluster    | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                                                |
+| Nodes                   | 1 control plane, 3 workers  | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                                               |
+| Control-plane resources | 2 CPU, 2g RAM               | `PocketResources` in the yaml; `docker update` in `k8s_lab_start`                                                        |
+| Each worker resources   | 2 CPU, 2g RAM               | same                                                                                                                     |
+| Install tree            | `/opt/idops-pocket-cluster` | [01-install-tools.md](01-install-tools.md)                                                                               |
 
 kind has no `kubernetesVersion` key. The cluster version is the node image tag on every node. kubectl v1.37.0 matches that minor ([version skew](https://kubernetes.io/releases/version-skew-policy/)). The CKAD exam environment was Kubernetes v1.37 as of 2026-09-30 ([Linux Foundation FAQ](https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks)).
 
@@ -120,6 +122,7 @@ Exam-day habits: type `kubectl`, `--dry-run=client -o yaml` into a file, then `k
 - [kind Ingress](https://kind.sigs.k8s.io/docs/user/ingress/)
 - [kind LoadBalancer / Cloud Provider KIND](https://kind.sigs.k8s.io/docs/user/loadbalancer/)
 - [Install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
+- [k9s](https://k9scli.io/) / [k9s config reference](https://k9scli.io/topics/config/)
 - [Kubernetes releases](https://kubernetes.io/releases/)
 - [Kubernetes version-skew policy](https://kubernetes.io/releases/version-skew-policy/)
 - [CKAD certification](https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/)
