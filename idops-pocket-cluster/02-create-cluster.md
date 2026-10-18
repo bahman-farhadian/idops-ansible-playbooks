@@ -71,14 +71,14 @@ k9s                                                          # TUI, same KUBECON
 
 After activation:
 
-| Command                      | Effect                                                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `k8s_lab_info`               | Show paths, versions, cluster name, and the `image:` from the yaml                                                 |
-| `k8s_lab_start`              | Create or reuse the cluster; cap Docker CPU/RAM; label workers; taint the control plane; start Cloud Provider KIND |
-| `k8s_lab_status`             | List kind clusters, node containers, Kubernetes nodes, taints, and `docker stats`                                  |
-| `k8s_lab_load_image <image>` | Load a local Docker image onto worker nodes only                                                                   |
-| `k8s_lab_delete_cluster`     | Delete `idops-pocket-k8s-cluster` (kind delete is idempotent)                                                      |
-| `k8s_lab_deactivate`         | Restore the shell's original PATH and variables                                                                    |
+| Command                      | Effect                                                                                                                            |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `k8s_lab_info`               | Show paths, versions, cluster name, and the `image:` from the yaml                                                                |
+| `k8s_lab_start`              | Create or reuse the cluster; cap Docker CPU/RAM; label workers; taint the control plane; start Cloud Provider KIND                |
+| `k8s_lab_status`             | List kind clusters, node containers, Kubernetes nodes, taints, and `docker stats`                                                 |
+| `k8s_lab_load_image <image>` | Load a local Docker image onto worker nodes only                                                                                  |
+| `k8s_lab_delete_cluster`     | Delete `idops-pocket-k8s-cluster` (kind delete is idempotent), then wait for cloud-provider-kind to release its gateway container |
+| `k8s_lab_deactivate`         | Restore the shell's original PATH and variables                                                                                   |
 
 Optional shorter activate in your Bash startup file:
 
@@ -179,6 +179,12 @@ k8s_lab_start                                                # if the cluster is
 source /opt/idops-pocket-cluster/activate
 k8s_lab_start
 tail -n 50 "$K8S_LAB_ROOT/cloud-provider-kind.log"
+```
+
+**A `kindccm-gw-*` container is still running right after delete** — `kind delete cluster` returns immediately, but cloud-provider-kind only notices the apiserver is gone and removes its own gateway container after several failed reconcile retries (observed up to ~30s). `k8s_lab_delete_cluster` waits for that on its own now; seeing one survive briefly only means you deleted the cluster some other way (plain `kind delete cluster`, or Docker/host restart). It is not a second cluster or a second gateway — give it a moment, or remove it directly:
+```sh
+docker ps --filter 'name=^kindccm-gw-'            # confirm it is actually a gateway container, not something else
+docker rm -f $(docker ps -q --filter 'name=^kindccm-gw-')
 ```
 
 **NetworkPolicy seems to do nothing** — apply a default-deny in a test namespace and confirm traffic is dropped. If it is not, check `kubectl -n kube-system logs ds/kindnet`. Replacing kindnet with Calico is a later optional step (`disableDefaultCNI: true`).

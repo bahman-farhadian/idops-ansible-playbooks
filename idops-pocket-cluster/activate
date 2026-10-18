@@ -204,6 +204,31 @@ k8s_lab_cloud_provider_start() {
   echo "cloud-provider-kind started (pid $(cat "$pidfile"))."
 }
 
+k8s_lab_cloud_provider_wait_clean() {
+  # kind delete cluster returns immediately, but cloud-provider-kind only
+  # notices the apiserver is gone and removes its own Envoy LB/gateway
+  # containers (named kindccm-gw-<id>) after several failed reconcile
+  # retries - observed ~25-30s on this host. Without this, `docker ps`
+  # right after delete still shows a kindccm-gw-* container that is on its
+  # way out, not actually leaked - but a caller has no way to tell the
+  # difference. Wait for it to finish on its own; force-remove only if it
+  # still has not after the timeout, so delete is deterministic either way.
+  local timeout="${1:-45}" waited=0 remaining
+  remaining="$(docker ps -q --filter 'name=^kindccm-gw-' 2>/dev/null)"
+  [[ -z "$remaining" ]] && return 0
+  echo "Waiting for cloud-provider-kind to release its gateway container(s)..."
+  while [[ -n "$remaining" && "$waited" -lt "$timeout" ]]; do
+    sleep 2
+    waited=$((waited + 2))
+    remaining="$(docker ps -q --filter 'name=^kindccm-gw-' 2>/dev/null)"
+  done
+  if [[ -n "$remaining" ]]; then
+    echo "cloud-provider-kind did not release these within ${timeout}s; removing directly:" >&2
+    docker ps --filter 'name=^kindccm-gw-' --format '{{.Names}}' >&2
+    docker rm -f $remaining >/dev/null 2>&1
+  fi
+}
+
 k8s_lab_start() {
   local desired actual
   k8s_lab_require_docker || return 1
@@ -213,6 +238,7 @@ k8s_lab_start() {
     if [[ "$actual" != "$desired" ]]; then
       echo "Cluster ${KIND_CLUSTER_NAME} has ${actual} workers, yaml wants ${desired}. Recreating."
       kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+      k8s_lab_cloud_provider_wait_clean
     fi
   fi
   if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
@@ -260,6 +286,7 @@ k8s_lab_load_image() {
 
 k8s_lab_delete_cluster() {
   kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+  k8s_lab_cloud_provider_wait_clean
 }
 
 k8s_lab_deactivate() {
@@ -270,7 +297,7 @@ k8s_lab_deactivate() {
   unset KUBECTL_VERSION KIND_VERSION HELM_VERSION CLOUD_PROVIDER_KIND_VERSION K9S_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
   unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
   unalias k 2>/dev/null || true
-  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_taint_control_plane k8s_lab_worker_nodes_csv k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_cloud_provider_start k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_taint_control_plane k8s_lab_worker_nodes_csv k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_cloud_provider_start k8s_lab_cloud_provider_wait_clean k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
   hash -r
   echo "Pocket Cluster environment deactivated."
 }
