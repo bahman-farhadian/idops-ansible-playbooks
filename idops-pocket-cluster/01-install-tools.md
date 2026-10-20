@@ -10,7 +10,7 @@ Work from this directory so the yaml and [activate](activate) are next to you. E
 
 Older clones used `/opt/pocket-cluster`. This tree is `/opt/idops-pocket-cluster`. Run this document from the top. The kind cluster name is still `idops-pocket-k8s-cluster`.
 
-Every command here is safe to run again. Install overwrites the same pins.
+Every command here is safe to run again. Install overwrites the same pins. Every `curl` below carries `-C -`: if a download was interrupted partway (network blip, Ctrl-C), rerunning the same command resumes from the existing partial file instead of starting over; if the file is already fully downloaded, curl detects that from the server's response and does nothing. This was confirmed directly against GitHub's release asset host, not assumed. `wget -c` can do the same resume, but it would be a second download tool for no gain — curl is already a hard dependency of this guide, so `-C -` gets the same idempotency without adding one.
 
 ## Prerequisites
 
@@ -62,8 +62,8 @@ Layout after this step:
 
 **3. Install kubectl** — pinned client ([install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)). `sha256sum --check` needs two spaces between the hash and the filename. Stop if the check fails.
 ```sh
-curl --fail --location --output "$K8S_LAB_BIN/kubectl" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl"
-curl --fail --location --output "$K8S_LAB_ROOT/kubectl.sha256" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl.sha256"
+curl -C - --fail --location --output "$K8S_LAB_BIN/kubectl" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/kubectl.sha256" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl.sha256"
 printf '%s  %s\n' "$(cat "$K8S_LAB_ROOT/kubectl.sha256")" "$K8S_LAB_BIN/kubectl" | sha256sum --check
 chmod 0755 "$K8S_LAB_BIN/kubectl"
 rm -f "$K8S_LAB_ROOT/kubectl.sha256"
@@ -75,8 +75,8 @@ This binary is not on `PATH` until you source `activate`.
 
 **4. Install kind** — the checksum file names `kind-linux-amd64` or `kind-linux-arm64`, so the check runs inside `bin`. Copy then delete the download so a second pass is safe ([kind quick start](https://kind.sigs.k8s.io/docs/user/quick-start/)).
 ```sh
-curl --fail --location --output "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${K8S_ARCH}"
-curl --fail --location --output "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-${K8S_ARCH}.sha256sum"
+curl -C - --fail --location --output "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${K8S_ARCH}"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-${K8S_ARCH}.sha256sum"
 ( cd "$K8S_LAB_BIN" && sha256sum --check "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum" )
 cp "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_BIN/kind"  # cp then rm, not mv
 chmod 0755 "$K8S_LAB_BIN/kind"
@@ -87,8 +87,8 @@ file "$K8S_LAB_BIN/kind"
 
 **5. Install Helm 3** — Debian's apt package named `helm` is Emacs. `v3.22.0` is the last Helm 3 feature release. Recheck [github.com/helm/helm/releases](https://github.com/helm/helm/releases).
 ```sh
-curl --fail --location --output "$K8S_LAB_ROOT/helm.tgz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz"
-curl --fail --location --output "$K8S_LAB_ROOT/helm.sha256" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz.sha256"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/helm.tgz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/helm.sha256" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz.sha256"
 printf '%s  %s\n' "$(cat "$K8S_LAB_ROOT/helm.sha256")" "$K8S_LAB_ROOT/helm.tgz" | sha256sum --check
 tar -xzf "$K8S_LAB_ROOT/helm.tgz" -C "$K8S_LAB_ROOT" "linux-${K8S_ARCH}/helm"
 cp "$K8S_LAB_ROOT/linux-${K8S_ARCH}/helm" "$K8S_LAB_BIN/helm"
@@ -99,8 +99,8 @@ rm -rf "$K8S_LAB_ROOT/helm.tgz" "$K8S_LAB_ROOT/helm.sha256" "$K8S_LAB_ROOT/linux
 
 **6. Install cloud-provider-kind** — official kind Ingress and LoadBalancer provider. Pin `v0.12.0`. Recheck [cloud-provider-kind releases](https://github.com/kubernetes-sigs/cloud-provider-kind/releases).
 ```sh
-curl --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz"
-curl --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_checksums.txt"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_checksums.txt"
 ( cd "$K8S_LAB_ROOT" && grep "cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz$" cloud-provider-kind.checksums.txt | sha256sum --check )
 mkdir -p "$K8S_LAB_ROOT/cpk-extract"
 tar -xzf "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" -C "$K8S_LAB_ROOT/cpk-extract"
@@ -112,8 +112,8 @@ rm -rf "$K8S_LAB_ROOT/cpk-extract" "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_lin
 
 **7. Install k9s** — terminal UI for the cluster, same kind of install as cloud-provider-kind: a pinned GitHub release tarball, checksum-verified, not a distro package. Same pin (`v0.51.0`) as the bastion k9s in the KVM HA lab (`../05-deploy-kubernetes.md`). The archive extracts a flat `k9s` binary, no subdirectory.
 ```sh
-curl --fail --location --output "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K8S_ARCH}.tar.gz"
-curl --fail --location --output "$K8S_LAB_ROOT/k9s.checksums.sha256" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.sha256"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K8S_ARCH}.tar.gz"
+curl -C - --fail --location --output "$K8S_LAB_ROOT/k9s.checksums.sha256" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.sha256"
 ( cd "$K8S_LAB_ROOT" && grep "k9s_Linux_${K8S_ARCH}.tar.gz$" k9s.checksums.sha256 | sha256sum --check )
 mkdir -p "$K8S_LAB_ROOT/k9s-extract"
 tar -xzf "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" -C "$K8S_LAB_ROOT/k9s-extract"
