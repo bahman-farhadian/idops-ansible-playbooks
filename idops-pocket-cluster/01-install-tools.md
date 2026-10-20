@@ -10,7 +10,9 @@ Work from this directory so the yaml and [activate](activate) are next to you. E
 
 Older clones used `/opt/pocket-cluster`. This tree is `/opt/idops-pocket-cluster`. Run this document from the top. The kind cluster name is still `idops-pocket-k8s-cluster`.
 
-Every command here is safe to run again, and reruns do not redownload anything that is already correctly installed. Each step below checks the installed binary's own version output first — if it already matches the pin, the whole `curl`/checksum/extract sequence is skipped. This is the actual fix for "don't redownload what's already downloaded": `curl -C -`'s resume cannot provide it on its own, because kind, Helm, cloud-provider-kind, and k9s all delete their downloaded tarball right after extracting it, so there is never a complete file lying around for `-C -` to skip past — every rerun was a full fresh download regardless of the `-C -` flag, confirmed by reading the cleanup (`rm -rf ...`) at the end of each of those steps. `-C -` still matters underneath the version check, for a download that gets interrupted mid-run (network blip, Ctrl-C) before that rerun's own cleanup happens. And `-C -` resumes by **byte offset**, not content — confirmed live by flipping one byte in an already-downloaded file without changing its length, then rerunning the same `curl -C -`: curl saw the local size already matched the remote size and left the corrupted file untouched, silently. `wget -c` resumes the same way and has the identical blind spot. That's why every checksum check below deletes the bad file and stops on a mismatch instead of looping on a resume that can never finish — rerun the block and it downloads clean.
+Every command here is safe to run again, and reruns do not redownload anything that is already correctly installed. Each step below keeps a small local record — a `sha256sum` of the installed binary itself, under `$K8S_LAB_ROOT/.checksums/<tool>-<version>.sha256` — written only once, right after that exact file passed verification against the real upstream checksum. On a rerun, the step first re-hashes the installed binary and compares it to that record; only on a match does it skip the download outright. A version-string check alone was tried and rejected here: it would skip a binary that still *reports* the right version even if some other byte in it is corrupt — which defeats the point, since that is exactly the silent-corruption case the checksum step below exists to catch. Hashing the actual installed file closes that gap and still avoids the download.
+
+This, not `curl -C -`, is what actually fixes "don't redownload what's already downloaded": kind, Helm, cloud-provider-kind, and k9s all delete their downloaded tarball right after extracting it, so on a plain rerun there was never a complete file left for `-C -` to skip past — every rerun was a full fresh download regardless of the flag, confirmed by reading the cleanup (`rm -rf ...`) at the end of each of those steps. `-C -` still matters underneath this, for a download that gets interrupted mid-run (network blip, Ctrl-C) before that run's own cleanup ever happens. And `-C -` resumes by **byte offset**, not content — confirmed live by flipping one byte in an already-downloaded file without changing its length, then rerunning the same `curl -C -`: curl saw the local size already matched the remote size and left the corrupted file untouched, silently. `wget -c` resumes the same way and has the identical blind spot. That's why every checksum check below deletes the bad file and stops on a mismatch instead of looping on a resume that can never finish — rerun the block and it downloads clean, and the new verified hash gets recorded once it does.
 
 ## Prerequisites
 
@@ -62,8 +64,8 @@ Layout after this step:
 
 **3. Install kubectl** — pinned client ([install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)). `sha256sum --check` needs two spaces between the hash and the filename. Stop if the check fails.
 ```sh
-if "$K8S_LAB_BIN/kubectl" version --client --output=json 2>/dev/null | grep -q "\"gitVersion\": \"${KUBECTL_VERSION}\""; then
-  echo "kubectl ${KUBECTL_VERSION} is already installed, skipping download"
+if sha256sum --check "$K8S_LAB_ROOT/.checksums/kubectl-${KUBECTL_VERSION}.sha256" >/dev/null 2>&1; then
+  echo "kubectl ${KUBECTL_VERSION} is already installed and verified, skipping download"
 else
   curl -C - --fail --location --output "$K8S_LAB_BIN/kubectl" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl"
   curl -C - --fail --location --output "$K8S_LAB_ROOT/kubectl.sha256" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl.sha256"
@@ -71,6 +73,8 @@ else
     || { rm -f "$K8S_LAB_BIN/kubectl" "$K8S_LAB_ROOT/kubectl.sha256"; echo "kubectl checksum mismatch: deleted, rerun this block to redownload" >&2; return 1 2>/dev/null || exit 1; }
   chmod 0755 "$K8S_LAB_BIN/kubectl"
   rm -f "$K8S_LAB_ROOT/kubectl.sha256"
+  mkdir -p "$K8S_LAB_ROOT/.checksums"
+  sha256sum "$K8S_LAB_BIN/kubectl" > "$K8S_LAB_ROOT/.checksums/kubectl-${KUBECTL_VERSION}.sha256"   # recorded only once the line above passed against the real upstream checksum
 fi
 file "$K8S_LAB_BIN/kubectl"
 "$K8S_LAB_BIN/kubectl" version --client                      # expected: v1.37.0
@@ -80,8 +84,8 @@ This binary is not on `PATH` until you source `activate`.
 
 **4. Install kind** — the checksum file names `kind-linux-amd64` or `kind-linux-arm64`, so the check runs inside `bin`. Copy then delete the download so a second pass is safe ([kind quick start](https://kind.sigs.k8s.io/docs/user/quick-start/)).
 ```sh
-if "$K8S_LAB_BIN/kind" version 2>/dev/null | grep -q "^kind ${KIND_VERSION} "; then
-  echo "kind ${KIND_VERSION} is already installed, skipping download"
+if sha256sum --check "$K8S_LAB_ROOT/.checksums/kind-${KIND_VERSION}.sha256" >/dev/null 2>&1; then
+  echo "kind ${KIND_VERSION} is already installed and verified, skipping download"
 else
   curl -C - --fail --location --output "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${K8S_ARCH}"
   curl -C - --fail --location --output "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-${K8S_ARCH}.sha256sum"
@@ -90,6 +94,8 @@ else
   cp "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_BIN/kind"  # cp then rm, not mv
   chmod 0755 "$K8S_LAB_BIN/kind"
   rm -f "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum"
+  mkdir -p "$K8S_LAB_ROOT/.checksums"
+  sha256sum "$K8S_LAB_BIN/kind" > "$K8S_LAB_ROOT/.checksums/kind-${KIND_VERSION}.sha256"
 fi
 file "$K8S_LAB_BIN/kind"
 "$K8S_LAB_BIN/kind" version                                  # expected: kind v0.33.0
@@ -97,8 +103,8 @@ file "$K8S_LAB_BIN/kind"
 
 **5. Install Helm 3** — Debian's apt package named `helm` is Emacs. `v3.22.0` is the last Helm 3 feature release. Recheck [github.com/helm/helm/releases](https://github.com/helm/helm/releases).
 ```sh
-if "$K8S_LAB_BIN/helm" version --short 2>/dev/null | grep -q "^${HELM_VERSION}"; then
-  echo "Helm ${HELM_VERSION} is already installed, skipping download"
+if sha256sum --check "$K8S_LAB_ROOT/.checksums/helm-${HELM_VERSION}.sha256" >/dev/null 2>&1; then
+  echo "Helm ${HELM_VERSION} is already installed and verified, skipping download"
 else
   curl -C - --fail --location --output "$K8S_LAB_ROOT/helm.tgz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz"
   curl -C - --fail --location --output "$K8S_LAB_ROOT/helm.sha256" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz.sha256"
@@ -108,14 +114,16 @@ else
   cp "$K8S_LAB_ROOT/linux-${K8S_ARCH}/helm" "$K8S_LAB_BIN/helm"
   chmod 0755 "$K8S_LAB_BIN/helm"
   rm -rf "$K8S_LAB_ROOT/helm.tgz" "$K8S_LAB_ROOT/helm.sha256" "$K8S_LAB_ROOT/linux-${K8S_ARCH}"
+  mkdir -p "$K8S_LAB_ROOT/.checksums"
+  sha256sum "$K8S_LAB_BIN/helm" > "$K8S_LAB_ROOT/.checksums/helm-${HELM_VERSION}.sha256"
 fi
 "$K8S_LAB_BIN/helm" version                                  # expected: v3.22.0
 ```
 
 **6. Install cloud-provider-kind** — official kind Ingress and LoadBalancer provider. Pin `v0.12.0`. Recheck [cloud-provider-kind releases](https://github.com/kubernetes-sigs/cloud-provider-kind/releases).
 ```sh
-if "$K8S_LAB_BIN/cloud-provider-kind" version 2>/dev/null | grep -qx "cloud-provider-kind ${CLOUD_PROVIDER_KIND_VERSION#v}"; then
-  echo "cloud-provider-kind ${CLOUD_PROVIDER_KIND_VERSION} is already installed, skipping download"
+if sha256sum --check "$K8S_LAB_ROOT/.checksums/cloud-provider-kind-${CLOUD_PROVIDER_KIND_VERSION}.sha256" >/dev/null 2>&1; then
+  echo "cloud-provider-kind ${CLOUD_PROVIDER_KIND_VERSION} is already installed and verified, skipping download"
 else
   curl -C - --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz"
   curl -C - --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_checksums.txt"
@@ -126,14 +134,16 @@ else
   cp "$K8S_LAB_ROOT/cpk-extract/cloud-provider-kind" "$K8S_LAB_BIN/cloud-provider-kind"
   chmod 0755 "$K8S_LAB_BIN/cloud-provider-kind"
   rm -rf "$K8S_LAB_ROOT/cpk-extract" "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt"
+  mkdir -p "$K8S_LAB_ROOT/.checksums"
+  sha256sum "$K8S_LAB_BIN/cloud-provider-kind" > "$K8S_LAB_ROOT/.checksums/cloud-provider-kind-${CLOUD_PROVIDER_KIND_VERSION}.sha256"
 fi
 "$K8S_LAB_BIN/cloud-provider-kind" --help >/dev/null && echo "cloud-provider-kind is installed"
 ```
 
 **7. Install k9s** — terminal UI for the cluster, same kind of install as cloud-provider-kind: a pinned GitHub release tarball, checksum-verified, not a distro package. Same pin (`v0.51.0`) as the bastion k9s in the KVM HA lab (`../05-deploy-kubernetes.md`). The archive extracts a flat `k9s` binary, no subdirectory.
 ```sh
-if "$K8S_LAB_BIN/k9s" version 2>/dev/null | grep -q "${K9S_VERSION}"; then
-  echo "k9s ${K9S_VERSION} is already installed, skipping download"
+if sha256sum --check "$K8S_LAB_ROOT/.checksums/k9s-${K9S_VERSION}.sha256" >/dev/null 2>&1; then
+  echo "k9s ${K9S_VERSION} is already installed and verified, skipping download"
 else
   curl -C - --fail --location --output "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K8S_ARCH}.tar.gz"
   curl -C - --fail --location --output "$K8S_LAB_ROOT/k9s.checksums.sha256" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.sha256"
@@ -144,6 +154,8 @@ else
   cp "$K8S_LAB_ROOT/k9s-extract/k9s" "$K8S_LAB_BIN/k9s"
   chmod 0755 "$K8S_LAB_BIN/k9s"
   rm -rf "$K8S_LAB_ROOT/k9s-extract" "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "$K8S_LAB_ROOT/k9s.checksums.sha256"
+  mkdir -p "$K8S_LAB_ROOT/.checksums"
+  sha256sum "$K8S_LAB_BIN/k9s" > "$K8S_LAB_ROOT/.checksums/k9s-${K9S_VERSION}.sha256"
 fi
 file "$K8S_LAB_BIN/k9s"
 "$K8S_LAB_BIN/k9s" version                                   # expected: v0.51.0
