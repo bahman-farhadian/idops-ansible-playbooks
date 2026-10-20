@@ -6,11 +6,11 @@
 
 The Kubernetes **cluster** version is the `image:` field on every node in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). The kubectl **client** version is `KUBECTL_VERSION` below. Match those two minors.
 
-Work from this directory so the yaml and [activate](activate) are next to you. Each step is one short note, then one command block. Comments mark why a line is there. Stop if a checksum is not `OK`.
+Work from this directory so the yaml and [activate](activate) are next to you. Each step is one short note, then one command block. Comments mark why a line is there. Every checksum check below enforces this itself: a mismatch deletes the bad file and stops the block, instead of leaving a silently-corrupt file in place.
 
 Older clones used `/opt/pocket-cluster`. This tree is `/opt/idops-pocket-cluster`. Run this document from the top. The kind cluster name is still `idops-pocket-k8s-cluster`.
 
-Every command here is safe to run again. Install overwrites the same pins. Every `curl` below carries `-C -`: if a download was interrupted partway (network blip, Ctrl-C), rerunning the same command resumes from the existing partial file instead of starting over; if the file is already fully downloaded, curl detects that from the server's response and does nothing. This was confirmed directly against GitHub's release asset host, not assumed. `wget -c` can do the same resume, but it would be a second download tool for no gain — curl is already a hard dependency of this guide, so `-C -` gets the same idempotency without adding one.
+Every command here is safe to run again. Install overwrites the same pins. Every `curl` below carries `-C -`: if a download was interrupted partway (network blip, Ctrl-C), rerunning the same command resumes from the existing partial file instead of starting over. But `-C -` resumes by **byte offset**, not content — confirmed live by flipping one byte in an already-downloaded file without changing its length, then rerunning the same `curl -C -`: curl saw the local size already matched the remote size and left the corrupted file untouched, silently. `wget -c` resumes the same way and has the identical blind spot, so it would not fix this — a second download tool for no gain, since curl is already a hard dependency of this guide. The real fix is downstream: every checksum check below deletes the bad file and stops on a mismatch, instead of looping on a resume that can never finish. Rerun the block and it downloads clean.
 
 ## Prerequisites
 
@@ -64,7 +64,8 @@ Layout after this step:
 ```sh
 curl -C - --fail --location --output "$K8S_LAB_BIN/kubectl" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl"
 curl -C - --fail --location --output "$K8S_LAB_ROOT/kubectl.sha256" "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${K8S_ARCH}/kubectl.sha256"
-printf '%s  %s\n' "$(cat "$K8S_LAB_ROOT/kubectl.sha256")" "$K8S_LAB_BIN/kubectl" | sha256sum --check
+printf '%s  %s\n' "$(cat "$K8S_LAB_ROOT/kubectl.sha256")" "$K8S_LAB_BIN/kubectl" | sha256sum --check \
+  || { rm -f "$K8S_LAB_BIN/kubectl" "$K8S_LAB_ROOT/kubectl.sha256"; echo "kubectl checksum mismatch: deleted, rerun this block to redownload" >&2; return 1 2>/dev/null || exit 1; }
 chmod 0755 "$K8S_LAB_BIN/kubectl"
 rm -f "$K8S_LAB_ROOT/kubectl.sha256"
 file "$K8S_LAB_BIN/kubectl"
@@ -77,7 +78,8 @@ This binary is not on `PATH` until you source `activate`.
 ```sh
 curl -C - --fail --location --output "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-${K8S_ARCH}"
 curl -C - --fail --location --output "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum" "https://github.com/kubernetes-sigs/kind/releases/download/${KIND_VERSION}/kind-linux-${K8S_ARCH}.sha256sum"
-( cd "$K8S_LAB_BIN" && sha256sum --check "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum" )
+( cd "$K8S_LAB_BIN" && sha256sum --check "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum" ) \
+  || { rm -f "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum"; echo "kind checksum mismatch: deleted, rerun this block to redownload" >&2; return 1 2>/dev/null || exit 1; }
 cp "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_BIN/kind"  # cp then rm, not mv
 chmod 0755 "$K8S_LAB_BIN/kind"
 rm -f "$K8S_LAB_BIN/kind-linux-${K8S_ARCH}" "$K8S_LAB_ROOT/kind-linux-${K8S_ARCH}.sha256sum"
@@ -89,7 +91,8 @@ file "$K8S_LAB_BIN/kind"
 ```sh
 curl -C - --fail --location --output "$K8S_LAB_ROOT/helm.tgz" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz"
 curl -C - --fail --location --output "$K8S_LAB_ROOT/helm.sha256" "https://get.helm.sh/helm-${HELM_VERSION}-linux-${K8S_ARCH}.tar.gz.sha256"
-printf '%s  %s\n' "$(cat "$K8S_LAB_ROOT/helm.sha256")" "$K8S_LAB_ROOT/helm.tgz" | sha256sum --check
+printf '%s  %s\n' "$(cat "$K8S_LAB_ROOT/helm.sha256")" "$K8S_LAB_ROOT/helm.tgz" | sha256sum --check \
+  || { rm -f "$K8S_LAB_ROOT/helm.tgz" "$K8S_LAB_ROOT/helm.sha256"; echo "helm checksum mismatch: deleted, rerun this block to redownload" >&2; return 1 2>/dev/null || exit 1; }
 tar -xzf "$K8S_LAB_ROOT/helm.tgz" -C "$K8S_LAB_ROOT" "linux-${K8S_ARCH}/helm"
 cp "$K8S_LAB_ROOT/linux-${K8S_ARCH}/helm" "$K8S_LAB_BIN/helm"
 chmod 0755 "$K8S_LAB_BIN/helm"
@@ -101,7 +104,8 @@ rm -rf "$K8S_LAB_ROOT/helm.tgz" "$K8S_LAB_ROOT/helm.sha256" "$K8S_LAB_ROOT/linux
 ```sh
 curl -C - --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz"
 curl -C - --fail --location --output "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt" "https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/${CLOUD_PROVIDER_KIND_VERSION}/cloud-provider-kind_0.12.0_checksums.txt"
-( cd "$K8S_LAB_ROOT" && grep "cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz$" cloud-provider-kind.checksums.txt | sha256sum --check )
+( cd "$K8S_LAB_ROOT" && grep "cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz$" cloud-provider-kind.checksums.txt | sha256sum --check ) \
+  || { rm -f "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" "$K8S_LAB_ROOT/cloud-provider-kind.checksums.txt"; echo "cloud-provider-kind checksum mismatch: deleted, rerun this block to redownload" >&2; return 1 2>/dev/null || exit 1; }
 mkdir -p "$K8S_LAB_ROOT/cpk-extract"
 tar -xzf "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_linux_${K8S_ARCH}.tar.gz" -C "$K8S_LAB_ROOT/cpk-extract"
 cp "$K8S_LAB_ROOT/cpk-extract/cloud-provider-kind" "$K8S_LAB_BIN/cloud-provider-kind"
@@ -114,7 +118,8 @@ rm -rf "$K8S_LAB_ROOT/cpk-extract" "$K8S_LAB_ROOT/cloud-provider-kind_0.12.0_lin
 ```sh
 curl -C - --fail --location --output "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${K8S_ARCH}.tar.gz"
 curl -C - --fail --location --output "$K8S_LAB_ROOT/k9s.checksums.sha256" "https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/checksums.sha256"
-( cd "$K8S_LAB_ROOT" && grep "k9s_Linux_${K8S_ARCH}.tar.gz$" k9s.checksums.sha256 | sha256sum --check )
+( cd "$K8S_LAB_ROOT" && grep "k9s_Linux_${K8S_ARCH}.tar.gz$" k9s.checksums.sha256 | sha256sum --check ) \
+  || { rm -f "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" "$K8S_LAB_ROOT/k9s.checksums.sha256"; echo "k9s checksum mismatch: deleted, rerun this block to redownload" >&2; return 1 2>/dev/null || exit 1; }
 mkdir -p "$K8S_LAB_ROOT/k9s-extract"
 tar -xzf "$K8S_LAB_ROOT/k9s_Linux_${K8S_ARCH}.tar.gz" -C "$K8S_LAB_ROOT/k9s-extract"
 cp "$K8S_LAB_ROOT/k9s-extract/k9s" "$K8S_LAB_BIN/k9s"
