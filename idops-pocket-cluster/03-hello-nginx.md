@@ -83,4 +83,6 @@ curl -sS http://ADDRESS/
 
 ## Next
 
+- [04-mariadb-galera.md](04-mariadb-galera.md) — the first stateful app, with a PersistentVolumeClaim per node.
+
 Practice CKAD tasks from the map in [00-overview.md](00-overview.md#ckad-practice-map).

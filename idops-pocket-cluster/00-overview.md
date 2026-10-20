@@ -8,9 +8,9 @@
 
 kind (Kubernetes IN Docker) starts it. Each node is a container, so the RAM cost stays small. Extra workers help you spread Pods and run DaemonSets. Extra control planes do not help: they still share one Docker host.
 
-These files are documents, numbered like the HA lab. The repo [README.md](../README.md) is the project index. Walk **00 → 03** in this directory.
+These files are documents, numbered like the HA lab. The repo [README.md](../README.md) is the project index. Walk **00 → 04** in this directory.
 
-Every command in 01–03 is idempotent. Run the same block again: pins stay the same, `/opt/idops-pocket-cluster` is reused, and the cluster is created only if it is missing.
+Every command in 01–04 is idempotent. Run the same block again: pins stay the same, `/opt/idops-pocket-cluster` is reused, and the cluster is created only if it is missing.
 
 ## Follow order
 
@@ -20,8 +20,9 @@ Every command in 01–03 is idempotent. Run the same block again: pins stay the 
 | [01-install-tools.md](01-install-tools.md)   | Host check, `/opt` tree, kubectl, kind, Helm 3, cloud-provider-kind |
 | [02-create-cluster.md](02-create-cluster.md) | Create the cluster, verify, daily use, lifecycle                    |
 | [03-hello-nginx.md](03-hello-nginx.md)       | First app: six nginx Pods, Ingress                                  |
+| [04-mariadb-galera.md](04-mariadb-galera.md) | First stateful app: 3-node Galera, PVC per node, ConfigMap          |
 
-The first app is [hello-nginx.yaml](hello-nginx.yaml) in this clone. `/opt` holds the toolchain only. Cluster config is [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Session helpers are in [activate](activate).
+The first app is [hello-nginx.yaml](hello-nginx.yaml) in this clone, stateless. The first stateful app is [mariadb-galera.yaml](mariadb-galera.yaml) — not the same as the production HA-lab version described in [apps/README.md](../apps/README.md), see that doc's own teaching note. `/opt` holds the toolchain only. Cluster config is [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml). Session helpers are in [activate](activate).
 
 ## Where this sits in the repo
 
@@ -66,6 +67,7 @@ Re-check before you run: [kind releases](https://github.com/kubernetes-sigs/kind
 | Helm 3                  | v3.22.0                     | `HELM_VERSION` in [01-install-tools.md](01-install-tools.md)                                                             |
 | cloud-provider-kind     | v0.12.0                     | [01-install-tools.md](01-install-tools.md), started by `k8s_lab_start`                                                   |
 | k9s                     | v0.51.0                     | `K9S_VERSION` in [01-install-tools.md](01-install-tools.md); same pin as the bastion k9s in `../05-deploy-kubernetes.md` |
+| MariaDB (Galera)        | 12.3.3                      | `image:` in [mariadb-galera.yaml](mariadb-galera.yaml); first LTS branch with `mariadb-server-galera` built in           |
 | Kubernetes cluster      | v1.37.0                     | `image: kindest/node:v1.37.0` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                          |
 | Cluster name            | idops-pocket-k8s-cluster    | `name:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                                                |
 | Nodes                   | 1 control plane, 3 workers  | `nodes:` in [idops-pocket-k8s-cluster.yaml](idops-pocket-k8s-cluster.yaml)                                               |
@@ -123,6 +125,7 @@ Exam-day habits: type `kubectl`, `--dry-run=client -o yaml` into a file, then `k
 - [kind LoadBalancer / Cloud Provider KIND](https://kind.sigs.k8s.io/docs/user/loadbalancer/)
 - [Install kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
 - [k9s](https://k9scli.io/) / [k9s config reference](https://k9scli.io/topics/config/) / [k9s skins reference](https://k9scli.io/topics/skins/)
+- [MariaDB Galera Cluster](https://mariadb.com/kb/en/galera-cluster/) / [MariaDB official Docker image](https://hub.docker.com/_/mariadb) / [MariaDB/mariadb-docker](https://github.com/MariaDB/mariadb-docker) (source of the `versions.json` and Dockerfile checks behind the 12.3.3 pin)
 - [Kubernetes releases](https://kubernetes.io/releases/)
 - [Kubernetes version-skew policy](https://kubernetes.io/releases/version-skew-policy/)
 - [CKAD certification](https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/)
