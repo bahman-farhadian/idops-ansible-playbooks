@@ -1,0 +1,18 @@
+# EFK overlay: adds Fluent Bit as the collector.
+# Run with:  docker compose -f compose.yaml -f compose.efk.yaml up -d --wait
+# Matches the domain decision: a project runs elk/ or efk/, not both — stop
+# compose.elk.yaml (it holds the same host port 5514) before bringing this up.
+services:
+  fluent-bit:
+    image: fluent/fluent-bit:${FLUENT_BIT_VERSION}
+    container_name: elk-efk-lab-fluent-bit
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+    ports:
+      - "5514:5514/tcp"                                     # demo log input: `logger -T` or `nc` writes here
+      - "2020:2020"                                         # Fluent Bit's own HTTP status/metrics endpoint

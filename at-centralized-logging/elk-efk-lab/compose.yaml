@@ -1,0 +1,42 @@
+services:
+  elasticsearch:                                          # shared by both the elk and efk overlays
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+    container_name: elk-efk-lab-elasticsearch
+    restart: unless-stopped
+    mem_limit: 1g                                          # keep this lab inside a laptop's budget
+    environment:
+      - node.name=es01
+      - discovery.type=single-node                         # lab: one node, no cluster to join
+      - xpack.security.enabled=false                       # domain decision: X-Pack stays out, no built-in login
+      - xpack.ml.enabled=false                              # domain decision: X-Pack stays out
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m                      # small heap; raise if the host has RAM to spare
+    ulimits:
+      memlock:
+        soft: -1                                            # Elasticsearch asks to lock its heap in RAM
+        hard: -1
+    volumes:
+      - es-data:/usr/share/elasticsearch/data               # survives `compose down`; removed by `compose down -v`
+    ports:
+      - "9200:9200"                                         # HTTP API, used by Kibana, the collectors, and curl
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30                                           # first boot can take a while on a cold volume
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION}   # same minor/patch as Elasticsearch, always
+    container_name: elk-efk-lab-kibana
+    restart: unless-stopped
+    mem_limit: 768m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy                          # do not start Kibana against a half-booted node
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false                         # matches Elasticsearch: no login screen in this lab
+    ports:
+      - "5601:5601"                                          # http://localhost:5601
+
+volumes:
+  es-data:

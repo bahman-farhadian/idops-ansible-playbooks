@@ -1,0 +1,21 @@
+# ELK overlay: adds Logstash as the collector.
+# Run with:  docker compose -f compose.yaml -f compose.elk.yaml up -d --wait
+# Matches the domain decision: a project runs elk/ or efk/, not both — do not
+# bring this overlay up at the same time as compose.efk.yaml.
+services:
+  logstash:
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_VERSION}   # same pin line as Elasticsearch/Kibana
+    container_name: elk-efk-lab-logstash
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    ports:
+      - "5514:5514/tcp"                                     # demo log input: `logger -T` or `nc` writes here
+      - "5514:5514/udp"
