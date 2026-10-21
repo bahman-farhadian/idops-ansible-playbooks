@@ -1,0 +1,89 @@
+# Pocket Cluster — small Docker Kubernetes for CKAD and app practice.
+#
+# Kubernetes version is the `image:` tag on every node.
+# There is no kubernetesVersion key in kind config.
+# Use the same image on the control plane and on each worker.
+#
+# Cluster name is idops-pocket-k8s-cluster. kind then names nodes
+# idops-pocket-k8s-cluster-control-plane, ...-worker, ...-worker2,
+# ...-worker3. There is no worker1. kind config has no hostname field.
+#
+# Shape: one control plane, three workers. Extra workers help with
+# DaemonSet, nodeSelector, and spread. Extra control planes do not add
+# HA here: every node is a container on one Docker host.
+#
+# kind Cluster YAML has no cpu/memory fields on nodes (kind v1alpha4).
+# Putting them on the Cluster object makes kind create fail.
+# Caps are the PocketResources document after ---. kind reads only Cluster.
+# k8s_lab_start applies them with docker update. Confirm with docker stats.
+#
+# Do not set node-role.kubernetes.io/* here. kind passes extra labels to
+# kubelet --node-labels. kubelet refuses reserved kubernetes.io labels and
+# the worker kubelet never becomes healthy. Set the worker role after
+# create with kubectl label (k8s_lab_start does this).
+#
+# kind removes the kubeadm control-plane taint so workloads can land on
+# the control plane. k8s_lab_start puts it back:
+# node-role.kubernetes.io/control-plane:NoSchedule
+# Application Pods run on workers. kube-system static pods stay on the
+# control plane. k8s_lab_load_image loads images onto workers only.
+#
+# Ingress and LoadBalancer use Cloud Provider KIND. Do not map host
+# ports here. Curl the Ingress ADDRESS (a docker network IP), not 127.0.0.1.
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: idops-pocket-k8s-cluster
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0
+  - role: worker
+    image: kindest/node:v1.37.0
+
+# ---------------------------------------------------------------------------
+# Sample: one control plane, two workers.
+# Copy this `nodes:` list over the list above, then recreate the cluster.
+# Keep a single control-plane.
+#
+# nodes:
+#   - role: control-plane
+#     image: kindest/node:v1.37.0
+#     extraPortMappings:
+#       - containerPort: 80
+#         hostPort: 8080
+#         protocol: TCP
+#       - containerPort: 443
+#         hostPort: 8443
+#         protocol: TCP
+#   - role: worker
+#     image: kindest/node:v1.37.0
+#   - role: worker
+#     image: kindest/node:v1.37.0
+#
+# Sample: smallest — control plane only.
+# Pocket Cluster taints the control plane, so application Pods have
+# nowhere to run. Keep at least one worker. Use this only to study the
+# API with no workloads. DaemonSet and nodeSelector practice is weaker.
+#
+# nodes:
+#   - role: control-plane
+#     image: kindest/node:v1.37.0
+#     extraPortMappings:
+#       - containerPort: 80
+#         hostPort: 8080
+#         protocol: TCP
+#       - containerPort: 443
+#         hostPort: 8443
+#         protocol: TCP
+---
+kind: PocketResources
+control-plane:
+  cpus: "2"
+  memory: "2g"
+worker:
+  cpus: "2"
+  memory: "2g"

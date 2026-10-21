@@ -1,0 +1,208 @@
+# Pocket Cluster first stateful app. Apply from this clone, not from /opt:
+#   kubectl apply -f mariadb-galera.yaml
+# This is a 3-node MariaDB Galera cluster: every node accepts writes, and
+# Galera replicates a transaction to the other two before it commits. Every
+# line below is commented for study, same as hello-nginx.yaml.
+#
+# This is the small lab version. It uses the `standard` (local-path)
+# StorageClass that ships with kind. It is NOT ../apps/mariadb-galera.md,
+# the production HA-lab version, which uses the `ceph-rbd` StorageClass and
+# is gated on the full KVM cluster being healthy. Same database, same
+# replication model, different purpose: CKAD/StatefulSet practice here,
+# production-shaped delivery there.
+#
+# Before applying, create the root password Secret (04-mariadb-galera.md
+# step 1 shows this) — it is deliberately not in this file:
+#   kubectl create secret generic galera-root \
+#     --namespace idops-galera-demo \
+#     --from-literal=password="$(openssl rand -base64 18)"
+
+---                                                        # next object in this file
+apiVersion: v1                                             # core group; Namespace lives here
+kind: Namespace                                            # a name scope; create this first
+metadata:                                                  # identity of this object
+  name: idops-galera-demo                                  # every later object sets namespace: this name
+
+---                                                        # next object in this file
+apiVersion: v1                                             # core group; ConfigMap lives here
+kind: ConfigMap                                            # static galera.cnf; the dynamic half is computed at boot
+metadata:                                                  # identity of this object
+  name: galera-static                                      # init container copies this key into /etc/mysql/conf.d
+  namespace: idops-galera-demo                              # must match the Namespace above
+data:                                                       # the keys become files when mounted
+  galera.cnf: |                                             # init container copies this to 10-galera.cnf
+    [mariadb]                                               # section read by mariadbd (mysqld)
+    bind-address=0.0.0.0                                    # listen on the Pod IP, not just loopback
+    default_storage_engine=InnoDB                           # Galera requires InnoDB; no other engine replicates
+    binlog_format=ROW                                       # required by wsrep; statement-based is not supported
+    innodb_autoinc_lock_mode=2                               # required by wsrep for multi-master auto_increment
+    innodb_buffer_pool_size=128M                             # deliberately small: three of these share 2G workers
+    wsrep_on=ON                                              # turn on the wsrep replication plugin
+    wsrep_provider=/usr/lib/galera/libgalera_smm.so          # path confirmed in mariadb:12.3.3; recheck if you repin
+    wsrep_cluster_name=idops-galera-demo                     # must be the same string on every node
+    wsrep_sst_method=mariabackup                             # state transfer method; image already has mariadb-backup
+    wsrep_node_address=127.0.0.1                             # placeholder; each Pod overrides this, see note below
+
+---                                                        # next object in this file
+apiVersion: v1                                             # core group; Service lives here
+kind: Service                                              # headless: gives each Pod a stable DNS name
+metadata:                                                  # identity of this object
+  name: galera-internal                                    # StatefulSet spec.serviceName points here
+  namespace: idops-galera-demo                              # must match the Namespace
+  labels:                                                   # labels on the Service object
+    app: galera                                             # same app name as the rest
+spec:                                                       # desired state of the Service
+  clusterIP: None                                           # headless: no load-balancing, just DNS per Pod
+  selector:                                                 # which Pods this Service tracks
+    app: galera                                             # must match Pod template labels
+  ports:                                                    # ports this Service exposes
+    - name: mysql                                           # a name for this port
+      port: 3306                                             # MariaDB client port
+    - name: wsrep-sst                                        # SST/IST data transfer
+      port: 4444                                             # mariabackup listens here during SST
+    - name: wsrep-ist                                        # Galera replication and IST
+      port: 4567                                             # group communication port
+    - name: wsrep-rsync                                      # legacy rsync SST (unused with mariabackup, kept open)
+      port: 4568                                             # some tooling still probes this port
+
+---                                                        # next object in this file
+apiVersion: v1                                             # core group; Service lives here
+kind: Service                                              # stable ClusterIP for clients; any node accepts writes
+metadata:                                                  # identity of this object
+  name: galera                                              # kubectl exec / apps connect to this name
+  namespace: idops-galera-demo                              # must match the Namespace
+  labels:                                                   # labels on the Service object
+    app: galera                                             # same app name as the rest
+spec:                                                       # desired state of the Service
+  type: ClusterIP                                           # reachable inside the cluster only
+  selector:                                                 # which Pods receive traffic
+    app: galera                                             # must match Pod template labels
+  ports:                                                    # ports this Service exposes
+    - name: mysql                                           # a name for this port
+      port: 3306                                             # MariaDB client port
+      targetPort: mysql                                      # named container port on the Pod
+
+---                                                        # next object in this file
+apiVersion: apps/v1                                        # apps group; StatefulSet lives here
+kind: StatefulSet                                           # stable identity and storage per replica
+metadata:                                                   # identity of this object
+  name: galera                                              # kubectl get sts galera
+  namespace: idops-galera-demo                               # must match the Namespace
+  labels:                                                    # labels on the StatefulSet object itself
+    app: galera                                              # a name you can select with -l app=galera
+spec:                                                        # desired state of the StatefulSet
+  serviceName: galera-internal                               # headless Service above; gives Pods DNS names
+  replicas: 3                                                 # three Galera nodes: galera-0, galera-1, galera-2
+  selector:                                                   # which Pods this StatefulSet owns
+    matchLabels:                                              # must equal template.metadata.labels
+      app: galera                                            # Pods with this label belong here
+  podManagementPolicy: OrderedReady                           # default; galera-0 must be Ready before galera-1 starts
+  template:                                                   # blueprint for each Pod
+    metadata:                                                 # identity of each Pod this StatefulSet creates
+      labels:                                                 # must match spec.selector.matchLabels
+        app: galera                                           # Service selectors use this too
+    spec:                                                     # desired state of each Pod
+      initContainers:                                         # runs once, before the main container, per Pod start
+        - name: wsrep-address                                 # decides bootstrap vs. join, writes the dynamic cnf
+          image: mariadb:12.3.3                                # same pinned image; no extra image to load or pin
+          imagePullPolicy: IfNotPresent                        # use the image already loaded onto the worker
+          env:                                                 # environment for this init container
+            - name: MARIADB_ROOT_PASSWORD                      # read once here to stamp wsrep_sst_auth below
+              valueFrom:                                       # source is a Secret, never a literal in this file
+                secretKeyRef:                                  # reference, not a value
+                  name: galera-root                             # Secret created by hand before apply (see header)
+                  key: password                                 # the key inside that Secret
+          command:                                             # entrypoint for this init container
+            - /bin/sh                                           # POSIX shell; present in the mariadb image
+            - -ec                                               # -e: stop on error, -c: run the script below
+            - |
+              cp /config-source/galera.cnf /etc/mysql/conf.d/10-galera.cnf   # static settings from the ConfigMap
+              ordinal="${HOSTNAME##*-}"                                      # galera-0 -> 0, galera-1 -> 1, ...
+              {
+                echo "[mariadb]"
+                echo "wsrep_node_address=$(hostname -i)"                     # this Pod's own routable IP
+                if [ "$ordinal" = "0" ] && [ ! -f /var/lib/mysql/grastate.dat ]; then
+                  echo "wsrep_cluster_address=gcomm://"                      # empty list: bootstrap a new cluster
+                else
+                  echo "wsrep_cluster_address=gcomm://galera-0.galera-internal.idops-galera-demo.svc.cluster.local,galera-1.galera-internal.idops-galera-demo.svc.cluster.local,galera-2.galera-internal.idops-galera-demo.svc.cluster.local"
+                fi
+                echo "wsrep_sst_auth=root:${MARIADB_ROOT_PASSWORD}"          # SST auth; kept out of the ConfigMap
+              } > /etc/mysql/conf.d/20-wsrep.cnf
+              {
+                echo "[client]"
+                echo "user=root"
+                echo "password=${MARIADB_ROOT_PASSWORD}"
+              } > /etc/mysql-healthcheck/creds.cnf                           # see note on readinessProbe below
+          volumeMounts:                                        # volumes this init container needs
+            - name: galera-static                              # the ConfigMap volume below
+              mountPath: /config-source                         # read from here, not /etc/mysql/conf.d directly
+            - name: conf-d                                      # emptyDir shared with the main container
+              mountPath: /etc/mysql/conf.d                       # writes land where mariadbd will read them
+            - name: healthcheck-creds                           # emptyDir shared with the main container
+              mountPath: /etc/mysql-healthcheck                  # see note on readinessProbe below
+            - name: data                                        # the PVC, so grastate.dat can be checked
+              mountPath: /var/lib/mysql                          # same path the main container mounts it at
+      containers:                                              # list of containers in the Pod
+        - name: mariadb                                        # name inside the Pod (logs, exec)
+          image: mariadb:12.3.3                                 # pin; load it with k8s_lab_load_image first
+          imagePullPolicy: IfNotPresent                         # use the image already on the worker
+          env:                                                  # environment for the main container
+            - name: MARIADB_ROOT_PASSWORD                       # required by the image to initialize
+              valueFrom:                                        # source is a Secret, never a literal in this file
+                secretKeyRef:                                   # reference, not a value
+                  name: galera-root                              # same Secret the init container read
+                  key: password                                  # the key inside that Secret
+          ports:                                                # ports this container listens on
+            - name: mysql                                       # named port; Services target this
+              containerPort: 3306                                # mariadbd default port
+            - name: wsrep-sst                                    # SST data transfer
+              containerPort: 4444                                # mariabackup listens here during SST
+            - name: wsrep-ist                                    # Galera replication and IST
+              containerPort: 4567                                # group communication port
+            - name: wsrep-rsync                                  # legacy rsync SST port
+              containerPort: 4568                                 # kept open; unused with mariabackup
+          volumeMounts:                                         # files and data injected into the container
+            - name: conf-d                                      # same emptyDir the init container wrote into
+              mountPath: /etc/mysql/conf.d                        # mariadbd reads every *.cnf here on start
+            - name: healthcheck-creds                           # same emptyDir the init container wrote into
+              mountPath: /etc/mysql-healthcheck                   # see note on readinessProbe below
+            - name: data                                         # the PVC: this Pod's own PersistentVolumeClaim
+              mountPath: /var/lib/mysql                           # InnoDB data directory, kept across restarts
+          readinessProbe:                                       # kubelet: ready for Service traffic?
+            exec:                                                # run a command inside the container
+              command:                                           # the command and its arguments
+                - /usr/local/bin/healthcheck.sh                   # image's own script; no mysql/mysqladmin binary exists
+                - --defaults-extra-file=/etc/mysql-healthcheck/creds.cnf   # the image's own .my-healthcheck.cnf is
+                                                                    # only written by the normal single-node init
+                                                                    # flow; a Galera joiner's datadir arrives via
+                                                                    # SST/IST instead, so that file never gets
+                                                                    # created there — the init container writes
+                                                                    # this one instead, the same way on every node
+                - --connect                                       # can a TCP connection be made at all
+                - --galera_online                                  # WSREP_LOCAL_STATE=4 (Synced), not just joined
+                - --galera_ready                                   # WSREP_READY=ON
+            initialDelaySeconds: 20                               # first check only after mariadbd has a chance to start
+            periodSeconds: 5                                      # recheck every five seconds
+          livenessProbe:                                        # kubelet: restart this container if this fails
+            tcpSocket:                                          # plain TCP check, deliberately not exec
+              port: mysql                                         # auth/Galera-state failures must never kill this
+            initialDelaySeconds: 30                               # give SST/bootstrap time before the first check
+            periodSeconds: 10                                     # recheck every ten seconds
+      volumes:                                                  # Pod-level volumes; one PVC comes from the template below
+        - name: galera-static                                   # must match initContainers[].volumeMounts[].name
+          configMap:                                            # source is the ConfigMap above
+            name: galera-static                                  # the ConfigMap in this namespace
+        - name: conf-d                                          # must match volumeMounts[].name in both containers
+          emptyDir: {}                                           # per-Pod scratch space; init container writes here
+        - name: healthcheck-creds                               # must match volumeMounts[].name in both containers
+          emptyDir: {}                                           # per-Pod scratch space; init container writes here
+  volumeClaimTemplates:                                        # StatefulSet creates one PVC per Pod from this
+    - metadata:                                                 # identity of each generated PersistentVolumeClaim
+        name: data                                               # PVC name becomes data-galera-0, data-galera-1, ...
+      spec:                                                      # desired state of each PersistentVolumeClaim
+        accessModes:                                             # how the PVC can be mounted
+          - ReadWriteOnce                                          # one Pod at a time; local-path only supports this
+        storageClassName: standard                               # kind's Rancher local-path provisioner
+        resources:                                                # how much storage to request
+          requests:                                                # minimum requested amount
+            storage: 2Gi                                            # small and deliberate; local-path has no real quota

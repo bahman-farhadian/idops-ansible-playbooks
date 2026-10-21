@@ -1,0 +1,306 @@
+# Pocket Cluster
+# Source this file; do not execute it as a standalone process.
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  echo "This file must be sourced:" >&2
+  echo '  source /opt/idops-pocket-cluster/activate' >&2
+  exit 1
+fi
+
+export KUBECTL_VERSION="v1.37.0"
+export KIND_VERSION="v0.33.0"
+export HELM_VERSION="v3.22.0"
+export CLOUD_PROVIDER_KIND_VERSION="v0.12.0"
+export K9S_VERSION="v0.51.0"
+export KIND_CLUSTER_NAME="idops-pocket-k8s-cluster"
+export KIND_CLUSTER_CONFIG="idops-pocket-k8s-cluster.yaml"
+export KIND_CONTROL_PLANE_CPUS="${KIND_CONTROL_PLANE_CPUS:-2}"
+export KIND_CONTROL_PLANE_MEMORY="${KIND_CONTROL_PLANE_MEMORY:-2g}"
+export KIND_WORKER_CPUS="${KIND_WORKER_CPUS:-2}"
+export KIND_WORKER_MEMORY="${KIND_WORKER_MEMORY:-2g}"
+
+export K8S_LAB_HOME="/opt/idops-pocket-cluster"
+export K8S_LAB_ROOT="$K8S_LAB_HOME/kubectl-${KUBECTL_VERSION}_kind-${KIND_VERSION}"
+export K8S_LAB_BIN="$K8S_LAB_ROOT/bin"
+export K8S_LAB_CONFIG="$K8S_LAB_ROOT/$KIND_CLUSTER_CONFIG"
+export K9S_CONFIG_DIR="$K8S_LAB_ROOT/k9s-config"
+
+if [[ ! -x "$K8S_LAB_BIN/kubectl" || ! -x "$K8S_LAB_BIN/kind" || ! -x "$K8S_LAB_BIN/cloud-provider-kind" || ! -x "$K8S_LAB_BIN/k9s" ]]; then
+  echo "The pinned kubectl, kind, cloud-provider-kind, or k9s binary is missing or not executable:" >&2
+  echo "  $K8S_LAB_BIN" >&2
+  return 1
+fi
+
+if [[ ! -f "$K9S_CONFIG_DIR/config.yaml" ]]; then
+  echo "k9s config is missing:" >&2
+  echo "  $K9S_CONFIG_DIR/config.yaml" >&2
+  return 1
+fi
+
+if [[ ! -f "$K8S_LAB_CONFIG" ]]; then
+  echo "kind cluster config is missing:" >&2
+  echo "  $K8S_LAB_CONFIG" >&2
+  return 1
+fi
+
+if [[ -z "${K8S_LAB_OLD_PATH+x}" ]]; then
+  export K8S_LAB_OLD_PATH="$PATH"
+fi
+
+export PATH="$K8S_LAB_BIN:$K8S_LAB_OLD_PATH"
+export KUBECONFIG="$K8S_LAB_ROOT/kubeconfig"
+
+mkdir -p "$(dirname "$KUBECONFIG")"
+if [[ ! -e "$KUBECONFIG" ]]; then
+  touch "$KUBECONFIG"
+fi
+chmod 0600 "$KUBECONFIG"
+hash -r
+
+alias k=kubectl
+
+if [[ -n "${BASH_VERSION:-}" ]]; then
+  if ! declare -F _init_completion >/dev/null 2>&1 && [[ -f /usr/share/bash-completion/bash_completion ]]; then
+    source /usr/share/bash-completion/bash_completion
+  fi
+  eval "$(kubectl completion bash)"
+  complete -o default -o nospace -F __start_kubectl kubectl
+  complete -o default -o nospace -F __start_kubectl k
+  eval "$(kind completion bash)"
+  if command -v helm >/dev/null 2>&1; then
+    eval "$(helm completion bash)"
+    complete -o default -o nospace -F __start_helm helm
+  fi
+  if command -v k9s >/dev/null 2>&1; then
+    eval "$(k9s completion bash)"
+  fi
+fi
+
+k8s_lab_require_docker() {
+  if ! docker info >/dev/null 2>&1; then
+    echo "Docker is not ready. Start the engine and confirm this user is in the docker group." >&2
+    return 1
+  fi
+}
+
+k8s_lab_node_image() {
+  awk '/^[[:space:]]*image:[[:space:]]*/ { sub(/^[[:space:]]*image:[[:space:]]*/, ""); print; exit }' "$K8S_LAB_CONFIG"
+}
+
+k8s_lab_resource() {
+  local role="$1" key="$2" value
+  value="$(awk -v role="$role" -v key="$key" '
+    /^---$/ { doc++; next }
+    doc >= 1 && $0 ~ "^" role ":" { inrole=1; next }
+    doc >= 1 && inrole && /^[^[:space:]#]/ { inrole=0 }
+    doc >= 1 && inrole && $1 == key ":" {
+      gsub(/["'\'']/, "", $2)
+      print $2
+      exit
+    }
+  ' "$K8S_LAB_CONFIG")"
+  printf '%s\n' "$value"
+}
+
+k8s_lab_info() {
+  printf 'Pocket Cluster\n'
+  printf '  kubectl:            %s\n' "$(command -v kubectl 2>/dev/null || printf 'not found')"
+  printf '  kind:               %s\n' "$(command -v kind 2>/dev/null || printf 'not found')"
+  printf '  helm:               %s\n' "$(command -v helm 2>/dev/null || printf 'not found')"
+  printf '  cloud-provider-kind: %s\n' "$(command -v cloud-provider-kind 2>/dev/null || printf 'not found')"
+  printf '  k9s:                %s\n' "$(command -v k9s 2>/dev/null || printf 'not found')"
+  printf '  KUBECTL_VERSION:    %s\n' "$KUBECTL_VERSION"
+  printf '  KIND_VERSION:       %s\n' "$KIND_VERSION"
+  printf '  HELM_VERSION:       %s\n' "$HELM_VERSION"
+  printf '  CPK_VERSION:        %s\n' "$CLOUD_PROVIDER_KIND_VERSION"
+  printf '  K9S_VERSION:        %s\n' "$K9S_VERSION"
+  printf '  K9S_CONFIG_DIR:     %s\n' "$K9S_CONFIG_DIR"
+  printf '  KIND_CLUSTER_NAME:  %s\n' "$KIND_CLUSTER_NAME"
+  printf '  cluster config:     %s\n' "$K8S_LAB_CONFIG"
+  printf '  Kubernetes image:   %s\n' "$(k8s_lab_node_image)"
+  printf '  control-plane:      %s CPU, %s RAM\n' "$KIND_CONTROL_PLANE_CPUS" "$KIND_CONTROL_PLANE_MEMORY"
+  printf '  each worker:        %s CPU, %s RAM\n' "$KIND_WORKER_CPUS" "$KIND_WORKER_MEMORY"
+  printf '  KUBECONFIG:         %s\n' "$KUBECONFIG"
+}
+
+k8s_lab_limit_nodes() {
+  local node role cpus mem before after restarted=0
+  KIND_CONTROL_PLANE_CPUS="$(k8s_lab_resource control-plane cpus)"
+  KIND_CONTROL_PLANE_MEMORY="$(k8s_lab_resource control-plane memory)"
+  KIND_WORKER_CPUS="$(k8s_lab_resource worker cpus)"
+  KIND_WORKER_MEMORY="$(k8s_lab_resource worker memory)"
+  KIND_CONTROL_PLANE_CPUS="${KIND_CONTROL_PLANE_CPUS:-2}"
+  KIND_CONTROL_PLANE_MEMORY="${KIND_CONTROL_PLANE_MEMORY:-2g}"
+  KIND_WORKER_CPUS="${KIND_WORKER_CPUS:-2}"
+  KIND_WORKER_MEMORY="${KIND_WORKER_MEMORY:-2g}"
+  export KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
+  for node in $(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null); do
+    role="$(docker inspect -f '{{index .Config.Labels "io.x-k8s.kind.role"}}' "$node")"
+    if [[ "$role" == "control-plane" ]]; then
+      cpus="$KIND_CONTROL_PLANE_CPUS"
+      mem="$KIND_CONTROL_PLANE_MEMORY"
+    else
+      cpus="$KIND_WORKER_CPUS"
+      mem="$KIND_WORKER_MEMORY"
+    fi
+    before="$(docker inspect -f '{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}' "$node")"
+    docker update --cpus="$cpus" --memory="$mem" --memory-swap="$mem" "$node" >/dev/null
+    after="$(docker inspect -f '{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}}' "$node")"
+    if [[ "$before" != "$after" ]]; then
+      docker exec "$node" systemctl restart kubelet
+      restarted=1
+    fi
+  done
+  if [[ "$restarted" == 1 ]]; then
+    kubectl wait --for=condition=Ready node --all --timeout=180s || return 1
+  fi
+}
+
+k8s_lab_label_workers() {
+  local nodes
+  nodes="$(kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o name 2>/dev/null || true)"
+  [[ -z "$nodes" ]] && return 0
+  kubectl label --overwrite $nodes node-role.kubernetes.io/worker=worker
+}
+
+k8s_lab_taint_control_plane() {
+  # kind removes the kubeadm control-plane taint so workloads can land there.
+  # Put the kubeadm taint back. Application Pods stay on workers.
+  kubectl taint nodes -l node-role.kubernetes.io/control-plane node-role.kubernetes.io/control-plane:NoSchedule --overwrite
+}
+
+k8s_lab_worker_nodes_csv() {
+  local node role csv=""
+  for node in $(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null); do
+    role="$(docker inspect -f '{{index .Config.Labels "io.x-k8s.kind.role"}}' "$node" 2>/dev/null)"
+    if [[ "$role" == "worker" ]]; then
+      csv="${csv:+$csv,}$node"
+    fi
+  done
+  printf '%s\n' "$csv"
+}
+
+k8s_lab_desired_workers() {
+  awk '/^[[:space:]]*- role: worker[[:space:]]*$/ { c++ } END { print c+0 }' "$K8S_LAB_CONFIG"
+}
+
+k8s_lab_actual_workers() {
+  kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null | grep -c worker || true
+}
+
+k8s_lab_cloud_provider_start() {
+  local pidfile="$K8S_LAB_ROOT/cloud-provider-kind.pid"
+  local logfile="$K8S_LAB_ROOT/cloud-provider-kind.log"
+  local pid
+  if [[ -f "$pidfile" ]]; then
+    pid="$(cat "$pidfile")"
+    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+      echo "cloud-provider-kind already running (pid ${pid})."
+      return 0
+    fi
+  fi
+  nohup cloud-provider-kind >>"$logfile" 2>&1 &
+  echo $! >"$pidfile"
+  echo "cloud-provider-kind started (pid $(cat "$pidfile"))."
+}
+
+k8s_lab_cloud_provider_wait_clean() {
+  # kind delete cluster returns immediately, but cloud-provider-kind only
+  # notices the apiserver is gone and removes its own Envoy LB/gateway
+  # containers (named kindccm-gw-<id>) after several failed reconcile
+  # retries - observed ~25-30s on this host. Without this, `docker ps`
+  # right after delete still shows a kindccm-gw-* container that is on its
+  # way out, not actually leaked - but a caller has no way to tell the
+  # difference. Wait for it to finish on its own; force-remove only if it
+  # still has not after the timeout, so delete is deterministic either way.
+  local timeout="${1:-45}" waited=0 remaining
+  remaining="$(docker ps -q --filter 'name=^kindccm-gw-' 2>/dev/null)"
+  [[ -z "$remaining" ]] && return 0
+  echo "Waiting for cloud-provider-kind to release its gateway container(s)..."
+  while [[ -n "$remaining" && "$waited" -lt "$timeout" ]]; do
+    sleep 2
+    waited=$((waited + 2))
+    remaining="$(docker ps -q --filter 'name=^kindccm-gw-' 2>/dev/null)"
+  done
+  if [[ -n "$remaining" ]]; then
+    echo "cloud-provider-kind did not release these within ${timeout}s; removing directly:" >&2
+    docker ps --filter 'name=^kindccm-gw-' --format '{{.Names}}' >&2
+    docker rm -f $remaining >/dev/null 2>&1
+  fi
+}
+
+k8s_lab_start() {
+  local desired actual
+  k8s_lab_require_docker || return 1
+  desired="$(k8s_lab_desired_workers)"
+  if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
+    actual="$(k8s_lab_actual_workers)"
+    if [[ "$actual" != "$desired" ]]; then
+      echo "Cluster ${KIND_CLUSTER_NAME} has ${actual} workers, yaml wants ${desired}. Recreating."
+      kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+      k8s_lab_cloud_provider_wait_clean
+    fi
+  fi
+  if kind get clusters 2>/dev/null | grep -qx "$KIND_CLUSTER_NAME"; then
+    kind export kubeconfig --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+    chmod 0600 "$KUBECONFIG"
+    echo "Cluster ${KIND_CLUSTER_NAME} already exists. kubeconfig exported."
+  else
+    kind create cluster --name="$KIND_CLUSTER_NAME" --config="$K8S_LAB_CONFIG" --kubeconfig="$KUBECONFIG" --wait=2m || return 1
+    chmod 0600 "$KUBECONFIG"
+  fi
+  k8s_lab_limit_nodes || return 1
+  kubectl wait --for=condition=Ready node --all --timeout=180s || return 1
+  k8s_lab_label_workers
+  k8s_lab_taint_control_plane || return 1
+  k8s_lab_cloud_provider_start
+}
+
+k8s_lab_status() {
+  local nodes
+  kind get clusters
+  kind get nodes --name="$KIND_CLUSTER_NAME"
+  kubectl get nodes -o wide
+  kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.taints[*]}{.key}:{.effect}{" "}{end}{"\n"}{end}'
+  nodes="$(kind get nodes --name="$KIND_CLUSTER_NAME" 2>/dev/null)"
+  if [[ -n "$nodes" ]]; then
+    docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' $nodes
+  fi
+}
+
+k8s_lab_load_image() {
+  local workers
+  if [[ $# -lt 1 ]]; then
+    echo "usage: k8s_lab_load_image <image> [image...]" >&2
+    return 1
+  fi
+  k8s_lab_require_docker || return 1
+  workers="$(k8s_lab_worker_nodes_csv)"
+  if [[ -z "$workers" ]]; then
+    echo "No worker nodes. Application images are loaded onto workers only." >&2
+    return 1
+  fi
+  echo "Loading onto workers: ${workers}"
+  kind load docker-image "$@" --name="$KIND_CLUSTER_NAME" --nodes="$workers"
+}
+
+k8s_lab_delete_cluster() {
+  kind delete cluster --name="$KIND_CLUSTER_NAME" --kubeconfig="$KUBECONFIG"
+  k8s_lab_cloud_provider_wait_clean
+}
+
+k8s_lab_deactivate() {
+  if [[ -n "${K8S_LAB_OLD_PATH:-}" ]]; then
+    export PATH="$K8S_LAB_OLD_PATH"
+  fi
+  unset K8S_LAB_OLD_PATH K8S_LAB_HOME K8S_LAB_ROOT K8S_LAB_BIN K8S_LAB_CONFIG K9S_CONFIG_DIR
+  unset KUBECTL_VERSION KIND_VERSION HELM_VERSION CLOUD_PROVIDER_KIND_VERSION K9S_VERSION KIND_CLUSTER_NAME KIND_CLUSTER_CONFIG KUBECONFIG
+  unset KIND_CONTROL_PLANE_CPUS KIND_CONTROL_PLANE_MEMORY KIND_WORKER_CPUS KIND_WORKER_MEMORY
+  unalias k 2>/dev/null || true
+  unset -f k8s_lab_require_docker k8s_lab_node_image k8s_lab_resource k8s_lab_info k8s_lab_limit_nodes k8s_lab_label_workers k8s_lab_taint_control_plane k8s_lab_worker_nodes_csv k8s_lab_desired_workers k8s_lab_actual_workers k8s_lab_cloud_provider_start k8s_lab_cloud_provider_wait_clean k8s_lab_start k8s_lab_status k8s_lab_load_image k8s_lab_delete_cluster k8s_lab_deactivate
+  hash -r
+  echo "Pocket Cluster environment deactivated."
+}
+
+echo "Pocket Cluster environment activated."
+echo "Run 'k8s_lab_info' to inspect it."
