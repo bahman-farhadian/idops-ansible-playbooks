@@ -40,7 +40,7 @@ Copy `playbook-template/` only when that name is picked up.
 - `aq-identity-and-access`: `keycloak`
 - `ar-secrets-and-pki`: `vault`
 - `as-observability`: `prometheus`, `zabbix`, `grafana`
-- `at-centralized-logging`: `rsyslog`, `elk`, `efk`
+- `at-centralized-logging`: `rsyslog`, `elk`, `efk`, `clickstack`
 - `au-backup-and-disaster-recovery`: `virtnbdbackup`
 - `av-security-and-compliance`: `wazuh`
 - `aw-ci-cd-automation`: `gitlab`, `jenkins`

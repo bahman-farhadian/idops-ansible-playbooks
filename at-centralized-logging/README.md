@@ -4,7 +4,7 @@ Domain status: decision only (no playbook files yet)
 
 ## Purpose
 
-Log collection for the stack. `rsyslog/`, `elk/`, and `efk/` are different playbooks. Running one does not install the other. A project can run `rsyslog/`. It runs `elk/` or `efk/`, and it does not run both. The Elasticsearch here is the logging cluster. The application database is `am-databases/elasticsearch`. Hardening already installs rsyslog on each guest. `rsyslog/` here is only the central receiver.
+Log collection for the stack. `rsyslog/`, `elk/`, `efk/`, and `clickstack/` are different playbooks. Running one does not install the other. A project can run `rsyslog/`. It runs one of `elk/`, `efk/`, or `clickstack/`, never more than one. The Elasticsearch here is the logging cluster. The application database is `am-databases/elasticsearch`. Hardening already installs rsyslog on each guest. `rsyslog/` here is only the central receiver.
 
 ## Logging Elasticsearch
 
@@ -45,6 +45,12 @@ Logstash or Fluent Bit is not in this table. The chosen one runs on the `rsyslog
   - One Kibana guest, with the same Kibana build as `elk/`
   - Fluent Bit runs on the `rsyslog/` receiver. The administrator names that guest. This playbook installs Fluent Bit there and does not create the guest. Fluent Bit reads the logs that receiver stored and sends them to this Elasticsearch through the one address. The task uses its own local settings file. Fluent Bit is the collector. The playbook pins a stable release. Snapshots, alphas, betas, and release candidates stay out
   - This playbook does not install Logstash
+- `clickstack/`
+  - A project runs this, `elk/`, or `efk/`, not more than one
+  - ClickHouse is the backing store, in place of the Elasticsearch design above. The guest count and layout for that ClickHouse are not decided yet; `am-databases/clickhouse` is the unrelated application-database playbook, not this one
+  - The OpenTelemetry Collector is the ingestion path. The HyperDX UI is the front end
+  - Open-source, self-hosted ClickStack only (HyperDX is MIT-licensed; ClickHouse and the OpenTelemetry Collector are Apache 2.0). The managed/cloud-hosted edition is left out, same as every other paid product in this catalog
+  - Everything else — rsyslog integration, guest count, address requirements — is undecided. This entry exists so the name is reserved; copy `playbook-template/` only once those decisions are made
 
 ## Lab
 
@@ -75,4 +81,4 @@ Logstash or Fluent Bit is not in this table. The chosen one runs on the `rsyslog
 
 - Playbook files: no
 - Lab files: yes, `elk-efk-lab/` (Docker Compose, independent of this playbook)
-- Review: rsyslog is the central receiver. Hardening already installs rsyslog on each guest. One of ELK or EFK, the Elasticsearch layout, one Kibana, and a required single address are decided
+- Review: rsyslog is the central receiver. Hardening already installs rsyslog on each guest. One of ELK or EFK, the Elasticsearch layout, one Kibana, and a required single address are decided. `clickstack` is a reserved name only — its guest count, layout, and rsyslog integration are still open
