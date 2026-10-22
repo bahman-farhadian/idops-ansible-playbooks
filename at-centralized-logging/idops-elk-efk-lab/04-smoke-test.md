@@ -47,4 +47,4 @@ docker compose -f compose.yaml -f compose.efk.yaml down -v 2>/dev/null || true
 - [02-run-elk.md](02-run-elk.md) or [03-run-efk.md](03-run-efk.md)
 
 ## Next
-- Back to [README.md](README.md), or [../README.md](../README.md) for the production `elk/`/`efk/` decision this lab is modeled on
+- [05-post-start-checklist.md](05-post-start-checklist.md) if you haven't walked it yet, or back to [README.md](README.md), or [../README.md](../README.md) for the production `elk/`/`efk/` decision this lab is modeled on

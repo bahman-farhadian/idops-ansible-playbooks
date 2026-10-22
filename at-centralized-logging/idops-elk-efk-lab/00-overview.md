@@ -23,6 +23,7 @@ This lab keeps that shape but drops everything that only matters at production s
 | [02-run-elk.md](02-run-elk.md) | `compose.yaml` + `compose.elk.yaml`: Elasticsearch, Kibana, Logstash |
 | [03-run-efk.md](03-run-efk.md) | `compose.yaml` + `compose.efk.yaml`: Elasticsearch, Kibana, Fluent Bit |
 | [04-smoke-test.md](04-smoke-test.md) | Health checks, comparing the two indices, teardown |
+| [05-post-start-checklist.md](05-post-start-checklist.md) | What to check right after `up`, which log lines are noise vs. a real bug |
 
 ## Pinned version matrix
 

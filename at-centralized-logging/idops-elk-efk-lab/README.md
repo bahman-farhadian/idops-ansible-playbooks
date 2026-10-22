@@ -25,8 +25,9 @@ Same relationship as [`../../ak-container-orchestration/idops-kubernetes-lab/ido
 | [02-run-elk.md](02-run-elk.md) | Bring up Elasticsearch + Kibana + Logstash, feed a demo log, see it in Kibana |
 | [03-run-efk.md](03-run-efk.md) | Swap Logstash for Fluent Bit, same demo | 
 | [04-smoke-test.md](04-smoke-test.md) | Health checks, comparing the two paths, teardown |
+| [05-post-start-checklist.md](05-post-start-checklist.md) | Post-`up` checks, noise vs. real errors |
 
-Walk 00 → 04. [02](02-run-elk.md) and [03](03-run-efk.md) are independent once you've read [00](00-overview.md) and [01](01-install-tools.md) — do either first, or both in turn to compare them, which is the point of the lab.
+Walk 00 → 05. [02](02-run-elk.md) and [03](03-run-efk.md) are independent once you've read [00](00-overview.md) and [01](01-install-tools.md) — do either first, or both in turn to compare them, which is the point of the lab.
 
 ## Next
 
