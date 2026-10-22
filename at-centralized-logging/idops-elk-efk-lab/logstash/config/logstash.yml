@@ -1,0 +1,2 @@
+api.http.host: "0.0.0.0"          # Logstash 8+/9.x renamed the old http.host key; the old key is a hard "settings invalid" crash, not a warning
+xpack.monitoring.enabled: false   # domain decision: X-Pack stays out
