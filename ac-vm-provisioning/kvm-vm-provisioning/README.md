@@ -222,6 +222,8 @@ make checksum-refresh LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make provision-check LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make snapshot LOCAL_SETTINGS_FILE=vars/settings.local.yml SNAPSHOT_NAME=post-hardening-pass2
+make power-off LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make power-on LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make cleanup LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make cleanup-force LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.local.yml
@@ -424,6 +426,26 @@ make snapshot LOCAL_SETTINGS_FILE=vars/settings.local.yml SNAPSHOT_NAME=post-har
 - `make cleanup-force-disks` removes every stage snapshot's overlay and XML
   file for declared instances (glob by instance name, not by one fixed name),
   so stage snapshots never need their own separate cleanup step.
+
+### Power Off And Power On
+
+`make power-off` and `make power-on` scope to the same declared instances as
+every other action, driven by `LOCAL_SETTINGS_FILE`:
+
+```bash
+make power-off LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make power-on LOCAL_SETTINGS_FILE=vars/settings.local.yml
+```
+
+- `power-off` requests a clean `virsh shutdown` on every declared instance
+  that is currently running, and waits for it to report `shut off`.
+- `power-on` runs `virsh start` on every declared instance that is currently
+  `shut off`, and waits for it to report `running`. It does not wait for the
+  QEMU Guest Agent or sshd — that readiness gate belongs to whichever
+  playbook runs next (`make harden`, `make deploy`, and so on).
+- Both skip, and report rather than fail, instances that do not exist yet or
+  are already in the target state. Neither one touches a domain's disks or
+  snapshots.
 
 ## Variable Model Highlights
 

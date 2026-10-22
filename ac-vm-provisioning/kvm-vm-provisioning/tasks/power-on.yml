@@ -1,0 +1,121 @@
+---
+# =========================================================================
+# POWER ON: start every declared instance in scope that is shut off.
+# Instances that do not exist yet, or are already running, are skipped
+# and reported, not failed. Readiness (guest agent, sshd) is left to
+# whichever playbook runs next - this action only gets the domain running.
+# =========================================================================
+- name: Validate power instance definition list is provided
+  ansible.builtin.assert:
+    that:
+      - kvm_instance_definitions is defined
+      - kvm_instance_definitions | length > 0
+    fail_msg: >-
+      Add at least one VM in kvm_instance_definitions in your local
+      settings file. The list in vars/06-instances.yml is empty on purpose.
+
+- name: Resolve the instance scope for this hypervisor
+  ansible.builtin.include_tasks: tasks/resolve-host-scope.yml
+
+- name: Check which declared instances exist
+  ansible.builtin.command:
+    cmd: virsh dominfo "{{ item.instance_name }}"
+  loop: "{{ kvm_host_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: poweron_domain_exists_check
+  failed_when: false
+  changed_when: false
+
+- name: Report declared instances that do not exist yet
+  ansible.builtin.debug:
+    msg: "{{ item.item.instance_name }} does not exist yet. Skipped."
+  loop: "{{ poweron_domain_exists_check.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.instance_name }}"
+  when: (item.rc | int) != 0
+
+- name: Build list of existing declared instances
+  ansible.builtin.set_fact:
+    poweron_existing_instances: >-
+      {{
+        kvm_host_instance_definitions
+        | zip(poweron_domain_exists_check.results | default([]))
+        | selectattr('1.rc', 'eq', 0)
+        | map(attribute='0')
+        | list
+      }}
+
+- name: Check current domain state
+  ansible.builtin.command:
+    cmd: virsh domstate "{{ item.instance_name }}"
+  loop: "{{ poweron_existing_instances }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: poweron_domain_state_results
+  changed_when: false
+  when: (poweron_existing_instances | length) > 0
+
+- name: Build list of shut-off instances to start
+  ansible.builtin.set_fact:
+    poweron_targets: >-
+      {{
+        poweron_existing_instances
+        | zip(poweron_domain_state_results.results | default([]))
+        | selectattr('1.stdout', 'defined')
+        | selectattr('1.stdout', 'equalto', 'shut off')
+        | map(attribute='0')
+        | list
+      }}
+  when: (poweron_existing_instances | length) > 0
+
+- name: Report instances already running
+  ansible.builtin.debug:
+    msg: >-
+      {{
+        poweron_existing_instances | map(attribute='instance_name') | list
+        | difference(poweron_targets | default([]) | map(attribute='instance_name') | list)
+      }} already running (or not shut off). Skipped.
+  when: (poweron_existing_instances | length) > 0
+
+- name: Explain power-on skip in check mode
+  ansible.builtin.debug:
+    msg: Check mode is active. No domain will be started.
+  when:
+    - ansible_check_mode
+    - (poweron_targets | default([])) | length > 0
+
+- name: Start shut-off instances
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - start
+      - "{{ item.instance_name }}"
+  loop: "{{ poweron_targets | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Wait for started instances to report running
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ poweron_targets | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: poweron_wait_state
+  until: (poweron_wait_state.stdout | trim) == 'running'
+  retries: 18
+  delay: 5
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Power-on complete summary
+  ansible.builtin.debug:
+    msg: >-
+      Started {{ poweron_targets | default([]) | length }} instance(s):
+      {{ poweron_targets | default([]) | map(attribute='instance_name') | list }}
+  when: not ansible_check_mode

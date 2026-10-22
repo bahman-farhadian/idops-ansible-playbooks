@@ -29,8 +29,10 @@
     - name: Validate requested action
       ansible.builtin.assert:
         that:
-          - kvm_action in ['provision', 'cleanup', 'ping', 'snapshot']
-        fail_msg: "kvm_action must be 'provision', 'cleanup', 'ping', or 'snapshot'."
+          - kvm_action in ['provision', 'cleanup', 'ping', 'snapshot', 'power-off', 'power-on']
+        fail_msg: >-
+          kvm_action must be 'provision', 'cleanup', 'ping', 'snapshot',
+          'power-off', or 'power-on'.
 
     - name: Fail when no local settings file was selected
       ansible.builtin.fail:
@@ -358,3 +360,11 @@
     - name: Run KVM stage-snapshot workflow
       ansible.builtin.include_tasks: tasks/snapshot.yml
       when: kvm_action == 'snapshot'
+
+    - name: Run KVM power-off workflow
+      ansible.builtin.include_tasks: tasks/power-off.yml
+      when: kvm_action == 'power-off'
+
+    - name: Run KVM power-on workflow
+      ansible.builtin.include_tasks: tasks/power-on.yml
+      when: kvm_action == 'power-on'

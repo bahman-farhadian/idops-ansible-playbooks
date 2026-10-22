@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv require-local-settings require-snapshot-name deps-bundle lint check ping image-cache checksum-refresh provision-check provision snapshot cleanup cleanup-force cleanup-force-disks
+.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv require-local-settings require-snapshot-name deps-bundle lint check ping image-cache checksum-refresh provision-check provision snapshot power-off power-on cleanup cleanup-force cleanup-force-disks
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -36,6 +36,8 @@ help:
 	@printf "  %-28s %s\n" "make provision" "create the VMs"
 	@printf "  %-28s %s\n" "make provision-check" "check hypervisor setup; make no changes"
 	@printf "  %-28s %s\n" "make snapshot" "stamp a named checkpoint snapshot on declared VMs"
+	@printf "  %-28s %s\n" "make power-off" "clean-shutdown declared VMs that are running"
+	@printf "  %-28s %s\n" "make power-on" "start declared VMs that are shut off"
 	@printf "  %-28s %s\n" "make cleanup" "show which named VMs would be deleted (does not delete)"
 	@printf "  %-28s %s\n" "make cleanup-force" "delete the named VMs; keep their disks"
 	@printf "  %-28s %s\n" "make cleanup-force-disks" "delete the named VMs, disks, and snapshots"
@@ -125,6 +127,12 @@ snapshot: require-local-settings require-snapshot-name require-venv
 		-e kvm_snapshot_stage_name="$(SNAPSHOT_NAME)" \
 		$(if $(strip $(SNAPSHOT_DESCRIPTION)),-e kvm_snapshot_stage_description="$(SNAPSHOT_DESCRIPTION)",) \
 		$(SETTINGS_ARG) $(EXTRA_ARGS)
+
+power-off: require-local-settings require-venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=power-off $(SETTINGS_ARG) $(EXTRA_ARGS)
+
+power-on: require-local-settings require-venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=power-on $(SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(SETTINGS_ARG) $(EXTRA_ARGS)
