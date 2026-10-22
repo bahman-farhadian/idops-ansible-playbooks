@@ -28,13 +28,14 @@ services:
     image: docker.elastic.co/kibana/kibana:${ELASTIC_VERSION}   # same minor/patch as Elasticsearch, always
     container_name: idops-elk-efk-lab-kibana
     restart: unless-stopped
-    mem_limit: 768m
+    mem_limit: 1536m                                         # 768m OOM-crashes Kibana 9.x on startup (203 plugins); this is the observed floor, not a guess
     depends_on:
       elasticsearch:
         condition: service_healthy                          # do not start Kibana against a half-booted node
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - XPACK_SECURITY_ENABLED=false                         # matches Elasticsearch: no login screen in this lab
+      - NODE_OPTIONS=--max-old-space-size=1280                # pin the V8 heap explicitly instead of trusting cgroup auto-sizing
     ports:
       - "5601:5601"                                          # http://localhost:5601
 
