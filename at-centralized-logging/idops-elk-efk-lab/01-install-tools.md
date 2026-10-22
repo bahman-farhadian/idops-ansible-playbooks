@@ -27,9 +27,10 @@ sudo sysctl --system                                        # applies every file
 sysctl vm.max_map_count                                     # confirm it took
 ```
 
-**3. Clone or `cd` into this directory, then confirm the pinned versions.**
+**3. Clone or `cd` into this directory, then create your `.env` and confirm the pinned versions.**
 ```sh
 cd at-centralized-logging/idops-elk-efk-lab
+cp .env.example .env                                         # .env is gitignored; .env.example is the tracked template
 cat .env                                                     # ELASTIC_VERSION and FLUENT_BIT_VERSION
 docker compose config >/dev/null && echo "compose.yaml is valid"
 ```

@@ -36,6 +36,10 @@ group_vars/local_secrets.yml
 .nexus_secret_salt
 .nexus_secret_iv
 
+# Docker Compose lab env files (real local values; *.env.example is the tracked template)
+.env
+**/.env
+
 # Offline dependency cache (populated by `make deps-bundle`)
 wheelhouse/
 

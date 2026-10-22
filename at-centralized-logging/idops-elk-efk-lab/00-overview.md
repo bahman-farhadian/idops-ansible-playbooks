@@ -30,10 +30,10 @@ Pins checked against upstream on **2026-10-21**. Re-check before you run: [Elast
 
 | Component | Version | Where it is set |
 | --- | --- | --- |
-| Elasticsearch | 9.5.2 | `ELASTIC_VERSION` in [`.env`](.env) |
+| Elasticsearch | 9.5.2 | `ELASTIC_VERSION` in [`.env.example`](.env.example) (copy to `.env`) |
 | Kibana | 9.5.2 | same `ELASTIC_VERSION`, [`compose.yaml`](compose.yaml) |
 | Logstash | 9.5.2 | same `ELASTIC_VERSION`, [`compose.elk.yaml`](compose.elk.yaml) |
-| Fluent Bit | 5.0.8 | `FLUENT_BIT_VERSION` in [`.env`](.env), [`compose.efk.yaml`](compose.efk.yaml) |
+| Fluent Bit | 5.0.8 | `FLUENT_BIT_VERSION` in [`.env.example`](.env.example) (copy to `.env`), [`compose.efk.yaml`](compose.efk.yaml) |
 
 Kibana and Logstash always track the same `ELASTIC_VERSION` as Elasticsearch — Elastic does not support mixing minors across that trio. No command in this lab uses `latest` or an unpinned tag.
 
