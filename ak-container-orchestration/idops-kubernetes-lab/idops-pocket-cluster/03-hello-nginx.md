@@ -28,7 +28,7 @@ k8s_lab_load_image nginx:1.27
 
 **2. Apply the manifest** — work from the clone. Open [hello-nginx.yaml](hello-nginx.yaml) and read it before you apply.
 ```sh
-cd /path/to/kubernetes-lab/idops-pocket-cluster
+cd /path/to/idops-kubernetes-lab/idops-pocket-cluster
 kubectl apply -f hello-nginx.yaml
 kubectl get namespace idops-nginx-demo
 kubectl get cm,deploy,po,svc,ingress -n idops-nginx-demo -o wide
@@ -58,7 +58,7 @@ kubectl describe pod -n idops-nginx-demo -l app=hello-nginx   # if a replica is 
 
 **5. Remove the app** — the cluster stays.
 ```sh
-cd /path/to/kubernetes-lab/idops-pocket-cluster
+cd /path/to/idops-kubernetes-lab/idops-pocket-cluster
 kubectl delete -f hello-nginx.yaml --ignore-not-found
 ```
 

@@ -23,7 +23,7 @@ This, not `curl -C -`, is what actually fixes "don't redownload what's already d
 
 **1. Confirm the host** — Linux `x86_64` or `aarch64`, Bash, cgroup v2, Docker without `sudo`. Kubernetes 1.37 needs cgroup v2. Leave any host kubectl in place; the next steps install a second binary under `/opt`.
 ```sh
-cd /path/to/kubernetes-lab/idops-pocket-cluster
+cd /path/to/idops-kubernetes-lab/idops-pocket-cluster
 GUIDE_DIR="$(pwd)"
 uname -ms                                                    # Linux plus x86_64 or aarch64
 printf 'Shell: %s Bash: %s\n' "$SHELL" "$BASH_VERSION"

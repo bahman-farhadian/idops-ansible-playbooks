@@ -6,7 +6,7 @@ A Docker Compose lab for the log-pipeline shape decided in [`../README.md`](../R
 
 This is a lab, not the `elk/` or `efk/` Ansible playbook. Those stay decision-only in the domain catalog until someone builds them for real guests. This directory exists to learn how Elasticsearch, Kibana, Logstash, and Fluent Bit actually fit together — mappings, indices, parsers, the Kibana Discover flow — on a single Docker host, in minutes, before any of that is worth automating. It is also a safe place to break things: delete a volume, change a parser, watch what happens.
 
-Same relationship as [`../../ak-container-orchestration/kubernetes-lab/idops-pocket-cluster/`](../../ak-container-orchestration/kubernetes-lab/idops-pocket-cluster/00-overview.md) is to the production kubeadm spine: a small, fast, independent stand-in for practice, not a shortcut that skips the real build.
+Same relationship as [`../../ak-container-orchestration/idops-kubernetes-lab/idops-pocket-cluster/`](../../ak-container-orchestration/idops-kubernetes-lab/idops-pocket-cluster/00-overview.md) is to the production kubeadm spine: a small, fast, independent stand-in for practice, not a shortcut that skips the real build.
 
 ## Scope
 

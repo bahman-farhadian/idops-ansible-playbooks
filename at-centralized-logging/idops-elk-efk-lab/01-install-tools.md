@@ -7,7 +7,7 @@
 Elasticsearch memory-maps a lot of files and refuses to start below a kernel limit on how many memory-map areas one process may own. This is not a container limit Docker can raise for you — it is a host (or, on Linux, host-namespace-shared) sysctl, so it is set once, outside Compose, before the first `up`.
 
 ## Prerequisites
-- A Linux host (or a Linux VM — Docker Desktop on macOS/Windows sets this value inside its own VM automatically) with Docker Engine and the Compose plugin. If this is the same workstation as [idops-pocket-cluster](../../ak-container-orchestration/kubernetes-lab/idops-pocket-cluster/00-overview.md), you already have both.
+- A Linux host (or a Linux VM — Docker Desktop on macOS/Windows sets this value inside its own VM automatically) with Docker Engine and the Compose plugin. If this is the same workstation as [idops-pocket-cluster](../../ak-container-orchestration/idops-kubernetes-lab/idops-pocket-cluster/00-overview.md), you already have both.
 
 ## Steps
 

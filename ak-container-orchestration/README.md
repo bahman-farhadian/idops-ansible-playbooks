@@ -4,7 +4,7 @@ Domain status: in use
 
 ## Purpose
 
-Container orchestration. `kubernetes-lab/` and `docker-swarm/` are separate playbooks. They can be used together. New clusters use `kubernetes-lab/`. `docker-swarm/` is the playbook already in the repo.
+Container orchestration. `idops-kubernetes-lab/` and `docker-swarm/` are separate playbooks. They can be used together. New clusters use `idops-kubernetes-lab/`. `docker-swarm/` is the playbook already in the repo.
 
 ## Implemented projects
 
@@ -31,7 +31,7 @@ false.
 
 ## Scope decision
 
-- `kubernetes-lab/` is the production cluster. No files yet.
+- `idops-kubernetes-lab/` is the production cluster. No files yet.
   - kubeadm, the upstream install path
   - Two etcd layouts. The project picks one in local settings
   - Stacked etcd runs on the control-plane guests. Make requires at least 3 control-plane guests, and that count must be odd
@@ -49,4 +49,4 @@ false.
   - This playbook does not deploy Ceph. When the administrator provides a Ceph cluster, this playbook installs the volume drivers and uses those addresses
   - Stacked minimum: 3 control-plane guests, 3 workers, and 2 HAProxy guests, plus the bastion the administrator provides
   - External minimum: 2 control-plane guests, 3 etcd guests, 3 workers, and 2 HAProxy guests, plus the bastion the administrator provides
-- `docker-swarm/` stays. It is already implemented. Docker's own docs say Swarm mode still works and development has slowed in favor of Kubernetes. New clusters use `kubernetes-lab/`. The two playbooks can be used together.
+- `docker-swarm/` stays. It is already implemented. Docker's own docs say Swarm mode still works and development has slowed in favor of Kubernetes. New clusters use `idops-kubernetes-lab/`. The two playbooks can be used together.

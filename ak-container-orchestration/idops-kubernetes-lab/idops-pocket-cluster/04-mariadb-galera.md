@@ -40,7 +40,7 @@ k8s_lab_load_image mariadb:12.3.3
 
 **3. Apply the manifest** — work from the clone.
 ```sh
-cd /path/to/kubernetes-lab/idops-pocket-cluster
+cd /path/to/idops-kubernetes-lab/idops-pocket-cluster
 kubectl apply -f mariadb-galera.yaml
 kubectl get cm,svc,sts,po,pvc -n idops-galera-demo -o wide
 kubectl rollout status statefulset/galera -n idops-galera-demo --timeout=300s
@@ -74,7 +74,7 @@ kubectl exec -n idops-galera-demo galera-1 -- sh -c \
 
 **7. Remove the app** — PVCs are not deleted by this command (`StatefulSet` deletion never deletes `volumeClaimTemplates`-created PVCs). Delete those explicitly if you want the data gone too.
 ```sh
-cd /path/to/kubernetes-lab/idops-pocket-cluster
+cd /path/to/idops-kubernetes-lab/idops-pocket-cluster
 kubectl delete -f mariadb-galera.yaml --ignore-not-found
 kubectl delete pvc -n idops-galera-demo -l app=galera   # optional: also drop the stored data
 ```
