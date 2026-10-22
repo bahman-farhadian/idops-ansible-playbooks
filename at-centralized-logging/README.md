@@ -54,7 +54,7 @@ Logstash or Fluent Bit is not in this table. The chosen one runs on the `rsyslog
 
 ## Lab
 
-`elk-efk-lab/` is a Docker Compose lab, not this domain's `elk/`/`efk/` playbook. One Elasticsearch, one Kibana, and either Logstash or Fluent Bit, matching the shape decided above but sized for a single Docker host instead of guests, HAProxy, and a real `rsyslog/` receiver. It pulls the official `docker.elastic.co` images rather than the from-source AGPL-3.0 build this playbook requires. Use it to learn the pipeline before either playbook has files. See [elk-efk-lab/README.md](elk-efk-lab/README.md).
+`idops-elk-efk-lab/` is a Docker Compose lab, not this domain's `elk/`/`efk/` playbook. One Elasticsearch, one Kibana, and either Logstash or Fluent Bit, matching the shape decided above but sized for a single Docker host instead of guests, HAProxy, and a real `rsyslog/` receiver. It pulls the official `docker.elastic.co` images rather than the from-source AGPL-3.0 build this playbook requires. Use it to learn the pipeline before either playbook has files. See [idops-elk-efk-lab/README.md](idops-elk-efk-lab/README.md).
 
 ## Alternatives
 
@@ -80,5 +80,5 @@ Logstash or Fluent Bit is not in this table. The chosen one runs on the `rsyslog
 ## Status
 
 - Playbook files: no
-- Lab files: yes, `elk-efk-lab/` (Docker Compose, independent of this playbook)
+- Lab files: yes, `idops-elk-efk-lab/` (Docker Compose, independent of this playbook)
 - Review: rsyslog is the central receiver. Hardening already installs rsyslog on each guest. One of ELK or EFK, the Elasticsearch layout, one Kibana, and a required single address are decided. `clickstack` is a reserved name only — its guest count, layout, and rsyslog integration are still open
