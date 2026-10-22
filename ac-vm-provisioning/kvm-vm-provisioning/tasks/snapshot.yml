@@ -1,0 +1,326 @@
+---
+# =========================================================================
+# SNAPSHOT: operator-triggered named checkpoint ("make snapshot")
+#
+# Independent of the mandatory post-provision "baseline" snapshot that
+# provision-runtime.yml creates for every declared domain. This action lets
+# an operator stamp an additional named checkpoint at any later point in a
+# multi-stage build (after hardening, after a deploy step, and so on),
+# chained as a new external snapshot on top of whatever disk is currently
+# active. Idempotent per name: a domain that already carries the requested
+# snapshot name is left untouched.
+# =========================================================================
+- name: Validate snapshot instance definition list is provided
+  ansible.builtin.assert:
+    that:
+      - kvm_instance_definitions is defined
+      - kvm_instance_definitions | length > 0
+    fail_msg: >-
+      Add at least one VM in kvm_instance_definitions in your local
+      settings file. The list in vars/06-instances.yml is empty on purpose.
+
+- name: Resolve the instance scope for this hypervisor
+  ansible.builtin.include_tasks: tasks/resolve-host-scope.yml
+
+- name: Validate the snapshot stage name was supplied
+  ansible.builtin.assert:
+    that:
+      - kvm_snapshot_stage_name is defined
+      - kvm_snapshot_stage_name | length > 0
+      - kvm_snapshot_stage_name is match('^[A-Za-z0-9][A-Za-z0-9-]{0,62}$')
+      - kvm_snapshot_stage_name != kvm_snapshot_name
+    fail_msg: >-
+      Pass a snapshot name: make snapshot LOCAL_SETTINGS_FILE=... SNAPSHOT_NAME=<name>.
+      <name> must look like an instance name (letters, digits, hyphens) and
+      must not reuse '{{ kvm_snapshot_name }}', which is reserved for the
+      mandatory post-provision baseline snapshot.
+
+- name: Default the snapshot stage description
+  ansible.builtin.set_fact:
+    kvm_snapshot_stage_description: >-
+      {{ kvm_snapshot_stage_description | default('Stage checkpoint: ' ~ kvm_snapshot_stage_name) }}
+
+- name: Set per-instance defaults for snapshot targets
+  ansible.builtin.set_fact:
+    snapshot_instance_defaults:
+      instance_disk_extension: "{{ kvm_default_instance_disk_extension }}"
+      instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
+      instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
+      ssh_port: 22
+
+- name: Build normalized snapshot instance definitions
+  ansible.builtin.set_fact:
+    snapshot_instance_definitions: >-
+      {{
+        (snapshot_instance_definitions | default([]))
+        + [snapshot_instance_defaults | combine(item, recursive=True)]
+      }}
+  loop: "{{ kvm_host_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name | default('unknown') }}"
+
+- name: Validate snapshot target names
+  ansible.builtin.assert:
+    that:
+      - item.instance_name is defined
+      - item.instance_name | length > 0
+      - item.instance_name is match('^[A-Za-z0-9][A-Za-z0-9-]{0,62}$')
+      - item.instance_disk_extension is match('^[A-Za-z0-9]+$')
+      - item.instance_extra_disks_enabled is boolean
+      - item.instance_extra_disks is sequence
+      - item.instance_extra_disks is not string
+    fail_msg: >-
+      Invalid snapshot target '{{ item.instance_name | default('unknown') }}'.
+      Snapshotting requires exact, valid instance names from kvm_instance_definitions.
+  loop: "{{ snapshot_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name | default('unknown') }}"
+
+- name: Validate snapshot target additional disk schema per instance
+  ansible.builtin.assert:
+    that:
+      - snapshot_disk.guest_device is defined
+      - snapshot_disk.guest_device is match('^vd[b-z]$')
+    fail_msg: >-
+      Invalid additional disk definition for snapshotting instance {{ item.0.instance_name }}.
+      guest_device must be vd[b-z].
+  vars:
+    snapshot_disk: "{{ item.1 }}"
+  loop: "{{ snapshot_instance_definitions | subelements('instance_extra_disks', skip_missing=True) }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}:{{ item.1.guest_device | default('missing-device') }}"
+  when:
+    - item.0.instance_extra_disks_enabled | bool
+
+- name: Check declared snapshot targets exist
+  ansible.builtin.command:
+    cmd: virsh dominfo "{{ item.instance_name }}"
+  loop: "{{ snapshot_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: snapshot_domain_exists_check
+  failed_when: false
+  changed_when: false
+
+- name: Fail when a declared snapshot target does not exist
+  ansible.builtin.assert:
+    that:
+      - (item.1.rc | int) == 0
+    fail_msg: >-
+      Declared domain {{ item.0.instance_name }} does not exist yet.
+      Run make provision before taking a stage snapshot of it.
+  loop: "{{ snapshot_instance_definitions | zip(snapshot_domain_exists_check.results) | list }}"
+  loop_control:
+    label: "{{ item.0.instance_name }}"
+
+- name: Check current domain state before snapshotting
+  ansible.builtin.command:
+    cmd: virsh domstate "{{ item.instance_name }}"
+  loop: "{{ snapshot_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: snapshot_domain_state_results
+  changed_when: false
+
+- name: List existing snapshot names per domain
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - snapshot-list
+      - "{{ item.instance_name }}"
+      - --name
+  loop: "{{ snapshot_instance_definitions }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: snapshot_existing_list_results
+  changed_when: false
+
+- name: Build the stage-snapshot target list, carrying each domain's current state
+  ansible.builtin.set_fact:
+    snapshot_targets_pending: >-
+      {{
+        (snapshot_targets_pending | default([]))
+        + (
+          [item.0 | combine({'initial_domstate': (item.1.stdout | trim)})]
+          if kvm_snapshot_stage_name not in (item.2.stdout_lines | default([]))
+          else []
+        )
+      }}
+  loop: >-
+    {{
+      snapshot_instance_definitions
+      | zip(snapshot_domain_state_results.results, snapshot_existing_list_results.results)
+      | list
+    }}
+  loop_control:
+    label: "{{ item.0.instance_name }}"
+
+- name: Report stage-snapshot plan
+  ansible.builtin.debug:
+    msg: >-
+      stage={{ kvm_snapshot_stage_name }} |
+      already_done={{
+        snapshot_instance_definitions | map(attribute='instance_name') | list
+        | difference(snapshot_targets_pending | default([]) | map(attribute='instance_name') | list)
+      }} |
+      pending={{ snapshot_targets_pending | default([]) | map(attribute='instance_name') | list }}
+
+- name: Explain stage-snapshot skip in check mode
+  ansible.builtin.debug:
+    msg: Check mode is active. No snapshot will be created.
+  when:
+    - ansible_check_mode
+    - (snapshot_targets_pending | default([])) | length > 0
+
+- name: Request clean shutdown for pending targets currently running
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - shutdown
+      - "{{ item.instance_name }}"
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - item.initial_domstate == 'running'
+
+- name: Wait for clean shutdown before snapshot creation
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: snapshot_shutdown_wait
+  until: (snapshot_shutdown_wait.stdout | trim) == 'shut off'
+  retries: "{{ kvm_shutdown_wait_retries | default(30) | int }}"
+  delay: "{{ kvm_shutdown_wait_delay_seconds | default(2) | int }}"
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - item.initial_domstate == 'running'
+
+- name: Ensure the snapshot overlay directory exists
+  ansible.builtin.file:
+    path: "{{ kvm_snapshot_overlay_path }}"
+    state: directory
+    owner: "{{ kvm_libvirt_runtime_user }}"
+    group: "{{ kvm_libvirt_runtime_user }}"
+    mode: "0750"
+  when:
+    - not ansible_check_mode
+    - (snapshot_targets_pending | default([])) | length > 0
+
+- name: Render this stage's external snapshot definitions
+  ansible.builtin.copy:
+    dest: "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_stage_name }}.xml"
+    mode: "0600"
+    content: |
+      <domainsnapshot>
+        <name>{{ kvm_snapshot_stage_name }}</name>
+        <description>{{ kvm_snapshot_stage_description }}</description>
+        <disks>
+          <disk name='vda' snapshot='external'>
+            <source file='{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_stage_name }}-vda.qcow2'/>
+          </disk>
+      {% if item.instance_extra_disks_enabled | bool %}
+      {% for extra_disk in item.instance_extra_disks | default([]) %}
+          <disk name='{{ extra_disk.guest_device }}' snapshot='external'>
+            <source file='{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_stage_name }}-{{ extra_disk.guest_device }}.qcow2'/>
+          </disk>
+      {% endfor %}
+      {% endif %}
+        </disks>
+      </domainsnapshot>
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  when: not ansible_check_mode
+
+- name: Create this stage's external snapshot atomically
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - snapshot-create
+      - "{{ item.instance_name }}"
+      - "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_stage_name }}.xml"
+      - --disk-only
+      - --atomic
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when: not ansible_check_mode
+
+- name: Verify this stage's snapshot metadata after creation
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - snapshot-list
+      - "{{ item.instance_name }}"
+      - --name
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: snapshot_verify_results
+  changed_when: false
+  failed_when: kvm_snapshot_stage_name not in snapshot_verify_results.stdout_lines
+  when: not ansible_check_mode
+
+- name: Restart pending targets that were running before this stage snapshot
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - start
+      - "{{ item.instance_name }}"
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  changed_when: true
+  when:
+    - not ansible_check_mode
+    - item.initial_domstate == 'running'
+
+- name: Wait for restarted targets to report running
+  ansible.builtin.command:
+    argv:
+      - virsh
+      - domstate
+      - "{{ item.instance_name }}"
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    label: "{{ item.instance_name }}"
+  register: snapshot_restart_state
+  until: (snapshot_restart_state.stdout | trim) == 'running'
+  retries: 18
+  delay: 5
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - item.initial_domstate == 'running'
+
+# libvirt "running" is only the qemu process; guests still need QGA and
+# sshd back up before a chained make harden/make deploy races first boot.
+- name: Run guest readiness checkpoints after the stage-snapshot restart
+  ansible.builtin.include_tasks: tasks/provision-runtime-readiness.yml
+  loop: "{{ snapshot_targets_pending | default([]) }}"
+  loop_control:
+    loop_var: runtime_readiness_instance
+    label: "{{ runtime_readiness_instance.instance_name }}"
+  when:
+    - not ansible_check_mode
+    - runtime_readiness_instance.initial_domstate == 'running'
+
+- name: Stage-snapshot complete summary
+  ansible.builtin.debug:
+    msg: |
+      Stage snapshot '{{ kvm_snapshot_stage_name }}' created for {{ snapshot_targets_pending | default([]) | length }} domain(s):
+      {% for target in (snapshot_targets_pending | default([])) %}
+        - {{ target.instance_name }} (was {{ target.initial_domstate }})
+      {% endfor %}
+      Domains already carrying this snapshot name were left untouched.
+  when: not ansible_check_mode

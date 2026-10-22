@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .SHELLFLAGS := -eu -o pipefail -c
 SHELL := /bin/bash
-.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv require-local-settings deps-bundle lint check ping image-cache checksum-refresh provision-check provision cleanup cleanup-force cleanup-force-disks
+.PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv require-local-settings require-snapshot-name deps-bundle lint check ping image-cache checksum-refresh provision-check provision snapshot cleanup cleanup-force cleanup-force-disks
 
 PROJECT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
 
@@ -14,6 +14,8 @@ PYTHON ?= python3
 FORCE ?=
 EXTRA_ARGS ?=
 SETTINGS_ARG := -e kvm_local_settings_file="$(LOCAL_SETTINGS_FILE)"
+SNAPSHOT_NAME ?=
+SNAPSHOT_DESCRIPTION ?=
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 help:
@@ -33,11 +35,14 @@ help:
 	@printf "  %-28s %s\n" "make checksum-refresh" "refresh stored checksums for pinned images"
 	@printf "  %-28s %s\n" "make provision" "create the VMs"
 	@printf "  %-28s %s\n" "make provision-check" "check hypervisor setup; make no changes"
+	@printf "  %-28s %s\n" "make snapshot" "stamp a named checkpoint snapshot on declared VMs"
 	@printf "  %-28s %s\n" "make cleanup" "show which named VMs would be deleted (does not delete)"
 	@printf "  %-28s %s\n" "make cleanup-force" "delete the named VMs; keep their disks"
 	@printf "  %-28s %s\n" "make cleanup-force-disks" "delete the named VMs, disks, and snapshots"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
+	@printf "  %-28s %s\n" "SNAPSHOT_NAME=<name>" "make snapshot only: the checkpoint name, e.g. post-hardening-pass2"
+	@printf "  %-28s %s\n" "SNAPSHOT_DESCRIPTION=<text>" "make snapshot only: optional, defaults to \"Stage checkpoint: <name>\""
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "extra ansible-playbook arguments"
 
 settings: require-local-settings
@@ -105,6 +110,21 @@ provision-check: require-local-settings require-venv
 
 provision: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision $(SETTINGS_ARG) $(EXTRA_ARGS)
+
+require-snapshot-name:
+	@if [ -z "$(strip $(SNAPSHOT_NAME))" ]; then \
+		printf '%s\n' \
+			"SNAPSHOT_NAME is required. There is no default." \
+			"Example: make snapshot LOCAL_SETTINGS_FILE=vars/settings.local.yml SNAPSHOT_NAME=post-hardening-pass2"; \
+		exit 1; \
+	fi
+
+snapshot: require-local-settings require-snapshot-name require-venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) \
+		-e kvm_action=snapshot \
+		-e kvm_snapshot_stage_name="$(SNAPSHOT_NAME)" \
+		$(if $(strip $(SNAPSHOT_DESCRIPTION)),-e kvm_snapshot_stage_description="$(SNAPSHOT_DESCRIPTION)",) \
+		$(SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(SETTINGS_ARG) $(EXTRA_ARGS)

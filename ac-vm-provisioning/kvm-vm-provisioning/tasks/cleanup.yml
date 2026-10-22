@@ -261,39 +261,57 @@
     - kvm_cleanup_confirmed | bool
     - kvm_cleanup_remove_instance_disks | default(false) | bool
 
-- name: Remove declared external snapshot root-disk overlays when disk removal is enabled
-  ansible.builtin.file:
-    path: "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}-vda.qcow2"
-    state: absent
-  loop: "{{ cleanup_instance_definitions }}"
-  loop_control:
-    label: "{{ item.instance_name }}:vda"
-  when:
-    - kvm_cleanup_confirmed | bool
-    - kvm_cleanup_remove_instance_disks | default(false) | bool
-
-- name: Remove declared external snapshot definitions when disk removal is enabled
-  ansible.builtin.file:
-    path: "{{ kvm_snapshot_overlay_path }}/{{ item.instance_name }}-{{ kvm_snapshot_name }}.xml"
-    state: absent
+- name: Find external snapshot overlay artifacts for declared instances
+  # Glob, not the single kvm_snapshot_name: make snapshot (tasks/snapshot.yml)
+  # stamps extra named checkpoints (post-hardening-pass2, and so on) that this
+  # exact-name match would otherwise leave as orphaned files on disk.
+  ansible.builtin.find:
+    paths: "{{ kvm_snapshot_overlay_path }}"
+    patterns:
+      - "{{ item.instance_name }}-*.xml"
+      - "{{ item.instance_name }}-*-vda.qcow2"
   loop: "{{ cleanup_instance_definitions }}"
   loop_control:
     label: "{{ item.instance_name }}"
+  register: snapshot_root_overlay_find_results
   when:
     - kvm_cleanup_confirmed | bool
     - kvm_cleanup_remove_instance_disks | default(false) | bool
 
-- name: Remove declared external snapshot additional-disk overlays when disk removal is enabled
+- name: Remove every external snapshot root-disk overlay and definition found for declared instances
   ansible.builtin.file:
-    path: "{{ kvm_snapshot_overlay_path }}/{{ item.0.instance_name }}-{{ kvm_snapshot_name }}-{{ item.1.guest_device }}.qcow2"
+    path: "{{ item.path }}"
     state: absent
+  loop: "{{ snapshot_root_overlay_find_results.results | default([]) | map(attribute='files') | flatten }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
+
+- name: Find external snapshot overlay artifacts for declared additional disks
+  ansible.builtin.find:
+    paths: "{{ kvm_snapshot_overlay_path }}"
+    patterns: "{{ item.0.instance_name }}-*-{{ item.1.guest_device }}.qcow2"
   loop: "{{ cleanup_instance_definitions | subelements('instance_extra_disks', skip_missing=True) }}"
   loop_control:
     label: "{{ item.0.instance_name }}:{{ item.1.guest_device }}"
+  register: snapshot_extra_disk_overlay_find_results
   when:
     - kvm_cleanup_confirmed | bool
     - kvm_cleanup_remove_instance_disks | default(false) | bool
     - item.0.instance_extra_disks_enabled | bool
+
+- name: Remove every external snapshot additional-disk overlay found for declared instances
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ snapshot_extra_disk_overlay_find_results.results | default([]) | map(attribute='files') | flatten }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when:
+    - kvm_cleanup_confirmed | bool
+    - kvm_cleanup_remove_instance_disks | default(false) | bool
 
 - name: Remove declared cloud-init seed disk files when disk removal is enabled
   ansible.builtin.file:

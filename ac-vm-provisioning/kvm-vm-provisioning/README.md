@@ -221,6 +221,7 @@ make image-cache LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make checksum-refresh LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make provision LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make provision-check LOCAL_SETTINGS_FILE=vars/settings.local.yml
+make snapshot LOCAL_SETTINGS_FILE=vars/settings.local.yml SNAPSHOT_NAME=post-hardening-pass2
 make cleanup LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make cleanup-force LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make cleanup-force-disks LOCAL_SETTINGS_FILE=vars/settings.local.yml
@@ -392,6 +393,37 @@ For the supported full rebuild path, `make cleanup-force-disks` removes only the
 declared instance's base disks, seed image, `baseline` overlays, snapshot XML,
 and ownership marker from the instance disk pool before `make provision`
 creates a new baseline.
+
+### Stage Snapshots
+
+`baseline` is the only snapshot `make provision` ever creates, and it is
+reconciled, not repeatable — each domain gets exactly one. A multi-stage build
+(provision, then harden pass 1, then harden pass 2, then deploy a service onto
+the same guest) has more checkpoints worth keeping than that single one, so a
+separate action, `make snapshot`, stamps an additional named checkpoint on
+already-provisioned domains at any later point:
+
+```bash
+make snapshot LOCAL_SETTINGS_FILE=vars/settings.local.yml SNAPSHOT_NAME=post-hardening-pass2
+```
+
+- `SNAPSHOT_NAME` is required and must look like an instance name (letters,
+  digits, hyphens); it cannot be `baseline`, which stays reserved for the
+  mandatory post-provision snapshot. `SNAPSHOT_DESCRIPTION` is optional and
+  defaults to `Stage checkpoint: <name>`.
+- Idempotent per name: a domain that already carries the requested snapshot
+  name is left untouched, so re-running the same `make snapshot` command is
+  safe.
+- Each stage snapshot chains as a new external overlay on top of whatever disk
+  is currently active (the previous stage's overlay, or the base disk if this
+  is the first one taken) — the same `virsh snapshot-create --disk-only
+  --atomic` mechanism `make provision` uses for `baseline`.
+- A domain is shut down only if it was running when the command started, and
+  is only restarted afterward if it was running before — a domain you left
+  shut off on purpose stays shut off.
+- `make cleanup-force-disks` removes every stage snapshot's overlay and XML
+  file for declared instances (glob by instance name, not by one fixed name),
+  so stage snapshots never need their own separate cleanup step.
 
 ## Variable Model Highlights
 

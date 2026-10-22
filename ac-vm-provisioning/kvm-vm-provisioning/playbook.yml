@@ -29,8 +29,8 @@
     - name: Validate requested action
       ansible.builtin.assert:
         that:
-          - kvm_action in ['provision', 'cleanup', 'ping']
-        fail_msg: "kvm_action must be 'provision', 'cleanup', or 'ping'."
+          - kvm_action in ['provision', 'cleanup', 'ping', 'snapshot']
+        fail_msg: "kvm_action must be 'provision', 'cleanup', 'ping', or 'snapshot'."
 
     - name: Fail when no local settings file was selected
       ansible.builtin.fail:
@@ -354,3 +354,7 @@
     - name: Run KVM connectivity check workflow
       ansible.builtin.include_tasks: tasks/ping.yml
       when: kvm_action == 'ping'
+
+    - name: Run KVM stage-snapshot workflow
+      ansible.builtin.include_tasks: tasks/snapshot.yml
+      when: kvm_action == 'snapshot'
