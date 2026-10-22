@@ -24,6 +24,10 @@ __pycache__/
 *.local.yml.bak
 **/*.local.yml.bak
 
+# Local operational runbooks (real hostnames/IPs, never committed)
+*.local.sh
+**/*.local.sh
+
 # Local logs and secrets
 *.log
 vars/local-secrets.yml
