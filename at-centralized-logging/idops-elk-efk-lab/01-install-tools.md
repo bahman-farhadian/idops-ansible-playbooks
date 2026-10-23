@@ -35,7 +35,23 @@ cat .env                                                     # ELASTIC_VERSION a
 docker compose config >/dev/null && echo "compose.yaml is valid"
 ```
 
+Five values in `.env` start blank and must be filled before the first `up` — Elasticsearch and Kibana won't start with an empty password, and Logstash/Fluent Bit will fail to write without one. [`.env.example`](.env.example) has the exact `openssl` command for each:
+```sh
+sed -i "s/^KIBANA_ENCRYPTION_KEY=$/KIBANA_ENCRYPTION_KEY=$(openssl rand -hex 32)/" .env
+sed -i "s/^KIBANA_SECURITY_ENCRYPTION_KEY=$/KIBANA_SECURITY_ENCRYPTION_KEY=$(openssl rand -hex 32)/" .env
+sed -i "s/^ELASTIC_PASSWORD=$/ELASTIC_PASSWORD=$(openssl rand -hex 18)/" .env
+sed -i "s/^KIBANA_SYSTEM_PASSWORD=$/KIBANA_SYSTEM_PASSWORD=$(openssl rand -hex 18)/" .env
+sed -i "s/^LOG_WRITER_PASSWORD=$/LOG_WRITER_PASSWORD=$(openssl rand -hex 18)/" .env
+sed -i "s/^IDOPS_PASSWORD=$/IDOPS_PASSWORD=$(openssl rand -hex 18)/" .env
+```
+
 `docker compose` reads `.env` in this directory automatically — no `--env-file` flag needed as long as you run every command from here.
+
+**That auto-read is Compose-only.** Every `curl -u elastic:${ELASTIC_PASSWORD}`-style command in these docs (02–05) uses a *shell* variable, which your interactive shell does not get from `.env` on its own — it has to be exported. Do this once per shell session, in this directory:
+```sh
+set -a; source .env; set +a
+```
+Skip this and `${ELASTIC_PASSWORD}` silently expands to empty, `curl` sends `elastic:` with no password, Elasticsearch replies `401`, and anything polling on `grep -q status` (like the `until` loop in [02-run-elk.md](02-run-elk.md)) spins forever instead of failing loudly — it looks like a stuck container when it's actually just a missing shell variable.
 
 ## Prerequisites
 - [00-overview.md](00-overview.md)

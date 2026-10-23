@@ -11,6 +11,10 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
+      es-security-setup:
+        condition: service_completed_successfully            # log_writer must exist before Fluent Bit's es output can authenticate as it
+    environment:
+      - LOG_WRITER_PASSWORD=${LOG_WRITER_PASSWORD}            # read by fluent-bit.conf's ${LOG_WRITER_PASSWORD} substitution
     volumes:
       - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
     ports:

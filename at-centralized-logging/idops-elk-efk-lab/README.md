@@ -12,9 +12,14 @@ Same relationship as [`../../ak-container-orchestration/idops-kubernetes-lab/ido
 
 - One Elasticsearch node, one Kibana. Single-node, not the domain's cluster or sharded-cluster layout — this lab is about the pipeline shape, not HA.
 - Official `docker.elastic.co` images, pulled as prebuilt binaries. The domain's own `elk/`/`efk/` playbook instead builds Elasticsearch and Kibana from a pinned 9.x source release to land on AGPL-3.0 specifically — see `../README.md`. This lab does not reproduce that build step.
-- X-Pack stays off (`xpack.security.enabled: false`), matching the domain decision: no built-in login.
 - ELK adds Logstash; EFK adds Fluent Bit. Only one is ever running — bring the other overlay down first.
 - Docker Compose only. No Ansible, no systemd units, no `*.local.yml`.
+
+## Login
+
+X-Pack security is **on** (`xpack.security.enabled: true`) — this is a deliberate lab-only divergence from `../README.md`'s domain decision, which keeps X-Pack out permanently and plans Kibana login through Keycloak instead. That decision still stands for the real `elk/`/`efk/` playbook. This lab turns X-Pack on anyway because some Kibana features (Observability SLOs, for one) gate themselves on real role-based privileges and show a confusing "Insufficient Permissions" error with security off — there's no meaningful RBAC to teach or debug without it.
+
+Log into `http://localhost:5601` as `idops` / the `IDOPS_PASSWORD` value in your `.env` — a named superuser created for day-to-day login, so you're not driving the `elastic` bootstrap account directly. `elastic` / `ELASTIC_PASSWORD` still works and is the one to fall back on if `idops` ever gets locked out or its role gets mangled. See [`.env.example`](.env.example) for how every credential is generated, and [00-overview.md](00-overview.md) for how the pieces fit together.
 
 ## Layout
 

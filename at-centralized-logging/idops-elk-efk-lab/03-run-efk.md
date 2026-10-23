@@ -26,7 +26,7 @@ docker compose -f compose.yaml -f compose.efk.yaml ps
 ## Steps — confirm each piece answers
 
 ```sh
-curl -s http://localhost:9200/_cluster/health?pretty
+curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health?pretty   # credentials from .env
 curl -s http://localhost:2020/                                 # Fluent Bit's own HTTP status endpoint
 docker compose -f compose.yaml -f compose.efk.yaml logs fluent-bit --tail=20
 ```
@@ -43,12 +43,12 @@ logger -n 127.0.0.1 -P 5514 -T "demo-app[1234]: order 43 shipped"
 
 ```sh
 sleep 2
-curl -s "http://localhost:9200/efk-lab-logs/_search?q=order&pretty"
+curl -s -u elastic:${ELASTIC_PASSWORD} "http://localhost:9200/efk-lab-logs/_search?q=order&pretty"
 ```
 
-A hit means Fluent Bit's `es` output plugin wrote it through. If nothing shows up, check `docker compose ... logs fluent-bit` first — a bad `[OUTPUT]` block fails loudly there, not silently.
+A hit means Fluent Bit's `es` output plugin wrote it through. If nothing shows up, check `docker compose ... logs fluent-bit` first — a bad `[OUTPUT]` block fails loudly there, not silently. A `401`/`403` in that log means `LOG_WRITER_PASSWORD` doesn't match between `.env` and what `es-security-setup` set — see [00-overview.md](00-overview.md).
 
-**In Kibana** (`http://localhost:5601`): create a second data view on `efk-lab-logs`, open Discover, pick it, and compare the parsed fields against the `elk-lab-logs-*` ones from [02-run-elk.md](02-run-elk.md).
+**In Kibana** (`http://localhost:5601`): log in as `idops` / `$IDOPS_PASSWORD` from your `.env` (see [README.md](README.md#login)) if you haven't already. Create a second data view on `efk-lab-logs`, open Discover, pick it, and compare the parsed fields against the `elk-lab-logs-*` ones from [02-run-elk.md](02-run-elk.md).
 
 ## Prerequisites
 - [01-install-tools.md](01-install-tools.md)

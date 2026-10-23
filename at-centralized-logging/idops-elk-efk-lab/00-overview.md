@@ -38,10 +38,11 @@ Pins checked against upstream on **2026-10-21**. Re-check before you run: [Elast
 
 Kibana and Logstash always track the same `ELASTIC_VERSION` as Elasticsearch — Elastic does not support mixing minors across that trio. No command in this lab uses `latest` or an unpinned tag.
 
-## Why single-node, X-Pack off
+## Why single-node, X-Pack security on (but ML/CCR off)
 
 - `discovery.type=single-node` skips Elasticsearch's master-election and shard-replica machinery entirely. The domain's cluster and sharded-cluster layouts are about surviving a guest failure; a single Docker container has no such guarantee to teach here.
-- `xpack.security.enabled=false` on Elasticsearch, `XPACK_SECURITY_ENABLED=false` on Kibana: matches the domain decision that X-Pack (built-in login, ML, cross-cluster replication) stays out. Kibana opens with no sign-in screen.
+- `xpack.security.enabled=true` on Elasticsearch, `XPACK_SECURITY_ENABLED=true` on Kibana: a **lab-only** divergence from the domain decision in `../README.md`, which keeps X-Pack out permanently and plans Kibana login through Keycloak. This lab turns security on anyway because features like Observability SLOs enforce real role-based privileges and fail confusingly ("Insufficient Permissions") without it — see the "Login" section in [README.md](README.md). `xpack.ml.enabled=false` stays off regardless; ML/cross-cluster replication were never the point of flipping security on.
+- Four built-in/created users do the work: `elastic` (the bootstrap superuser — kept as a break-glass fallback, not for daily login), `idops` (a named superuser, created the same way, for you to actually log into Kibana as), `kibana_system` (Kibana's own service account, never for human login), and `log_writer` (a role scoped to `create_index`/`write`/`manage` on just this lab's two index patterns, plus the cluster-level `monitor` and `manage_index_templates` privileges Logstash's own health check and startup template install need, used by Logstash and Fluent Bit). A one-shot `es-security-setup` service in [compose.yaml](compose.yaml) sets all of these passwords and creates the `log_writer` role once Elasticsearch is healthy, before Kibana or either collector starts.
 
 ## Next
 

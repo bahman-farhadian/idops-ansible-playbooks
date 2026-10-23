@@ -5,17 +5,17 @@
 ## Checks
 
 ```sh
-docker compose ps                                              # all services "running" or "healthy", none "restarting"
-curl -s http://localhost:9200/_cluster/health?pretty | grep status
-curl -s http://localhost:5601/api/status | grep -o '"level":"[a-z]*"'   # must be "available"
+docker compose ps                                              # all services "running" or "healthy", none "restarting"; es-security-setup shows "exited (0)", not "restarting"
+curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health?pretty | grep status
+curl -s http://localhost:5601/api/status | grep -o '"level":"[a-z]*"'   # must be "available" — this endpoint doesn't require login
 docker compose logs kibana --since 2m | grep -c ERROR           # expect 0 — see below if it isn't
 ```
 
-## Known harmless warnings (log once at boot, then stop)
+## Known harmless warning (logs once at boot, then stops)
 
-Kibana logs these the first time it ever boots without a fixed key; they do not repeat and do not affect this lab:
-- `Generating a random key for xpack.security.encryptionKey` — irrelevant, `XPACK_SECURITY_ENABLED=false` means no sessions exist to invalidate.
 - `Generating a random key for xpack.reporting.encryptionKey` — irrelevant, this lab never generates a report.
+
+`Generating a random key for xpack.security.encryptionKey` is **not** on this list anymore: with `XPACK_SECURITY_ENABLED=true`, real sessions exist, and a random key invalidates every one of them on each restart. [compose.yaml](compose.yaml) pins this via `KIBANA_SECURITY_ENCRYPTION_KEY` — if you see this warning, that env var is unset or empty in your `.env`.
 
 ## The one that is not harmless
 
