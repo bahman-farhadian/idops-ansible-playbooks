@@ -28,6 +28,10 @@ __pycache__/
 *.local.sh
 **/*.local.sh
 
+# Personal learning notes (never committed)
+*.learning.md
+**/*.learning.md
+
 # Local logs and secrets
 *.log
 vars/local-secrets.yml
