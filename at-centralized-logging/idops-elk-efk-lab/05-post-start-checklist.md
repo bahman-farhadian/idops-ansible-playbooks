@@ -5,7 +5,7 @@
 ## Checks
 
 ```sh
-docker compose ps                                              # all services "running" or "healthy", none "restarting"; es-security-setup shows "exited (0)", not "restarting"
+docker compose ps                                              # all services "running" or "healthy", none "restarting"; es-security-setup is gone — removed with `rm -f` right after it exited 0, see 02/03
 curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health?pretty | grep status
 curl -s http://localhost:5601/api/status | grep -o '"level":"[a-z]*"'   # must be "available" — this endpoint doesn't require login
 docker compose logs kibana --since 2m | grep -c ERROR           # expect 0 — see below if it isn't

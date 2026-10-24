@@ -23,6 +23,13 @@ docker compose -f compose.yaml -f compose.efk.yaml up -d --wait
 docker compose -f compose.yaml -f compose.efk.yaml ps
 ```
 
+## Steps — drop the one-shot setup container
+
+`es-security-setup` exits 0 once it's done and Compose leaves it sitting there as `Exited (0)` — harmless, but clutters `docker compose ps -a`. Remove it now that it's served its purpose:
+```sh
+docker compose -f compose.yaml -f compose.efk.yaml rm -f es-security-setup
+```
+
 ## Steps — confirm each piece answers
 
 ```sh
