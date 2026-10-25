@@ -19,6 +19,9 @@ kvm_ensure_requested_instances_running: true   # Ensure requested instances are 
 kvm_wait_for_cloud_init_before_snapshot: true  # Mandatory readiness gate for domains missing the baseline snapshot. Values: true | false.
 kvm_qemu_guest_agent_wait_timeout_seconds: 300 # Maximum wait per visible guest readiness checkpoint, in seconds.
 kvm_qemu_guest_agent_poll_interval_seconds: 5  # Delay between QEMU Guest Agent readiness retries, in seconds.
+kvm_default_ssh_port: 22                       # Port the TCP readiness checkpoint polls. First boot is 22; pass
+                                                # -e kvm_default_ssh_port=2222 for a stage snapshot taken after
+                                                # hardening has moved sshd off the default port.
 kvm_shutdown_wait_retries: 30                  # Maximum clean-shutdown state checks before snapshot creation.
 kvm_shutdown_wait_delay_seconds: 2             # Delay between clean-shutdown state checks, in seconds.
 

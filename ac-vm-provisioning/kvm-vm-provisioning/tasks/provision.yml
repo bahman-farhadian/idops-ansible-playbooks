@@ -244,7 +244,7 @@
       guest_network_gateway: "{{ kvm_default_guest_network_gateway }}"
       guest_dns_servers: "{{ kvm_default_guest_dns_servers }}"
       libvirt_network_name: "{{ kvm_default_libvirt_network_name }}"
-      ssh_port: 22
+      ssh_port: "{{ kvm_default_ssh_port }}"
       cloud_init_user: "{{ kvm_default_cloud_init_user }}"
       cloud_init_ssh_public_keys: "{{ kvm_default_cloud_init_ssh_public_keys }}"
       cloud_init_plain_password: "{{ kvm_default_cloud_init_plain_password }}"

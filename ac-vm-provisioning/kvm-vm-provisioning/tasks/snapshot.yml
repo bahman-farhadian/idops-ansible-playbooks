@@ -46,7 +46,7 @@
       instance_disk_extension: "{{ kvm_default_instance_disk_extension }}"
       instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
       instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
-      ssh_port: 22
+      ssh_port: "{{ kvm_default_ssh_port }}"
 
 - name: Build normalized snapshot instance definitions
   ansible.builtin.set_fact:
