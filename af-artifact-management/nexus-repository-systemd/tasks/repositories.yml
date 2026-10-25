@@ -51,7 +51,12 @@
         timeToLive: 1440
       httpClient:
         blocked: false
-        autoBlock: true
+        # Debian's security suite has no Translation-en index for the small
+        # non-free-firmware component: a permanent, benign 404 on every apt
+        # update. autoBlock would trip Nexus's circuit breaker on that alone
+        # and block this shared proxy for every other guest fleet-wide.
+        # negativeCache above already caches that one 404'd path per-request.
+        autoBlock: false
       apt:
         distribution: "{{ item.distribution }}"
         flat: false
@@ -87,7 +92,10 @@
         timeToLive: 1440
       httpClient:
         blocked: false
-        autoBlock: true
+        # Same reasoning as the apt proxies above: Docker Hub rate-limit
+        # errors on one guest's pull would otherwise auto-block this shared
+        # proxy for every other guest's unrelated pulls.
+        autoBlock: false
       docker:
         v1Enabled: false
         forceBasicAuth: false
