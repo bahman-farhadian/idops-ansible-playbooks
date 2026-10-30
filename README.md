@@ -122,6 +122,7 @@ Left out of this decision: MinIO, a hosted Docker registry, DHCP, MySQL, JFrog, 
    - platform wave: deploy runtime, orchestration, traffic, databases, caching, brokers, and data applications
    - continuous wave: observability, logging, backup, compliance, and CI/CD lifecycle operations
 3. Some domains are re-applied multiple times (for example hardening, IAM, compliance) as infrastructure evolves.
+4. Per guest, the standard procedure is: provision, then hardening pass one (first-boot user, default port), then hardening pass two (root, hardened port), then the service's own deployment. Once an internal cache exists (Nexus for apt/Docker Hub), point every later guest's first boot and hardening passes at it instead of the public internet — a guest provisioned before that cache exists (the cache's own guest, a perimeter pair) still uses the public mirror.
 
 ## Notes
 
