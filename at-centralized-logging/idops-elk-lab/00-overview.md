@@ -4,7 +4,7 @@
 
 ## Teaching note
 
-The domain decision in [`../README.md`](../README.md) is precise about shape: one logging Elasticsearch (one guest, a cluster, or a sharded cluster), one Kibana, and a collector — Logstash for `elk/`, Fluent Bit for `efk/` — that runs on the `rsyslog/` central receiver, not on its own guest. A project picks `elk/` or `efk/`, never both; this lab and [`../idops-efk-lab/`](../idops-efk-lab/00-overview.md) mirror that split as two separate directories.
+The domain decision in [`../README.md`](../README.md) is precise about shape: one logging Elasticsearch (one guest, a cluster, or a sharded cluster), one Kibana, and a collector — Logstash for `elk/`, Fluent Bit for `efk/` — that runs on the `rsyslog/` central receiver, not on its own guest. A project picks `elk/` or `efk/`, never both. This lab covers the `elk/` side only; an equivalent Fluent Bit lab is a separate, not-yet-built task.
 
 This lab keeps the `elk/` shape but drops everything that only matters at production scale: no second guest, no HAProxy pair, no real rsyslog receiver forwarding real host logs. Instead, a single Elasticsearch container, a single Kibana container, and Logstash listening on one TCP/UDP port, fed by a line you type yourself with `logger` or `nc`. Same contract — a raw log line goes in, a document comes out the other side in Elasticsearch — small enough to run on a laptop and reset in seconds.
 

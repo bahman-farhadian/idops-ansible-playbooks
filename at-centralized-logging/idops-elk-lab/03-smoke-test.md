@@ -38,4 +38,4 @@ docker compose down -v
 - [02-run.md](02-run.md)
 
 ## Next
-- [04-post-start-checklist.md](04-post-start-checklist.md) if you haven't walked it yet, or back to [README.md](README.md), or [../README.md](../README.md) for the production `elk/` decision this lab is modeled on, or [../idops-efk-lab/](../idops-efk-lab/00-overview.md) for the Fluent Bit equivalent
+- [04-post-start-checklist.md](04-post-start-checklist.md) if you haven't walked it yet, or back to [README.md](README.md), or [../README.md](../README.md) for the production `elk/` decision this lab is modeled on
