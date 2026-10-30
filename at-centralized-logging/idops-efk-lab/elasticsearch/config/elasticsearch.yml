@@ -1,0 +1,6 @@
+node.name: es01
+network.host: 0.0.0.0                  # the official image's own default elasticsearch.yml sets this; mounting our own file replaces that file entirely, so it has to be repeated here or Elasticsearch binds loopback-only and is unreachable from Kibana/Fluent Bit/es-security-setup
+discovery.type: single-node            # lab: one node, no cluster to join
+xpack.security.enabled: true           # lab-only divergence from the domain decision — see README.md "Login" section
+xpack.security.http.ssl.enabled: false # plain HTTP for a lab; no TLS cert management to teach here
+xpack.ml.enabled: false                # domain decision: X-Pack ML/CCR stay out regardless

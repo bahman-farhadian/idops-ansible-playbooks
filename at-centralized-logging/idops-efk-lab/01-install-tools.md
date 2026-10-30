@@ -20,7 +20,7 @@ docker compose version                 # must be the v2 plugin, not standalone d
 **2. Set `vm.max_map_count` and make it survive a reboot.**
 ```sh
 sysctl vm.max_map_count                                    # current value; Elasticsearch needs >= 262144
-sudo tee /etc/sysctl.d/99-idops-elk-efk-lab.conf <<'EOF'
+sudo tee /etc/sysctl.d/99-idops-efk-lab.conf <<'EOF'
 vm.max_map_count=262144
 EOF
 sudo sysctl --system                                        # applies every file under /etc/sysctl.d
@@ -29,13 +29,13 @@ sysctl vm.max_map_count                                     # confirm it took
 
 **3. Clone or `cd` into this directory, then create your `.env` and confirm the pinned versions.**
 ```sh
-cd at-centralized-logging/idops-elk-efk-lab
+cd at-centralized-logging/idops-efk-lab
 cp .env.example .env                                         # .env is gitignored; .env.example is the tracked template
 cat .env                                                     # ELASTIC_VERSION and FLUENT_BIT_VERSION
 docker compose config >/dev/null && echo "compose.yaml is valid"
 ```
 
-Five values in `.env` start blank and must be filled before the first `up` — Elasticsearch and Kibana won't start with an empty password, and Logstash/Fluent Bit will fail to write without one. [`.env.example`](.env.example) has the exact `openssl` command for each:
+Five values in `.env` start blank and must be filled before the first `up` — Elasticsearch and Kibana won't start with an empty password, and Fluent Bit will fail to write without one. [`.env.example`](.env.example) has the exact `openssl` command for each:
 ```sh
 sed -i "s/^KIBANA_ENCRYPTION_KEY=$/KIBANA_ENCRYPTION_KEY=$(openssl rand -hex 32)/" .env
 sed -i "s/^KIBANA_SECURITY_ENCRYPTION_KEY=$/KIBANA_SECURITY_ENCRYPTION_KEY=$(openssl rand -hex 32)/" .env
@@ -47,14 +47,14 @@ sed -i "s/^IDOPS_PASSWORD=$/IDOPS_PASSWORD=$(openssl rand -hex 18)/" .env
 
 `docker compose` reads `.env` in this directory automatically — no `--env-file` flag needed as long as you run every command from here.
 
-**That auto-read is Compose-only.** Every `curl -u elastic:${ELASTIC_PASSWORD}`-style command in these docs (02–05) uses a *shell* variable, which your interactive shell does not get from `.env` on its own — it has to be exported. Do this once per shell session, in this directory:
+**That auto-read is Compose-only.** Every `curl -u elastic:${ELASTIC_PASSWORD}`-style command in these docs (02–04) uses a *shell* variable, which your interactive shell does not get from `.env` on its own — it has to be exported. Do this once per shell session, in this directory:
 ```sh
 set -a; source .env; set +a
 ```
-Skip this and `${ELASTIC_PASSWORD}` silently expands to empty, `curl` sends `elastic:` with no password, Elasticsearch replies `401`, and anything polling on `grep -q status` (like the `until` loop in [02-run-elk.md](02-run-elk.md)) spins forever instead of failing loudly — it looks like a stuck container when it's actually just a missing shell variable.
+Skip this and `${ELASTIC_PASSWORD}` silently expands to empty, `curl` sends `elastic:` with no password, Elasticsearch replies `401`, and anything polling on `grep -q status` (like the `until` loop in [02-run.md](02-run.md)) spins forever instead of failing loudly — it looks like a stuck container when it's actually just a missing shell variable.
 
 ## Prerequisites
 - [00-overview.md](00-overview.md)
 
 ## Next
-- [02-run-elk.md](02-run-elk.md), or [03-run-efk.md](03-run-efk.md) first if you want to start with Fluent Bit
+- [02-run.md](02-run.md)

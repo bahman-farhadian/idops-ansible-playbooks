@@ -1,11 +1,11 @@
-# 05. Post-start checklist
+# 04. Post-start checklist
 
 **Goal:** What to check once `docker compose up -d` returns, and which log lines are noise vs. a real problem.
 
 ## Checks
 
 ```sh
-docker compose ps                                              # all services "running" or "healthy", none "restarting"; es-security-setup is gone — removed with `rm -f` right after it exited 0, see 02/03
+docker compose ps                                              # all services "running" or "healthy", none "restarting"; es-security-setup is gone — removed with `rm -f` right after it exited 0, see 02-run.md
 curl -s -u elastic:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health?pretty | grep status
 curl -s http://localhost:5601/api/status | grep -o '"level":"[a-z]*"'   # must be "available" — this endpoint doesn't require login
 docker compose logs kibana --since 2m | grep -c ERROR           # expect 0 — see below if it isn't
@@ -24,12 +24,12 @@ docker compose logs kibana --since 2m | grep -c ERROR           # expect 0 — s
 ```sh
 openssl rand -hex 32                     # run once, paste the output into .env
 # .env: KIBANA_ENCRYPTION_KEY=<paste>
-docker compose -f compose.yaml -f compose.elk.yaml up -d kibana   # recreate so the new env var takes effect
+docker compose up -d kibana   # recreate so the new env var takes effect
 ```
 `restart` is not enough — Compose only re-reads `.env` substitutions when it (re)creates the container.
 
 ## Prerequisites
-- [02-run-elk.md](02-run-elk.md) or [03-run-efk.md](03-run-efk.md)
+- [02-run.md](02-run.md)
 
 ## Next
-- [04-smoke-test.md](04-smoke-test.md), or back to [README.md](README.md)
+- [03-smoke-test.md](03-smoke-test.md), or back to [README.md](README.md)
