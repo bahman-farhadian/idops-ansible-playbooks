@@ -49,6 +49,13 @@ kvm_default_cloud_init_apt_config:                      # Default Debian APT mir
   security:
     - arches: [default]
       uri: "http://deb.debian.org/debian-security"
+  # Confirmed on a real guest: deb.debian.org (Fastly) returns both A and
+  # AAAA records, no guest here has a real IPv6 route, and apt sometimes
+  # tries only the AAAA set and never falls back to IPv4 for one specific
+  # package fetch (curl, tried moments later, correctly fell back on its
+  # own). Force IPv4 before package-update-upgrade-install ever runs.
+  conf: |
+    Acquire::ForceIPv4 "true";
 kvm_default_cloud_init_packages: # Package list to install on first boot; SSH and guest agent services are mandatory.
   - "openssh-server"
   - "qemu-guest-agent"
