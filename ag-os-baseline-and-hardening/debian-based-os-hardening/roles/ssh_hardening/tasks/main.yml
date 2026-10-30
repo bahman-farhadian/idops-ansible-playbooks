@@ -115,6 +115,24 @@
     enabled: true
     state: started
 
+# A notify-only restart can be lost for good: if a prior run died after this
+# role wrote the config but before end-of-play handlers flushed (host went
+# unreachable in a later role), the config is already correct on a retry, so
+# these tasks report ok rather than changed and never re-notify the handler.
+# sshd then keeps running on its old port forever. Check the live listener
+# directly and force a restart when it disagrees with ssh_port.
+- name: Check whether SSH is listening on the hardened port
+  ansible.builtin.shell: "ss -H -lnt 'sport = :{{ ssh_port }}' | grep -q ."
+  register: ssh_hardening_port_listening
+  changed_when: false
+  failed_when: false
+
+- name: Force SSH restart when it is not listening on the hardened port
+  ansible.builtin.service:
+    name: "{{ 'ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd' }}"
+    state: restarted
+  when: ssh_hardening_port_listening.rc != 0
+
 - name: Warn when inventory SSH port differs from hardened SSH port
   ansible.builtin.debug:
     msg: >-
