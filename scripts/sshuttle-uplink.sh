@@ -21,8 +21,8 @@
 # non-tproxy NAT method).
 set -euo pipefail
 
-SSHUTTLE_USER=bahmanfarhadian
-SSHUTTLE_HOST=192.168.124.6
+SSHUTTLE_USER=changeme
+SSHUTTLE_HOST=203.0.113.1
 SSHUTTLE_PORT=22
 SSHUTTLE_LISTEN=0.0.0.0:12300
 
