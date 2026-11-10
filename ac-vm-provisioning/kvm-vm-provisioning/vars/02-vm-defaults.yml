@@ -17,6 +17,8 @@
 # Applied to any VM in 06-instances.yml that omits the matching key.
 # -----------------------------------------------------------------------------
 kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
+kvm_default_vcpu_count: 2                      # Default vCPU allocation for new instances.
+kvm_default_memory_mb: 2048                    # Default memory allocation in MB for new instances.
 kvm_default_root_disk_size_gb: 20              # Default total instance disk size in GiB for new instances.
 kvm_force_single_socket_vcpu_topology: true    # CPU topology policy. Values: true (sockets=1, threads=1) | false (plain vcpu_count).
 kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance disk files when domain is missing. Values: true | false.
@@ -34,9 +36,10 @@ kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance dis
 # The cap is reconciled on every provision run, so toggling the flag on an
 # existing domain converges without recreating it.
 #
-# Off by default: enable it for one instance with cpu_share_enabled: true.
+# On by default at the 50% ratio above: every vCPU is capped to half a host
+# CPU unless an instance opts out with cpu_share_enabled: false.
 # -----------------------------------------------------------------------------
-kvm_default_cpu_share_enabled: false           # Cap vCPU bandwidth by default. Values: true | false.
+kvm_default_cpu_share_enabled: true            # Cap vCPU bandwidth by default. Values: true | false.
 kvm_cpu_share_vcpu_per_host_cpu: 2             # vCPUs worth one host CPU when capped.
 kvm_cpu_share_period_microseconds: 100000      # CFS enforcement period (100ms, the Linux kernel's own default).
 kvm_cpu_share_apply_to_running_domains: true   # Also apply the cap live to already-running domains. Values: true | false.

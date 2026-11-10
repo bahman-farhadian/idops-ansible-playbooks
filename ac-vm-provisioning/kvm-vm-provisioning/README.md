@@ -502,6 +502,54 @@ VMs inherit, so a VM entry only needs to state what differs.
 Each file opens with what it holds and the same index of its siblings, so
 opening any one of them shows where everything else lives.
 
+### Site Settings (One Host, Several Jobs)
+
+A physical host's connection and credentials (`kvm_hypervisors[].address`,
+storage paths, `kvm_default_cloud_init_*`) rarely change between jobs on
+that host, but each job (the firewall pair, Nexus, the swarm nodes, ...)
+still needs its own `*.local.yml` for `kvm_instance_definitions`. Without
+a site file, that connection-and-credentials block gets copy-pasted into
+every job file for the same host — rotating a password or SSH key then
+means finding and editing it in each one.
+
+`LOCAL_SITE_SETTINGS_FILE` is an optional second settings file, loaded
+before `LOCAL_SETTINGS_FILE`, so the job file still wins on any key both
+set:
+
+```bash
+make provision \
+  LOCAL_SITE_SETTINGS_FILE=vars/settings.kvm.dionysus.site.local.yml \
+  LOCAL_SETTINGS_FILE=vars/settings.kvm.dionysus-swarm.local.yml
+```
+
+- Optional: omit it and nothing changes from a single-file setup.
+- Once named, it must exist — unlike a typo-proof fallback, a given site
+  file that is missing fails the run with a clear message, the same way
+  a missing `LOCAL_SETTINGS_FILE` does.
+- Put the entire host-wide block in it: `kvm_hypervisors` itself
+  (`name`/`address`/`user`/`ssh_port`), storage paths
+  (`kvm_image_cache_path`, `kvm_instance_disk_pool_path`,
+  `kvm_cloud_init_workspace_path`), `kvm_default_cloud_init_*`
+  credentials, and — if most jobs on this host share one guest network —
+  the `kvm_default_libvirt_network_name`/`guest_network_gateway`/
+  `guest_network_prefix`/`guest_dns_servers` for that network too. A job
+  file on this host then needs nothing but `kvm_instance_definitions`.
+- `kvm_hypervisors` has no merge behavior: a job file that declares it
+  at all replaces the whole list, so only declare it in a job file for a
+  genuinely different host, not to tweak one field. A job whose VMs sit
+  on a *different* network than the site default does not need its own
+  `kvm_hypervisors` either — set `libvirt_network_name`/
+  `guest_network_gateway`/`guest_network_prefix`/`guest_dns_servers`
+  directly on the instances that need them (see
+  `settings.kvm.dionysus-fw.local.yml` for a worked example: two
+  instances on the WAN-side network while the site default is the LAN
+  side).
+- A per-instance field left out — `vcpu_count`, `memory_mb`, network
+  fields, storage paths — falls back the same way with or without a
+  site file: first to anything the site file set, then to the tracked
+  default in the numbered files. That is what lets a job file shrink to
+  just the few things that make its VMs different.
+
 ### Machine-Specific Values
 
 Anything true only of your machine — real host addresses, SSH keys, local
@@ -713,16 +761,18 @@ one host CPU. With the default ratio of `2`, a 4 vCPU guest can never consume
 more than 2 host CPUs, which is what makes it safe to place more vCPUs on a
 host than it has physical CPUs.
 
-Enable it globally or per instance:
+On by default, at the 50% ratio (every vCPU capped to half a host CPU).
+Opt a specific instance out with `cpu_share_enabled: false` if it needs
+uncapped access instead:
 
 ```yaml
-kvm_default_cpu_share_enabled: false   # global default
+kvm_default_cpu_share_enabled: true    # global default — on, 50% per vCPU
 kvm_cpu_share_vcpu_per_host_cpu: 2     # 2 vCPU == 1 host CPU
 
 kvm_instance_definitions:
   - instance_name: "debian-13-b"
     vcpu_count: 4
-    cpu_share_enabled: true            # capped at 2 host CPUs
+    cpu_share_enabled: false           # opt out: uncapped on this one
 ```
 
 ### How The Cap Is Enforced

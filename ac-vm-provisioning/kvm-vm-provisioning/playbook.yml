@@ -9,6 +9,13 @@
     - vars/04-images.yml
     - vars/05-runtime.yml
     - vars/06-instances.yml
+    # Optional: one physical host's connection + credentials, shared by
+    # every job settings file for that host (LOCAL_SITE_SETTINGS_FILE).
+    # Loaded before the job file so the job file still wins on conflict.
+    # A missing vars_files entry is silently skipped by Ansible rather
+    # than failing, which is exactly what is wanted when no site file was
+    # given - the dummy path below is never meant to exist.
+    - "{{ kvm_local_site_settings_file | default('vars/.no-site-settings.local.yml') }}"
     # The files above carry this project's generic, safe-to-ship defaults.
     # Real per-deployment values live in a gitignored *.local.yml file
     # selected with kvm_local_settings_file. There is no operator default.
@@ -18,11 +25,18 @@
   vars:
     kvm_action: "{{ kvm_action | default('provision') }}"
     kvm_selected_local_settings_file: "{{ kvm_local_settings_file | default('') }}"
+    kvm_selected_local_site_settings_file: "{{ kvm_local_site_settings_file | default('') }}"
     kvm_local_settings_path: >-
       {{
         kvm_selected_local_settings_file
         if kvm_selected_local_settings_file is match('^/')
         else (playbook_dir ~ '/' ~ kvm_selected_local_settings_file)
+      }}
+    kvm_local_site_settings_path: >-
+      {{
+        kvm_selected_local_site_settings_file
+        if kvm_selected_local_site_settings_file is match('^/')
+        else (playbook_dir ~ '/' ~ kvm_selected_local_site_settings_file)
       }}
 
   tasks:
@@ -51,6 +65,55 @@
           kvm_local_settings_file must end with .local.yml
           (got '{{ kvm_selected_local_settings_file }}').
           Example: LOCAL_SETTINGS_FILE=vars/settings.local.yml
+
+    # Optional: only validated when LOCAL_SITE_SETTINGS_FILE was actually
+    # given. Unlike the job file, there is no fallback-to-defaults concern
+    # here if it is omitted entirely - site settings are an opt-in layer.
+    - name: Validate selected site settings file name
+      ansible.builtin.assert:
+        that:
+          - kvm_selected_local_site_settings_file is search('\\.local\\.yml$')
+        fail_msg: >-
+          LOCAL_SITE_SETTINGS_FILE must end with .local.yml
+          (got '{{ kvm_selected_local_site_settings_file }}').
+      when: kvm_selected_local_site_settings_file | length > 0
+
+    - name: Check for a site settings file
+      ansible.builtin.stat:
+        path: "{{ kvm_local_site_settings_path }}"
+      register: kvm_local_site_settings_stat
+      when: kvm_selected_local_site_settings_file | length > 0
+      changed_when: false
+
+    - name: Fail when a named site settings file is missing
+      ansible.builtin.fail:
+        msg: >-
+          {{ kvm_selected_local_site_settings_file }} was not found.
+          A given LOCAL_SITE_SETTINGS_FILE must exist - this is not an
+          optional fallback once named. Drop the argument instead if no
+          site file is intended for this run.
+      when: >-
+        kvm_selected_local_site_settings_file | length > 0
+        and not kvm_local_site_settings_stat.stat.exists
+
+    - name: Load the site settings file for reporting
+      ansible.builtin.include_vars:
+        file: "{{ kvm_local_site_settings_path }}"
+        name: kvm_local_site_overrides
+      when: >-
+        kvm_selected_local_site_settings_file | length > 0
+        and kvm_local_site_settings_stat.stat.exists
+
+    - name: Report which settings come from the site settings file
+      ansible.builtin.debug:
+        msg: >-
+          Using site file {{ kvm_selected_local_site_settings_file }}.
+          It sets {{ kvm_local_site_overrides | length }} key(s):
+          {{ kvm_local_site_overrides.keys() | list | join(', ') }}.
+          The job settings file below may still override any of these.
+      when: >-
+        kvm_selected_local_site_settings_file | length > 0
+        and kvm_local_site_settings_stat.stat.exists
 
     - name: Check for a machine-specific override file
       ansible.builtin.stat:
@@ -94,9 +157,12 @@
           - kvm_hypervisors is defined
           - (kvm_hypervisors | length) > 0
         fail_msg: >-
-          Add at least one KVM host in kvm_hypervisors in
-          {{ kvm_selected_local_settings_file }}.
-          The list in vars/01-hypervisors.yml is empty on purpose.
+          No KVM host declared. Add kvm_hypervisors to
+          {{ kvm_selected_local_settings_file }}, or pass
+          LOCAL_SITE_SETTINGS_FILE=<path> if this host's connection details
+          live in a shared site file instead (see README.md, "Site
+          Settings"). The list in vars/01-hypervisors.yml is empty on
+          purpose.
 
     - name: Build effective hypervisor fleet
       ansible.builtin.set_fact:
@@ -337,6 +403,8 @@
     - vars/04-images.yml
     - vars/05-runtime.yml
     - vars/06-instances.yml
+    # Same optional site file as the first play; see its comment there.
+    - "{{ kvm_local_site_settings_file | default('vars/.no-site-settings.local.yml') }}"
     # Required; same selected local file as the first play. No operator default.
     - "{{ kvm_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   environment:

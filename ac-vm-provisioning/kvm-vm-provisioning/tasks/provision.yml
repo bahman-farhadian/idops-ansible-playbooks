@@ -235,6 +235,8 @@
   ansible.builtin.set_fact:
     instance_defaults:
       instance_disk_extension: "{{ kvm_default_instance_disk_extension }}"
+      vcpu_count: "{{ kvm_default_vcpu_count }}"
+      memory_mb: "{{ kvm_default_memory_mb }}"
       root_disk_size_gb: "{{ kvm_default_root_disk_size_gb }}"
       firmware_boot_mode: "uefi"
       virt_install_machine_type: "q35"

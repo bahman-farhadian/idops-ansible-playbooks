@@ -14,6 +14,8 @@ PYTHON ?= python3
 FORCE ?=
 EXTRA_ARGS ?=
 SETTINGS_ARG := -e kvm_local_settings_file="$(LOCAL_SETTINGS_FILE)"
+LOCAL_SITE_SETTINGS_FILE ?=
+SITE_SETTINGS_ARG := $(if $(strip $(LOCAL_SITE_SETTINGS_FILE)),-e kvm_local_site_settings_file="$(LOCAL_SITE_SETTINGS_FILE)",)
 SNAPSHOT_NAME ?=
 SNAPSHOT_DESCRIPTION ?=
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
@@ -43,6 +45,7 @@ help:
 	@printf "  %-28s %s\n" "make cleanup-force-disks" "delete the named VMs, disks, and snapshots"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
+	@printf "  %-28s %s\n" "LOCAL_SITE_SETTINGS_FILE=<path>" "optional: a shared host site file, loaded before LOCAL_SETTINGS_FILE"
 	@printf "  %-28s %s\n" "SNAPSHOT_NAME=<name>" "make snapshot only: the checkpoint name, e.g. post-hardening-pass2"
 	@printf "  %-28s %s\n" "SNAPSHOT_DESCRIPTION=<text>" "make snapshot only: optional, defaults to \"Stage checkpoint: <name>\""
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "extra ansible-playbook arguments"
@@ -96,22 +99,22 @@ lint: require-venv
 	$(VENV_ACTIVATE) && ansible-lint $(PLAYBOOK_FILE)
 
 check: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check $(SETTINGS_ARG)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --syntax-check $(SETTINGS_ARG) $(SITE_SETTINGS_ARG)
 
 ping: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=ping $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=ping $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 image-cache: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 checksum-refresh: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache -e kvm_force_manifest_refresh=true $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision -e kvm_provision_stage=image-cache -e kvm_force_manifest_refresh=true $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 provision-check: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --check -e kvm_action=provision -e kvm_provision_stage=preflight $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) --check -e kvm_action=provision -e kvm_provision_stage=preflight $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 provision: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=provision $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 require-snapshot-name:
 	@if [ -z "$(strip $(SNAPSHOT_NAME))" ]; then \
@@ -126,19 +129,19 @@ snapshot: require-local-settings require-snapshot-name require-venv
 		-e kvm_action=snapshot \
 		-e kvm_snapshot_stage_name="$(SNAPSHOT_NAME)" \
 		$(if $(strip $(SNAPSHOT_DESCRIPTION)),-e kvm_snapshot_stage_description="$(SNAPSHOT_DESCRIPTION)",) \
-		$(SETTINGS_ARG) $(EXTRA_ARGS)
+		$(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 power-off: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=power-off $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=power-off $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 power-on: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=power-on $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=power-on $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup-force: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)
 
 cleanup-force-disks: require-local-settings require-venv
-	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true -e kvm_cleanup_remove_instance_disks=true $(SETTINGS_ARG) $(EXTRA_ARGS)
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e kvm_action=cleanup -e kvm_cleanup_confirmed=true -e kvm_cleanup_remove_instance_disks=true $(SETTINGS_ARG) $(SITE_SETTINGS_ARG) $(EXTRA_ARGS)

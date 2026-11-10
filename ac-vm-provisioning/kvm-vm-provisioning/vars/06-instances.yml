@@ -22,11 +22,11 @@
 # - image_profile_id       profile from the 04-images.yml catalog
 # - hypervisor             destination host name from 01-hypervisors.yml
 # - instance_ipv4_address  static IPv4 for the guest
-# - vcpu_count             vCPU allocation
-# - memory_mb              memory allocation in MB
 #
 # Optional keys, each overriding a default from 02-vm-defaults.yml,
 # 01-hypervisors.yml or 03-cloud-init.yml:
+# - vcpu_count                   Example: 2 (tracked default is 2)
+# - memory_mb                    Example: 2048 (tracked default is 2048)
 # - root_disk_size_gb            Example: 40
 # - libvirt_network_name         Example: "br0"
 # - guest_network_interface      Example: "enp1s0"
@@ -42,7 +42,7 @@
 # - cloud_init_user              Example: "idops" (tracked default is "idops")
 # - cloud_init_extra_hosts       Example: [{ip: "192.0.2.20", names: ["deb.example.idops"]}]
 # - cloud_init_disable_multicast_dns Example: true
-# - cpu_share_enabled            Example: true   (see 02-vm-defaults.yml)
+# - cpu_share_enabled            On by default (50%, see 02-vm-defaults.yml). Example: false to opt out.
 # - instance_extra_disks_enabled Example: true   (see 02-vm-defaults.yml)
 # - instance_extra_disks         Example: see debian-12-a below
 #
