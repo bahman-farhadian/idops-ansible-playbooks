@@ -168,5 +168,12 @@
   delegate_to: localhost
   become: false
   ansible.builtin.command:
-    argv: "{{ ['bash', playbook_dir ~ '/files/kvm-host-slot-wait.sh', ansible_host, (ansible_port | default(22) | string), (ansible_user | default('', true))] + kvm_host_provision_slot_paths }}"
+    argv: "{{ kvm_host_slot_wait_prefix + kvm_host_provision_slot_paths }}"
+  vars:
+    kvm_host_slot_wait_prefix:
+      - bash
+      - "{{ playbook_dir }}/files/kvm-host-slot-wait.sh"
+      - "{{ ansible_host }}"
+      - "{{ ansible_port | default(22) | string }}"
+      - "{{ ansible_user | default('', true) }}"
   changed_when: false
