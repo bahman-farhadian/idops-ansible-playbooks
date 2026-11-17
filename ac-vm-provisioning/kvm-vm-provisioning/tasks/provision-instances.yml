@@ -803,12 +803,12 @@
       {% if item.cloud_init_plain_password | length > 0 %}
           - name: {{ item.cloud_init_user }}
             password: {{ item.cloud_init_plain_password | to_json }}
-            type: text
+            type: {{ item.cloud_init_chpasswd_type | default('text') }}
       {% endif %}
       {% if (item.cloud_init_root_plain_password | default('')) | length > 0 %}
           - name: root
             password: {{ item.cloud_init_root_plain_password | to_json }}
-            type: text
+            type: {{ item.cloud_init_chpasswd_type | default('text') }}
       {% endif %}
       {% endif %}
       {% if (item.cloud_init_apt_config | default({})) | length > 0 %}

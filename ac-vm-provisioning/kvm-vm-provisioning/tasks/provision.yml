@@ -251,6 +251,7 @@
       cloud_init_ssh_public_keys: "{{ kvm_default_cloud_init_ssh_public_keys }}"
       cloud_init_plain_password: "{{ kvm_default_cloud_init_plain_password }}"
       cloud_init_root_plain_password: "{{ kvm_default_cloud_init_root_plain_password | default('') }}"
+      cloud_init_chpasswd_type: "{{ kvm_default_cloud_init_chpasswd_type | default('text') }}"
       cloud_init_root_ssh_public_keys: "{{ kvm_default_cloud_init_root_ssh_public_keys | default([]) }}"
       cloud_init_user_sudo_rule: "{{ kvm_default_cloud_init_user_sudo_rule | default('ALL=(ALL) ALL') }}"
       cloud_init_ssh_password_auth: "{{ kvm_default_cloud_init_ssh_password_auth }}"
@@ -371,6 +372,7 @@
       - item.cloud_init_user_sudo_rule is string
       - item.cloud_init_user_sudo_rule | length > 0
       - item.cloud_init_root_plain_password is string
+      - (item.cloud_init_chpasswd_type | default('text')) in ['text', 'hash']
       - item.cloud_init_root_ssh_public_keys is sequence
       - item.cloud_init_root_ssh_public_keys is not string
       - item.cloud_init_manage_etc_hosts is boolean
