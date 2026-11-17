@@ -13,6 +13,7 @@ Domain for in-house platform services: the Debian-based perimeter pair, Mattermo
   - Deploys the perimeter on Debian or Ubuntu. OPNsense is the other perimeter playbook. A project uses one of them.
   - Two guests with keepalived and a WAN VIP plus a LAN VIP
   - BIND 9 as a systemd service on both nodes
+  - chrony as NTP on both nodes. Clients use the LAN VIP, the same address as DNS
   - Recursive cache for internet names
   - Authoritative zone for local names (for example `idops-repository.idops`)
   - Host OS: Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04
@@ -22,10 +23,10 @@ Domain for in-house platform services: the Debian-based perimeter pair, Mattermo
 
 ## Scope decision
 
-- The pair is the Debian-based perimeter: firewall, BIND, and OpenVPN on Debian or Ubuntu.
+- The pair is the Debian-based perimeter: firewall, BIND, chrony, and OpenVPN on Debian or Ubuntu.
 - Playbook directory: `debian-based-perimeter/`.
 - OPNsense is `ad-network-and-connectivity/opnsense-firewall`. A project uses this perimeter or that one. The repository keeps both playbooks.
-- chrony is later on this pair. When it is added, clients use the same VIP they already use for DNS.
+- chrony runs on both nodes of this pair. Clients use the same VIP they already use for DNS.
 - WireGuard stays a later addition on the same pair.
 - No DHCP playbook. Addresses stay static in the provisioning settings.
 - OpenVPN certificates stay on this pair. They are not moved to `ar-secrets-and-pki`.

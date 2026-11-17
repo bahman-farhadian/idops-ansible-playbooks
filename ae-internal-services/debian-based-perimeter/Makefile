@@ -30,7 +30,7 @@ help:
 	@printf "  %-28s %s\n" "make check" "check playbook.yml syntax"
 	@printf "  %-28s %s\n" "make lint" "run ansible-lint"
 	@printf "  %-28s %s\n" "make ping" "test SSH to both nodes"
-	@printf "  %-28s %s\n" "make deploy" "install BIND, keepalived, and OpenVPN on the pair"
+	@printf "  %-28s %s\n" "make deploy" "install BIND, chrony, keepalived, and OpenVPN on the pair"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
 	@printf "  %-28s %s\n" "EXTRA_ARGS=\"-e key=value\"" "extra ansible-playbook arguments"

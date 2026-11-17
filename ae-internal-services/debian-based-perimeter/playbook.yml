@@ -5,6 +5,7 @@
   vars_files:
     - vars/bind.yml
     - vars/firewall-ha.yml
+    - vars/chrony.yml
     # Tracked files have generic defaults. Real hosts and records
     # live in a gitignored *.local.yml selected with
     # bind_local_settings_file. There is no default. The dummy path
@@ -143,6 +144,7 @@
   vars_files:
     - vars/bind.yml
     - vars/firewall-ha.yml
+    - vars/chrony.yml
     - "{{ bind_local_settings_file | default('vars/.syntax-check.local.yml') }}"
   vars:
     bind_action_effective: "{{ bind_action | default('deploy') }}"
@@ -158,6 +160,12 @@
     - name: Restart keepalived
       ansible.builtin.systemd:
         name: keepalived
+        state: restarted
+        enabled: true
+
+    - name: Restart chrony
+      ansible.builtin.systemd:
+        name: chrony
         state: restarted
         enabled: true
 

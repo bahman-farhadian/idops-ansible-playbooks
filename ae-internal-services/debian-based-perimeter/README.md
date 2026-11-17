@@ -6,12 +6,13 @@ The guest OS is Debian or Ubuntu. OPNsense is a separate playbook,
 of these two perimeters.
 
 keepalived moves one WAN VIP and one LAN VIP between the guests.
-This playbook installs BIND 9, keepalived, and OpenVPN on that pair.
+This playbook installs BIND 9, chrony, keepalived, and OpenVPN on that pair.
 A single node is refused.
 
 The first NIC is the WAN and keeps the default route. The extra NIC
 is the isolated LAN and has no gateway. named listens on every IPv4
-address, so both NICs answer DNS. Clients use the VIPs.
+address, so both NICs answer DNS. chrony listens on IPv4 and allows
+RFC1918 clients. Clients use the LAN VIP for DNS and NTP.
 
 OpenVPN has two TCP profiles. Admin listens on port 1213 and its
 client can reach `10.32.0.0/24` and `192.168.32.0/24`. User listens
@@ -25,6 +26,12 @@ the firewall. The guide is
 both nodes at `/usr/local/share/doc/debian-based-perimeter/vpn-client-guide.md`.
 
 WireGuard is a later addition on this same pair.
+
+chrony runs on both nodes. It syncs from the pools in `chrony_ntp_pools`
+and serves NTP to RFC1918. The host firewall must allow UDP 123 from the
+networks that should use this server. With
+`firewall_allow_private_networks: true` on hardening, LAN guests already
+reach UDP 123.
 
 Install BIND 9 as a systemd service. One process does two jobs:
 
@@ -40,6 +47,7 @@ unit the package shipped.
 ## What it installs
 
 - Package `bind9` from the OS stable/LTS archive
+- Package `chrony` from the OS stable/LTS archive. Clients use the LAN VIP
 - A forward zone (`bind_zone`) with A records from local settings
 - Optional reverse (`in-addr.arpa`) zone
 - Queries and recursion limited to loopback and RFC1918

@@ -1,0 +1,52 @@
+---
+- name: Fail when no NTP pools are declared
+  ansible.builtin.assert:
+    that:
+      - chrony_ntp_pools is defined
+      - (chrony_ntp_pools | length) > 0
+    fail_msg: >-
+      chrony_ntp_pools must list at least one upstream pool in
+      {{ bind_selected_local_settings_file | default('your local settings file') }}.
+
+- name: Install chrony
+  ansible.builtin.apt:
+    name:
+      - chrony
+    state: present
+    update_cache: true
+  register: chrony_packages
+  retries: 6
+  delay: 10
+  until: chrony_packages is succeeded
+  notify: Restart chrony
+
+- name: Write chrony config
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart chrony
+
+- name: Enable and start chrony
+  ansible.builtin.systemd:
+    name: chrony
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Flush handlers so chrony is running with this config
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait until chrony answers locally
+  ansible.builtin.command:
+    argv:
+      - chronyc
+      - -n
+      - tracking
+  register: chrony_tracking
+  until: chrony_tracking.rc == 0
+  retries: 12
+  delay: 2
+  changed_when: false

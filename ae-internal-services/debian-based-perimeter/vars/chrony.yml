@@ -1,0 +1,12 @@
+---
+# chrony NTP on both perimeter nodes. Clients use the LAN VIP, the same
+# address they use for DNS. Real allow-lists can stay the RFC1918 defaults.
+
+chrony_ntp_pools: # Upstream NTP pools. Values: list of hostnames.
+  - "2.pool.ntp.org"
+chrony_allow: # Who may query this server. Values: list of CIDRs.
+  - "127.0.0.0/8"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+  - "192.168.0.0/16"
+chrony_local_stratum: 10 # Serve LAN from this node if upstream NTP is down. Example: 10.

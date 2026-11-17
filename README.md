@@ -59,7 +59,7 @@ Playbooks in this table are separate. They can be used together. No playbook cal
 | `ac-vm-provisioning` | `kvm-vm-provisioning` | KVM guests from Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 cloud images. No application services. | — |
 | `ac-vm-provisioning` | `esxi-vm-provisioning` (no files yet) | The same four guest releases on ESXi. No application services. | — |
 | `ad-network-and-connectivity` | `opnsense-firewall` (later) | Pair. Firewall, DNS, time, and OpenVPN on the OPNsense image. The admin decides where the pair runs. No files yet. | — |
-| `ae-internal-services` | `debian-based-perimeter` | Debian or Ubuntu pair. Firewall, BIND, OpenVPN. chrony is later on this pair. | — |
+| `ae-internal-services` | `debian-based-perimeter` | Debian or Ubuntu pair. Firewall, BIND, chrony, OpenVPN. | — |
 | `ae-internal-services` | `mattermost` (no files yet) | One guest. Server and its database on that guest. Install the AGPL-3.0 build. | Zulip |
 | `ae-internal-services` | `stalwart` (no files yet) | One guest. Mail, calendar, and contacts. Community edition is AGPL-3.0. | A Postfix and Dovecot stack |
 | `af-artifact-management` | `nexus-repository-systemd` | One guest. APT and Docker Hub proxies. More repository types are added later in this playbook. | Harbor, Pulp, apt-cacher. JFrog is paid |

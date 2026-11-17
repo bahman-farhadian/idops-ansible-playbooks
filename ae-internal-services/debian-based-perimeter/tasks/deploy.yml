@@ -8,5 +8,8 @@
 - name: Write BIND config and start named
   ansible.builtin.include_tasks: tasks/configure.yml
 
+- name: Install chrony and serve NTP on the pair
+  ansible.builtin.include_tasks: tasks/ntp.yml
+
 - name: Install keepalived and the OpenVPN profiles
   ansible.builtin.include_tasks: tasks/ha.yml

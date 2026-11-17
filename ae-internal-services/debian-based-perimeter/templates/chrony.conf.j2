@@ -1,0 +1,11 @@
+# Managed by debian-based-perimeter. Clients use the LAN VIP.
+driftfile /var/lib/chrony/chrony.drift
+makestep 1.0 3
+rtcsync
+{% for pool in chrony_ntp_pools %}
+pool {{ pool }} iburst
+{% endfor %}
+{% for cidr in chrony_allow %}
+allow {{ cidr }}
+{% endfor %}
+local stratum {{ chrony_local_stratum | int }}
