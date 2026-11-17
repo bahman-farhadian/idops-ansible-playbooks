@@ -134,7 +134,7 @@ Edit the real values in that file, not in the tracked files:
    Ubuntu 24.04: https://cloud-images.ubuntu.com/releases/noble/
    Ubuntu 26.04: https://cloud-images.ubuntu.com/releases/resolute/
    Ubuntu pins are dated `release-<serial>/` directories (for example
-   `release-20260911`), not the moving `release/` pointer. Optionally set
+   `release-20261017`), not the moving `release/` pointer. Optionally set
    `image_checksum` per profile to enable fully offline acquisition.
 6. Set cloud-init access defaults (plain user password, sudo policy, optional root password)
    and instance definitions.
