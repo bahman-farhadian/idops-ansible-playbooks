@@ -19,7 +19,7 @@
 # -----------------------------------------------------------------------------
 kvm_default_cloud_init_user: "idops"                   # Initial guest username created by cloud-init. Values: a username, e.g. "idops".
 kvm_default_cloud_init_ssh_public_keys: []             # Initial SSH authorized keys for cloud-init user. Values: [] | list of "ssh-ed25519 AAAA..." strings.
-kvm_default_cloud_init_plain_password: ""              # CHANGE THIS PASSWORD BEFORE PRODUCTION. Example: "a strong passphrase".
+kvm_default_cloud_init_plain_password: ""              # CHANGE THIS PASSWORD BEFORE PRODUCTION. Committed docs may say qwerty as a dummy. Live local files must use password() (48 alphanumeric).
 kvm_default_cloud_init_root_plain_password: ""         # Optional root password. Values: "" (root password stays locked) | a plaintext password.
 kvm_default_cloud_init_chpasswd_type: "text"            # How chpasswd reads the two password fields. Values: "text" | "hash". Use hash (SHA-512 $6$...) when the guest PAM rejects a weak plaintext password.
 kvm_default_cloud_init_root_ssh_public_keys: []        # Optional SSH keys authorized for root. Values: [] (no key-based root SSH) | list of "ssh-ed25519 AAAA..." strings.
