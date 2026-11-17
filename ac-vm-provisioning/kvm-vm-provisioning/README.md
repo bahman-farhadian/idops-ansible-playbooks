@@ -155,8 +155,14 @@ Edit the real values in that file, not in the tracked files:
    `kvm_default_cloud_init_disable_multicast_dns` turns mDNS/LLMNR off.
    Provision polls `guest-ping` with virsh on the hypervisor until the
    guest agent answers. It does not SSH to the guest to install the
-   agent. First boot installs `qemu-guest-agent` and does not
-   dist-upgrade. The hardening playbook runs the dist-upgrade.
+   agent. First boot installs `qemu-guest-agent` from apt and does not
+   dist-upgrade. The guest must reach its apt source on that first boot.
+   Cloud-init does not retry a failed package install on the same disk.
+   If the agent never answers, inspect `/var/log/cloud-init-output.log`
+   on the console, fix outbound apt, then `make cleanup-force-disks` and
+   `make provision` again. A second `make provision` on the existing
+   disk will not install the agent. The hardening playbook runs the
+   dist-upgrade.
    Ubuntu 26.04 uses `virt_install_os_variant:
    ubuntu25.10` until libosinfo ships `ubuntu26.04`. `nocloud` is blocked
    by default; override only if intentional with

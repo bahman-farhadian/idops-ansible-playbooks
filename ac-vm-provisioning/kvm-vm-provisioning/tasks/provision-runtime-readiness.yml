@@ -124,8 +124,12 @@
       {{ kvm_qemu_guest_agent_wait_timeout_seconds }} seconds.
       The domain is still running. Last error:
       {{ runtime_qga_ping_result.stderr | default('no stderr') }}.
-      First boot installs qemu-guest-agent and does not dist-upgrade.
-      Run the same make provision again. It will not recreate this domain.
+      First boot installs qemu-guest-agent from apt. Cloud-init does not
+      retry a failed package install on this disk. A second make provision
+      does not recreate the guest and will not install the agent.
+      Confirm the guest can reach its apt source (console:
+      /var/log/cloud-init-output.log). Then make cleanup-force-disks for
+      this job and make provision again.
       Inspect: virsh qemu-agent-command {{ runtime_readiness_instance.instance_name }} '{"execute":"guest-ping"}'
   when: (runtime_qga_ping_result.rc | int) not in [0, 2]
 

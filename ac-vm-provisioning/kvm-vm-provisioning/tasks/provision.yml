@@ -419,6 +419,7 @@
   loop: "{{ normalized_instances }}"
   loop_control:
     label: "{{ item.instance_name }}"
+  no_log: true
 
 - name: Validate extra NICs
   ansible.builtin.assert:
