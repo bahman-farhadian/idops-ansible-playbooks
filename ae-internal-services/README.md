@@ -22,10 +22,10 @@ Domain for in-house platform services: the Debian-based perimeter pair, Mattermo
 
 ## Scope decision
 
-- The pair is the Debian-based perimeter: firewall, BIND, chrony, and OpenVPN on Debian or Ubuntu.
+- The pair is the Debian-based perimeter: firewall, BIND, and OpenVPN on Debian or Ubuntu.
 - Playbook directory: `debian-based-perimeter/`.
 - OPNsense is `ad-network-and-connectivity/opnsense-firewall`. A project uses this perimeter or that one. The repository keeps both playbooks.
-- chrony runs on both nodes of this pair. Clients use the same VIP they already use for DNS. This playbook does not install chrony yet.
+- chrony is later on this pair. When it is added, clients use the same VIP they already use for DNS.
 - WireGuard stays a later addition on the same pair.
 - No DHCP playbook. Addresses stay static in the provisioning settings.
 - OpenVPN certificates stay on this pair. They are not moved to `ar-secrets-and-pki`.
