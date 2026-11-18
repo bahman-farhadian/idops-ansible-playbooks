@@ -33,7 +33,7 @@ Application traffic in front of services. Each proxy is its own playbook. The th
 
 ## Left out
 
-- The perimeter pair (`ae-internal-services/debian-based-perimeter` or `ad-network-and-connectivity/opnsense-firewall`)
+- The perimeter pair (`ae-network-and-connectivity/debian-based-perimeter` or `ae-network-and-connectivity/opnsense-firewall`)
 - keepalived in this directory. The API pair and the gateway pair set up keepalived in `kubernetes/` and `ceph/`
 - A second Nginx guest
 - A Kubernetes ingress controller. `ak-container-orchestration/kubernetes` does not install one, and `traefik/` runs on Docker Engine or Swarm

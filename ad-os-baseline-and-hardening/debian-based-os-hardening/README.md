@@ -35,7 +35,7 @@ Harden and scan gather host facts, print that release, and refuse any other gues
 ## Quick Start
 
 ```bash
-cd ag-os-baseline-and-hardening/debian-based-os-hardening
+cd ad-os-baseline-and-hardening/debian-based-os-hardening
 make venv
 make settings LOCAL_SETTINGS_FILE=vars/settings.local.yml
 # edit the real values that file just wrote

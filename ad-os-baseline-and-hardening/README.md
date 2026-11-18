@@ -1,10 +1,10 @@
-# ag-os-baseline-and-hardening
+# ad-os-baseline-and-hardening
 
 Domain status: in use
 
 ## Purpose
 
-Harden Debian and Ubuntu guests that already exist. This domain does not create the guest.
+Harden Debian and Ubuntu guests that already exist. This domain does not create the guest. It runs after `ac-vm-provisioning` and before service playbooks.
 
 ## Playbook
 
@@ -27,7 +27,7 @@ Harden Debian and Ubuntu guests that already exist. This domain does not create 
 - Creating the guest
 - KVM host hardening (`ab-hypervisor-host-platform/kvm-host-hardening`)
 - ESXi host hardening (`ab-hypervisor-host-platform/esxi-host`)
-- OPNsense (`ad-network-and-connectivity/opnsense-firewall`)
+- OPNsense (`ae-network-and-connectivity/opnsense-firewall`)
 
 ## Dependencies
 

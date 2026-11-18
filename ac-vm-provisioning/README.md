@@ -28,7 +28,7 @@ The two are separate playbooks. They can be used together.
   - No files yet
   - How the guest disk is built, and how the playbook talks to the ESXi host, are added when this playbook is written
 
-A service guest is created by one of these two playbooks. The operator may then run `ag-os-baseline-and-hardening/debian-based-os-hardening`, or harden the guest another way. This playbook does not call the next one.
+A service guest is created by one of these two playbooks. The operator may then run `ad-os-baseline-and-hardening/debian-based-os-hardening`, or harden the guest another way. This playbook does not call the next one.
 
 ## Alternatives
 
@@ -38,13 +38,13 @@ A service guest is created by one of these two playbooks. The operator may then 
 
 - OpenStack. That cluster is `ai-openstack`. It does not create guests
 - Hypervisor install (`ab-hypervisor-host-platform`)
-- Guest hardening (`ag-os-baseline-and-hardening/debian-based-os-hardening`)
+- Guest hardening (`ad-os-baseline-and-hardening/debian-based-os-hardening`)
 - Application services
 
 ## Dependencies
 
 - Upstream: `aa-physical-server-foundation`, `ab-hypervisor-host-platform`
-- Downstream: `ag-os-baseline-and-hardening`, then the service playbook
+- Downstream: `ad-os-baseline-and-hardening`, then the service playbook
 
 ## Status
 

@@ -17,7 +17,7 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
   - A second guest is not part of this playbook
   - Adding a machine is a later task in this same playbook. That task installs the node exporter on a machine the administrator already has. The node exporter pin is 1.12.1, the current stable release on the official download page, published 14 Jul 2026. It has no long-term release. The task uses its own local settings file. It does not create the guest
   - Kubernetes monitoring is a later task in this same playbook
-  - Alerts go to a broadcast channel in `ae-internal-services/mattermost`. Sending them is a later task in this same playbook. The channel stays in local settings
+  - Alerts go to a broadcast channel in `ag-collaboration/mattermost`. Sending them is a later task in this same playbook. The channel stays in local settings
   - This playbook does not install Grafana or Zabbix
   - This playbook does not create the guest and does not call provisioning or hardening
 - `zabbix/`
@@ -28,7 +28,7 @@ Metrics and alerts for the stack. Logs stay in `at-centralized-logging`. `promet
   - A second guest is not part of this playbook
   - Adding a machine is a later task in this same playbook. That task installs the Zabbix agent on a machine the administrator already has. The agent pin is Zabbix 7.0 LTS. The task uses its own local settings file. It does not create the guest
   - Kubernetes monitoring is a later task in this same playbook
-  - Alerts go to a broadcast channel in `ae-internal-services/mattermost`. Sending them is a later task in this same playbook. The channel stays in local settings
+  - Alerts go to a broadcast channel in `ag-collaboration/mattermost`. Sending them is a later task in this same playbook. The channel stays in local settings
   - A deployment can point the Zabbix web page at `aq-identity-and-access/keycloak`, or leave Zabbix with its own login. The choice is in local settings. This playbook does not require Keycloak
   - This playbook does not install Grafana or Prometheus
   - This playbook does not create the guest and does not call provisioning or hardening

@@ -27,7 +27,7 @@ Copy `playbook-template/` only when that name is picked up.
 - `ab-hypervisor-host-platform`: `debian-based-os-install`, `kvm-host`,
   `kvm-host-hardening`, `esxi-host`
 - `ac-vm-provisioning`: `esxi-vm-provisioning`
-- `ae-internal-services`: `mattermost`, `stalwart`
+- `ag-collaboration`: `mattermost`, `stalwart`
 - `ah-distributed-storage`: `ceph`
 - `ai-openstack`: `openstack`
 - `ak-container-orchestration`: `kubernetes`
@@ -47,7 +47,7 @@ Copy `playbook-template/` only when that name is picked up.
 
 ## Later
 
-- `ad-network-and-connectivity/opnsense-firewall`: pair, own image,
+- `ae-network-and-connectivity/opnsense-firewall`: pair, own image,
   `config.xml` or HTTPS API.
 - WireGuard on `debian-based-perimeter`.
 - iLO 6 and iLO 7.

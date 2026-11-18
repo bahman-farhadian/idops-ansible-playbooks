@@ -33,7 +33,7 @@ A later role, such as a Kubernetes worker or a bulk NFS server, runs 1 and then 
   - No files yet
 - `kvm-host-hardening/`
   - Hardening specialized for the KVM host
-  - Guest hardening stays `ag-os-baseline-and-hardening/debian-based-os-hardening`
+  - Guest hardening stays `ad-os-baseline-and-hardening/debian-based-os-hardening`
   - No files yet
 - `esxi-host/`
   - Final playbook in this directory
@@ -53,7 +53,7 @@ A later role, such as a Kubernetes worker or a bulk NFS server, runs 1 and then 
 - `ilo-4-management` and `ilo-5-management` in `aa-physical-server-foundation`. iLO 6 and iLO 7 are later playbooks there
 - Disk and RAID layout. That follows the role of each physical server and is added when the project reaches that server
 - Guest creation (`ac-vm-provisioning/kvm-vm-provisioning` and `ac-vm-provisioning/esxi-vm-provisioning`)
-- Guest hardening (`ag-os-baseline-and-hardening/debian-based-os-hardening`)
+- Guest hardening (`ad-os-baseline-and-hardening/debian-based-os-hardening`)
 - A Kubernetes-worker playbook and a bulk NFS playbook. Those are later setup playbooks outside this directory
 
 ## Dependencies

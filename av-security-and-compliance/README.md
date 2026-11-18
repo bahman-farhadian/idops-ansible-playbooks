@@ -18,18 +18,18 @@ One security platform for the guests that are already hardened. Wazuh reports. I
   - Agents on other guests are a later task in this same playbook. That task uses its own local settings file. It does not create the guest
   - Active response stays off. Wazuh does not block an address and does not change an account
   - A deployment can point the Wazuh dashboard at `aq-identity-and-access/keycloak`, or leave that page with its own login. The choice is in local settings. This playbook does not require Keycloak
-  - Does not change the Lynis score in `ag-os-baseline-and-hardening`. Does not replace `at-centralized-logging`
+  - Does not change the Lynis score in `ad-os-baseline-and-hardening`. Does not replace `at-centralized-logging`
   - This playbook does not create the guest and does not call provisioning or hardening
 
 ## Alternatives
 
-- OSSEC. The same kind of agent, without this indexer and dashboard. OpenSCAP is a compliance scan, and it stays out. Security Onion is a separate distribution, and it stays out. Lynis stays in `ag-os-baseline-and-hardening`.
+- OSSEC. The same kind of agent, without this indexer and dashboard. OpenSCAP is a compliance scan, and it stays out. Security Onion is a separate distribution, and it stays out. Lynis stays in `ad-os-baseline-and-hardening`.
 
 ## Left out
 
 - OpenSCAP as its own playbook
 - Security Onion
-- A second Lynis playbook. Lynis stays in `ag-os-baseline-and-hardening/debian-based-os-hardening`
+- A second Lynis playbook. Lynis stays in `ad-os-baseline-and-hardening/debian-based-os-hardening`
 - A second Wazuh guest. The manager, indexer, and dashboard stay together
 - Wazuh 5.0 while it is a beta
 - Wazuh Cloud

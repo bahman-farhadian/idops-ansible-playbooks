@@ -30,7 +30,7 @@ Logstash or Fluent Bit is not in this table. The chosen one runs on the `rsyslog
 
 - `rsyslog/`
   - One guest. This is the central receiver
-  - `ag-os-baseline-and-hardening/debian-based-os-hardening` already installs rsyslog on each hardened guest, keeps local logs, and can forward them. Forwarding stays off until that guest's hardening settings name this receiver. This playbook does not install rsyslog on those guests
+  - `ad-os-baseline-and-hardening/debian-based-os-hardening` already installs rsyslog on each hardened guest, keeps local logs, and can forward them. Forwarding stays off until that guest's hardening settings name this receiver. This playbook does not install rsyslog on those guests
   - The Docker Engine playbook also installs rsyslog, for the Docker daemon log on that guest
   - This playbook does not create the guest and does not call provisioning or hardening
 - `elk/`

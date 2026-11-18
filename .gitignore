@@ -52,6 +52,6 @@ group_vars/local_secrets.yml
 wheelhouse/
 
 # Local runtime artifacts (Lynis scan reports, downloaded archives, etc.)
-ag-os-baseline-and-hardening/debian-based-os-hardening/artifacts/
+ad-os-baseline-and-hardening/debian-based-os-hardening/artifacts/
 af-artifact-management/nexus-repository-systemd/artifacts/
-ae-internal-services/debian-based-perimeter/artifacts/
+ae-network-and-connectivity/debian-based-perimeter/artifacts/
