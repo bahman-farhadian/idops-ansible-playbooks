@@ -276,5 +276,4 @@
           - /tmp
           - /var/tmp
       when: debian_hardening_action_effective in ['scan', 'harden']
-      ignore_unreachable: true
       tags: always
