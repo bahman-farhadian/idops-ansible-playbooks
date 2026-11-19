@@ -10,6 +10,7 @@ How this project is laid out:
 - Safe defaults in `vars/debian-hardening.yml`
 - Real hosts and keys in a named `*.local.yml` file (you must pass it; there is no default)
 - Run it with `make help` and `make ping`
+- To run a subset of `debian_hardening_targets`, use `make HOSTS=name1,name2`. Do not use ansible `--limit`: those names are added with `add_host` after localhost runs, so `--limit` warns and can skip localhost.
 
 ## Supported Targets
 

@@ -13,6 +13,14 @@
   vars:
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
     debian_selected_local_settings_file: "{{ debian_local_settings_file | default('') }}"
+    debian_hardening_hosts_list: >-
+      {{
+        (debian_hardening_hosts | default('') | string)
+        | split(',')
+        | map('trim')
+        | reject('equalto', '')
+        | list
+      }}
     debian_local_settings_path: >-
       {{
         debian_selected_local_settings_file
@@ -182,8 +190,22 @@
           }}
       tags: always
 
+    - name: Fail when HOSTS names a target that is not in debian_hardening_targets
+      ansible.builtin.assert:
+        that:
+          - (debian_hardening_hosts_list | difference(debian_hardening_targets | map(attribute='name') | list) | length) == 0
+        fail_msg: >-
+          HOSTS names {{ debian_hardening_hosts_list | difference(debian_hardening_targets | map(attribute='name') | list) }}
+          which are not in debian_hardening_targets.
+          Do not use ansible --limit for this playbook. Guests are added
+          with add_host after localhost runs. Use make HOSTS=name1,name2.
+      when: debian_hardening_hosts_list | length > 0
+      tags: always
+
     # Empty user collapses to omit so the SSH client keeps falling back to
     # the operator's own ssh config instead of receiving a blank value.
+    # --limit cannot select these names: they are not in host.yml. Filter
+    # here with debian_hardening_hosts / make HOSTS= instead.
     - name: Add hardening targets to in-memory inventory
       ansible.builtin.add_host:
         name: "{{ item.name }}"
@@ -195,6 +217,9 @@
       loop: "{{ debian_hardening_targets }}"
       loop_control:
         label: "{{ item.name }}"
+      when: >-
+        (debian_hardening_hosts_list | length) == 0
+        or (item.name in debian_hardening_hosts_list)
       changed_when: false
       tags: always
 

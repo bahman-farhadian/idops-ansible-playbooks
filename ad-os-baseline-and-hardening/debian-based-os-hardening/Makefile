@@ -24,8 +24,10 @@ EXTRA_VARS ?=
 CHECK ?= false
 DIFF ?= false
 EXTRA_ARGS ?=
+HOSTS ?=
 FORCE ?=
 SETTINGS_ARG := -e debian_local_settings_file="$(LOCAL_SETTINGS_FILE)"
+HOSTS_ARG := $(if $(HOSTS),-e debian_hardening_hosts="$(HOSTS)",)
 MAKE_GOAL := $(firstword $(MAKECMDGOALS))
 
 BOOL_TRUE := 1 true yes TRUE YES
@@ -36,7 +38,7 @@ SKIP_TAGS_ARG := $(if $(SKIP_TAGS),--skip-tags $(SKIP_TAGS),)
 EXTRA_VARS_ARG := $(if $(EXTRA_VARS),-e "$(EXTRA_VARS)",)
 CHECK_ARG := $(if $(filter $(CHECK),$(BOOL_TRUE)),--check,)
 DIFF_ARG := $(if $(filter $(DIFF),$(BOOL_TRUE)),--diff,)
-PLAY_ARGS := $(SETTINGS_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
+PLAY_ARGS := $(SETTINGS_ARG) $(HOSTS_ARG) $(FORKS_ARG) $(TAGS_ARG) $(SKIP_TAGS_ARG) $(EXTRA_VARS_ARG) $(CHECK_ARG) $(DIFF_ARG) $(EXTRA_ARGS)
 
 help:
 	@printf "debian-based-os-hardening - harden Debian and Ubuntu hosts\n\n"
@@ -84,6 +86,7 @@ help:
 	@printf "  %-32s %s\n" "make role-session-logging" "run only the session_logging role"
 	@printf "\nRuntime options:\n"
 	@printf "  %-28s %s\n" "LOCAL_SETTINGS_FILE=<path>" "you must pass a *.local.yml file; there is no default"
+	@printf "  %-28s %s\n" "HOSTS=name1,name2" "run only these debian_hardening_targets names; do not use --limit"
 	@printf "  %-28s %s\n" "FORKS=<n>" "set Ansible fork parallelism"
 	@printf "  %-28s %s\n" "TAGS=<tag1,tag2>" "run only selected tags"
 	@printf "  %-28s %s\n" "SKIP_TAGS=<tag1,tag2>" "skip selected tags"
