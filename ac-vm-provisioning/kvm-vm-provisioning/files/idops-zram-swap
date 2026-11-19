@@ -13,8 +13,16 @@ DEV=/dev/zram0
 
 case "${1:-}" in
 start)
+  modprobe zram 2>/dev/null || true
+  if [ ! -e /sys/block/zram0 ] && [ -w /sys/class/zram-control/hot_add ]; then
+    cat /sys/class/zram-control/hot_add >/dev/null
+  fi
   if [ ! -e /sys/block/zram0 ]; then
     modprobe zram num_devices=1
+  fi
+  if [ ! -e /sys/block/zram0 ]; then
+    echo "idops-zram-swap: no /sys/block/zram0" >&2
+    exit 1
   fi
   if grep -q zram0 /proc/swaps; then
     swapoff "$DEV" || true
