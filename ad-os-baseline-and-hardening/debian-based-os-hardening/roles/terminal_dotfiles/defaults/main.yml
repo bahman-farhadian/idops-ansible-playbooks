@@ -1,6 +1,6 @@
 ---
 # Adopted from https://github.com/bahman-farhadian/linux_terminal_dotfiles_configuration
-# tmux and vim only - bash_profile/bash_aliases/bashrc are adopted in full by
+# tmux, vim, and btop. bash_profile/bash_aliases/bashrc are adopted in full by
 # prep_baseline instead, as part of its own preparation baseline. Deliberately
 # excluded, and left to the roles that already own them: the SSH login banner
 # and /etc/motd (banner_hardening), and SSH server policy such as

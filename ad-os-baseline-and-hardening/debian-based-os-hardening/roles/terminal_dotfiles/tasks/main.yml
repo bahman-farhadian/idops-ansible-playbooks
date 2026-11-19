@@ -30,6 +30,42 @@
     label: "{{ item.name }}"
   when: terminal_dotfiles_enabled | bool
 
+- name: Ensure btop config directory exists
+  ansible.builtin.file:
+    path: "{{ item.home }}/.config/btop/themes"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0755"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool
+
+- name: Deploy btop configuration
+  ansible.builtin.copy:
+    src: btop/btop.conf
+    dest: "{{ item.home }}/.config/btop/btop.conf"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0644"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool
+
+- name: Deploy btop gruvbox theme
+  ansible.builtin.copy:
+    src: btop/themes/gruvbox_dark_v2.theme
+    dest: "{{ item.home }}/.config/btop/themes/gruvbox_dark_v2.theme"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0644"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: terminal_dotfiles_enabled | bool
+
 - name: Deploy vim configuration and plugins
   ansible.builtin.copy:
     src: vim/

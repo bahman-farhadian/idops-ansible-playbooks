@@ -24,8 +24,8 @@ prep_required_packages:
   - duf
   - ipcalc
   - bash-completion # Used by the adopted .bashrc's completion and prompt setup.
-prep_optional_packages:
   - btop
+prep_optional_packages:
   - lshw
   - progress
   - unrar
