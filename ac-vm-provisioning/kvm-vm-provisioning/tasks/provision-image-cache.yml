@@ -92,10 +92,14 @@
     mode: "0644"
     checksum: "{{ item.image_checksum_algorithm }}:{{ item.expected_checksum }}"
     force: "{{ kvm_image_cache_repair_on_checksum_mismatch | default(false) | bool }}"
+    timeout: "{{ kvm_image_download_timeout_seconds | default(1800) | int }}"
   loop: "{{ images_to_download | default([]) }}"
   loop_control:
     label: "{{ item.profile_id }}"
   register: image_download_results
+  retries: "{{ kvm_image_download_retries | default(6) | int }}"
+  delay: "{{ kvm_image_download_retry_delay_seconds | default(20) | int }}"
+  until: image_download_results is succeeded
   when:
     - kvm_run_mutation_phases | bool
     - (images_to_download | default([])) | length > 0

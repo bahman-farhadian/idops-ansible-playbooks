@@ -107,6 +107,7 @@
     url: "{{ item.image_checksum_manifest_url }}"
     return_content: true
     method: GET
+    timeout: "{{ kvm_image_download_timeout_seconds | default(1800) | int }}"
   loop: >-
     {{
       required_cloud_images
@@ -116,6 +117,9 @@
   loop_control:
     label: "{{ item.profile_id }}"
   register: checksum_manifest_fetch_results
+  retries: "{{ kvm_image_download_retries | default(6) | int }}"
+  delay: "{{ kvm_image_download_retry_delay_seconds | default(20) | int }}"
+  until: checksum_manifest_fetch_results is succeeded or checksum_manifest_fetch_results is failed
   failed_when: false
   changed_when: false
   when: (web_fetch_required_profiles | default([])) | length > 0

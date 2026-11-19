@@ -100,6 +100,9 @@ kvm_cloud_image_catalog:
 # 2. IMAGE CACHE POLICY AND TRUSTED CHECKSUMS
 # The trusted checksum cache is offline-first and immutable.
 # -----------------------------------------------------------------------------
+kvm_image_download_timeout_seconds: 1800                           # get_url/uri socket timeout. Default 10 is too short through sshuttle TLS.
+kvm_image_download_retries: 6                                      # Retry count for image and checksum downloads.
+kvm_image_download_retry_delay_seconds: 20                         # Delay between download retries.
 kvm_image_cache_verify_on_run: true                                # Verify cached image checksums on image-cache stage. Values: true | false.
 kvm_image_cache_repair_on_checksum_mismatch: true                  # Re-download corrupted cached image file when checksum fails. Values: true | false.
 kvm_image_manifest_refresh_policy: "on-demand"                     # Manifest fetch policy in provision flow. Values: "on-demand" | "always".
