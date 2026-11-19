@@ -214,6 +214,7 @@
         ansible_user: "{{ (item.user | default('', true)) or omit }}"
         ansible_port: "{{ item.port | default(22) }}"
         ansible_become_password: "{{ (item.become_password | default('', true)) or omit }}"
+        ansible_ssh_common_args: "{{ (item.ssh_common_args | default('', true)) or omit }}"
       loop: "{{ debian_hardening_targets }}"
       loop_control:
         label: "{{ item.name }}"

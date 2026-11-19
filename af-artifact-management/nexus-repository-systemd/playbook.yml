@@ -102,6 +102,7 @@
         ansible_port: "{{ item.port | default(22) }}"
         ansible_become_password: "{{ (item.become_password | default('', true)) or omit }}"
         ansible_python_interpreter: "{{ item.python_interpreter | default('/usr/bin/python3') }}"
+        ansible_ssh_common_args: "{{ (item.ssh_common_args | default('', true)) or omit }}"
       loop: "{{ nexus_targets }}"
       loop_control:
         label: "{{ item.name }}"
