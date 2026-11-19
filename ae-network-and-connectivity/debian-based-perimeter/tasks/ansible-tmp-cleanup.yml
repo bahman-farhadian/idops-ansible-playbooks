@@ -1,0 +1,21 @@
+---
+# Paths come from the play. Pre-run: /tmp only (tmpfs leftovers).
+# Post-run: /tmp and /var/tmp, including /var/tmp/.ansible (remote_tmp).
+- name: Find leftover Ansible scratch
+  ansible.builtin.find:
+    paths: "{{ ansible_tmp_cleanup_paths | default(['/tmp']) }}"
+    patterns:
+      - "ansible_*"
+      - ".ansible"
+    file_type: any
+    hidden: true
+  register: debian_hardening_ansible_tmp_leftovers
+  changed_when: false
+
+- name: Remove leftover Ansible scratch
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ debian_hardening_ansible_tmp_leftovers.files }}"
+  loop_control:
+    label: "{{ item.path }}"

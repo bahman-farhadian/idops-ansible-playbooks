@@ -228,6 +228,9 @@
   pre_tasks:
     - name: Remove leftover Ansible payload dirs from tmpfs /tmp
       ansible.builtin.include_tasks: tasks/ansible-tmp-cleanup.yml
+      vars:
+        ansible_tmp_cleanup_paths:
+          - /tmp
       when: debian_hardening_action_effective in ['scan', 'harden']
       tags: always
 
@@ -266,7 +269,11 @@
       when: debian_hardening_action_effective == 'runtime-check'
 
   post_tasks:
-    - name: Remove leftover Ansible payload dirs from tmpfs /tmp
+    - name: Remove Ansible scratch from /tmp and /var/tmp after the guest run
       ansible.builtin.include_tasks: tasks/ansible-tmp-cleanup.yml
+      vars:
+        ansible_tmp_cleanup_paths:
+          - /tmp
+          - /var/tmp
       when: debian_hardening_action_effective in ['scan', 'harden']
       tags: always

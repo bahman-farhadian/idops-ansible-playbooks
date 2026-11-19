@@ -112,6 +112,10 @@
   become_method: "{{ nexus_become_method | default('sudo') }}"
   become_user: "{{ nexus_become_user | default('root') }}"
   gather_facts: "{{ nexus_action_effective == 'deploy' }}"
+  environment:
+    TMPDIR: /var/tmp
+    TMP: /var/tmp
+    TEMP: /var/tmp
   vars_files:
     - vars/nexus.yml
     - "{{ nexus_local_settings_file | default('vars/.syntax-check.local.yml') }}"
@@ -134,4 +138,13 @@
 
     - name: Install and configure Nexus
       ansible.builtin.include_tasks: tasks/deploy.yml
+      when: nexus_action_effective == 'deploy'
+
+  post_tasks:
+    - name: Remove Ansible scratch from /tmp and /var/tmp after the guest run
+      ansible.builtin.include_tasks: tasks/ansible-tmp-cleanup.yml
+      vars:
+        ansible_tmp_cleanup_paths:
+          - /tmp
+          - /var/tmp
       when: nexus_action_effective == 'deploy'
