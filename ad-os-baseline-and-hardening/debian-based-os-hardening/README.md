@@ -20,10 +20,10 @@ How this project is laid out:
 
 Harden and scan gather host facts, print that release, and refuse any other guest.
 
-On 1 GiB guests `/tmp` is tmpfs. Hardening sets `TMPDIR=/var/tmp` so
-Ansible module payloads stay on disk. Hostname is set with `hostnamectl`,
-not `ansible.builtin.hostname`, because that module lost its payload zip
-on these guests.
+On 1 GiB guests `/tmp` is tmpfs. zram takes half of RAM with swappiness 100,
+so tmpfs pages are first to leave RAM. Hardening sets `TMPDIR=/var/tmp` so
+Ansible module payloads stay on disk, cleans leftover `/tmp/ansible_*` dirs
+before and after harden, and sets the hostname with `hostnamectl`.
 
 ## Project Layout
 

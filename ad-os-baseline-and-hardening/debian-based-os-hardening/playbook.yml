@@ -210,9 +210,10 @@
   become_method: "{{ debian_become_method | default('sudo') }}"
   become_user: "{{ debian_become_user | default('root') }}"
   gather_facts: "{{ debian_hardening_action_effective in ['scan', 'harden'] }}"
-  # 1 GiB guests put /tmp on tmpfs. ansible.builtin.hostname extracts its
-  # payload zip there; under memory pressure that zip vanishes before
-  # exit_json. Keep module scratch on the root disk.
+  # /tmp is tmpfs (half of RAM). zram swap is the other half, with
+  # swappiness 100, so idle tmpfs pages leave RAM. ansible.builtin.hostname
+  # unpacked its payload zip in /tmp and re-opened that zip at exit_json;
+  # the file was already gone. Keep module scratch on /var/tmp (disk).
   environment:
     TMPDIR: /var/tmp
     TMP: /var/tmp
@@ -225,6 +226,11 @@
     debian_hardening_action_effective: "{{ debian_hardening_action | default('harden') }}"
 
   pre_tasks:
+    - name: Remove leftover Ansible payload dirs from tmpfs /tmp
+      ansible.builtin.include_tasks: tasks/ansible-tmp-cleanup.yml
+      when: debian_hardening_action_effective in ['scan', 'harden']
+      tags: always
+
     # Tagged `always` for the same reason as the first play's tasks: a
     # role-scoped `make role-*` run (--tags <role>) must still pass the
     # OS-support preflight check.
@@ -258,3 +264,9 @@
     - name: Run runtime diagnostics workflow
       ansible.builtin.include_tasks: tasks/runtime-check.yml
       when: debian_hardening_action_effective == 'runtime-check'
+
+  post_tasks:
+    - name: Remove leftover Ansible payload dirs from tmpfs /tmp
+      ansible.builtin.include_tasks: tasks/ansible-tmp-cleanup.yml
+      when: debian_hardening_action_effective in ['scan', 'harden']
+      tags: always
