@@ -127,11 +127,18 @@
   changed_when: false
   failed_when: false
 
+# Pass 1 connects on 22 and writes Port 2222. Restarting now drops that
+# session and later roles fail with "port 22: Connection refused". Only
+# force a restart when this run is already on ssh_port (pass 2) and the
+# listener never moved — the lost-handler case. Pass 1 leaves the restart
+# to the end-of-role handler.
 - name: Force SSH restart when it is not listening on the hardened port
   ansible.builtin.service:
     name: "{{ 'ssh' if ansible_facts['os_family'] == 'Debian' else 'sshd' }}"
     state: restarted
-  when: ssh_hardening_port_listening.rc != 0
+  when:
+    - ssh_hardening_port_listening.rc != 0
+    - (ansible_port | default(22) | int) == (ssh_port | int)
 
 - name: Warn when inventory SSH port differs from hardened SSH port
   ansible.builtin.debug:
