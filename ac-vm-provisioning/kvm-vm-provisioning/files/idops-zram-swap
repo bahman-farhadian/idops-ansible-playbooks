@@ -1,5 +1,6 @@
 #!/bin/sh
-# Compressed RAM swap. Size is PERCENT of MemTotal. Does not need apt.
+# Compressed RAM swap. Size is PERCENT of MemTotal. Does not need apt
+# once the zram kernel module is present.
 set -eu
 DEFAULTS=/etc/default/idops-zram-swap
 PERCENT=50
@@ -11,23 +12,40 @@ if [ -f "$DEFAULTS" ]; then
 fi
 DEV=/dev/zram0
 
-case "${1:-}" in
-start)
+ensure_zram0() {
+  if [ -e /sys/block/zram0 ]; then
+    return 0
+  fi
   modprobe zram 2>/dev/null || true
   if [ ! -e /sys/block/zram0 ] && [ -w /sys/class/zram-control/hot_add ]; then
     cat /sys/class/zram-control/hot_add >/dev/null
   fi
   if [ ! -e /sys/block/zram0 ]; then
-    modprobe zram num_devices=1
+    modprobe zram num_devices=1 2>/dev/null || true
   fi
   if [ ! -e /sys/block/zram0 ]; then
-    echo "idops-zram-swap: no /sys/block/zram0" >&2
-    exit 1
+    echo "idops-zram-swap: no /sys/block/zram0 (install linux-modules-extra-$(uname -r) on Ubuntu)" >&2
+    return 1
   fi
+}
+
+reset_zram0() {
   if grep -q zram0 /proc/swaps; then
     swapoff "$DEV" || true
   fi
-  echo 1 > /sys/block/zram0/reset
+  if [ -e /sys/block/zram0/reset ]; then
+    echo 1 > /sys/block/zram0/reset 2>/dev/null || true
+  fi
+  if [ ! -e /sys/block/zram0 ] && [ -w /sys/class/zram-control/hot_add ]; then
+    cat /sys/class/zram-control/hot_add >/dev/null
+  fi
+}
+
+case "${1:-}" in
+start)
+  ensure_zram0
+  reset_zram0
+  ensure_zram0
   echo "$ALGO" > /sys/block/zram0/comp_algorithm
   MEM_KB=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
   echo $((MEM_KB * 1024 * PERCENT / 100)) > /sys/block/zram0/disksize
@@ -39,7 +57,7 @@ stop)
     swapoff "$DEV" || true
   fi
   if [ -e /sys/block/zram0/reset ]; then
-    echo 1 > /sys/block/zram0/reset
+    echo 1 > /sys/block/zram0/reset 2>/dev/null || true
   fi
   ;;
 *)

@@ -913,6 +913,14 @@
         'systemctl daemon-reload',
         'systemctl enable --now idops-zram-swap.service'
       ] %}
+      {% if (item.image_profile_id | default('')) is match('^ubuntu-') %}
+      {% set zram_runcmd = [
+        'DEBIAN_FRONTEND=noninteractive apt-get install -y linux-modules-extra-$(uname -r)',
+        'sysctl --system',
+        'systemctl daemon-reload',
+        'systemctl enable --now idops-zram-swap.service'
+      ] %}
+      {% endif %}
       {% endif %}
       {% set effective_write_files = (item.cloud_init_write_files | default([])) + generated_write_files %}
       {% if (effective_write_files | default([])) | length > 0 %}
