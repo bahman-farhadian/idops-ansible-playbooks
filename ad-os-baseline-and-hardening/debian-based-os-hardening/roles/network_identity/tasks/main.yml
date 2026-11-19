@@ -76,12 +76,27 @@
         ) | unique
       }}
 
-- name: Set system hostname when explicitly requested
-  ansible.builtin.hostname:
-    name: "{{ network_identity_hostname }}"
+- name: Read current systemd hostname
+  ansible.builtin.command:
+    argv:
+      - hostnamectl
+      - hostname
+  register: network_identity_hostnamectl_current
+  changed_when: false
   when:
     - network_identity_set_hostname | bool
     - network_identity_hostname | length > 0
+
+- name: Set system hostname when explicitly requested
+  ansible.builtin.command:
+    argv:
+      - hostnamectl
+      - hostname
+      - "{{ network_identity_hostname }}"
+  when:
+    - network_identity_set_hostname | bool
+    - network_identity_hostname | length > 0
+    - (network_identity_hostnamectl_current.stdout | default('') | trim) != (network_identity_hostname | trim)
 
 - name: Manage /etc/hosts with template
   ansible.builtin.template:
