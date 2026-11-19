@@ -66,6 +66,19 @@
     label: "{{ item.name }}"
   when: terminal_dotfiles_enabled | bool
 
+- name: Confirm btop config names the gruvbox theme
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -F
+      - 'color_theme = "gruvbox_dark_v2"'
+      - "{{ item.home }}/.config/btop/btop.conf"
+  loop: "{{ terminal_dotfiles_targets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  changed_when: false
+  when: terminal_dotfiles_enabled | bool
+
 - name: Deploy vim configuration and plugins
   ansible.builtin.copy:
     src: vim/

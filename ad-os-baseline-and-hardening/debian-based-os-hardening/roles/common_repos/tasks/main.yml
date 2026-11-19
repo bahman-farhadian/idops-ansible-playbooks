@@ -56,6 +56,16 @@
     mode: "0644"
   when: ansible_facts['distribution'] == 'Debian'
 
+- name: Confirm Debian sources file uses the configured URI
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -F
+      - "{{ apt_repository_url }}"
+      - /etc/apt/sources.list.d/debian.sources
+  changed_when: false
+  when: ansible_facts['distribution'] == 'Debian'
+
 - name: Point /etc/apt/sources.list at the managed deb822 file
   ansible.builtin.template:
     src: sources.list.j2
@@ -159,6 +169,16 @@
     owner: root
     group: root
     mode: "0644"
+  when: ansible_facts['distribution'] == 'Ubuntu'
+
+- name: Confirm Ubuntu sources file uses the configured URI
+  ansible.builtin.command:
+    argv:
+      - grep
+      - -F
+      - "{{ apt_ubuntu_repository_url }}"
+      - /etc/apt/sources.list.d/ubuntu.sources
+  changed_when: false
   when: ansible_facts['distribution'] == 'Ubuntu'
 
 - name: Point /etc/apt/sources.list at the managed Ubuntu deb822 file

@@ -49,6 +49,14 @@
   when: os_hardening_enabled | bool
   tags: [prep_baseline]
 
+- name: Apply zram swap baseline
+  ansible.builtin.include_role:
+    name: zram_swap
+    apply:
+      tags: [zram_swap]
+  when: os_hardening_enabled | bool
+  tags: [zram_swap]
+
 - name: Apply terminal dotfiles baseline
   ansible.builtin.include_role:
     name: terminal_dotfiles

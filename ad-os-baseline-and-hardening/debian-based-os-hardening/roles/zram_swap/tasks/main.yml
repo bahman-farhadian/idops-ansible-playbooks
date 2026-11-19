@@ -1,0 +1,74 @@
+---
+- name: Write zram swappiness sysctl
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-idops-zram-swappiness.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: "vm.swappiness={{ zram_swappiness | int }}\n"
+  when: zram_swap_enabled | bool
+
+- name: Apply zram swappiness now
+  ansible.builtin.command:
+    argv:
+      - sysctl
+      - --system
+  changed_when: false
+  when: zram_swap_enabled | bool
+
+- name: Write zram swap defaults
+  ansible.builtin.copy:
+    dest: /etc/default/idops-zram-swap
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      PERCENT={{ zram_swap_percent | int }}
+      ALGO={{ zram_swap_compression }}
+      PRIORITY=100
+  when: zram_swap_enabled | bool
+
+- name: Install zram swap helper
+  ansible.builtin.copy:
+    src: idops-zram-swap
+    dest: /usr/local/sbin/idops-zram-swap
+    owner: root
+    group: root
+    mode: "0755"
+  when: zram_swap_enabled | bool
+
+- name: Install zram swap systemd unit
+  ansible.builtin.copy:
+    src: idops-zram-swap.service
+    dest: /etc/systemd/system/idops-zram-swap.service
+    owner: root
+    group: root
+    mode: "0644"
+  when: zram_swap_enabled | bool
+
+- name: Enable and start zram swap
+  ansible.builtin.systemd:
+    name: idops-zram-swap.service
+    enabled: true
+    state: restarted
+    daemon_reload: true
+  when: zram_swap_enabled | bool
+
+- name: Read active swap devices
+  ansible.builtin.command:
+    argv:
+      - swapon
+      - --show
+  register: zram_swap_show
+  changed_when: false
+  when: zram_swap_enabled | bool
+
+- name: Fail when zram swap is not active
+  ansible.builtin.assert:
+    that:
+      - "'zram' in (zram_swap_show.stdout | default(''))"
+    fail_msg: >-
+      zram swap is not active. swapon --show was:
+      {{ zram_swap_show.stdout | default('') | trim }}.
+      Check journalctl -u idops-zram-swap.service.
+  when: zram_swap_enabled | bool

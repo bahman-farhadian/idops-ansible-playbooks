@@ -3,7 +3,7 @@
 SHELL := /bin/bash
 .PHONY: help settings settings-clean settings-clean-force settings-clean-force-all venv require-venv require-local-settings deps-bundle lint check ping scan harden reboot score suggestions ssh-check gap-report runtime-check \
         roles \
-        role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-terminal-dotfiles role-common-repos \
+        role-network-identity role-boot-hardening role-grub-hardening role-prep-baseline role-zram-swap role-terminal-dotfiles role-common-repos \
         role-package-hardening role-service-hardening role-firewall role-kernel-hardening role-auth-hardening \
         role-banner-hardening role-ssh-hardening role-fail2ban role-auditd role-accounting-hardening \
         role-integrity-hardening role-compiler-hardening role-file-permissions role-session-logging
@@ -65,6 +65,7 @@ help:
 	@printf "  %-32s %s\n" "make role-boot-hardening" "run only the boot_hardening role"
 	@printf "  %-32s %s\n" "make role-grub-hardening" "run only the grub_hardening role"
 	@printf "  %-32s %s\n" "make role-prep-baseline" "run only the prep_baseline role"
+	@printf "  %-32s %s\n" "make role-zram-swap" "run only the zram_swap role"
 	@printf "  %-32s %s\n" "make role-terminal-dotfiles" "run only the terminal_dotfiles role"
 	@printf "  %-32s %s\n" "make role-common-repos" "run only the common_repos role"
 	@printf "  %-32s %s\n" "make role-package-hardening" "run only the package_hardening role"
@@ -207,6 +208,9 @@ role-grub-hardening: require-local-settings require-venv
 
 role-prep-baseline: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags prep_baseline $(PLAY_ARGS)
+
+role-zram-swap: require-local-settings require-venv
+	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags zram_swap $(PLAY_ARGS)
 
 role-terminal-dotfiles: require-local-settings require-venv
 	$(VENV_ACTIVATE) && ansible-playbook -i $(INVENTORY) $(PLAYBOOK_FILE) -e debian_hardening_action=harden --tags terminal_dotfiles $(PLAY_ARGS)

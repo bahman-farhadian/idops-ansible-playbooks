@@ -1,0 +1,8 @@
+---
+# Same policy as kvm-vm-provisioning first boot. Harden reapplies it so a
+# guest whose cloud-init unit failed (Ubuntu 24 zram with zero devices)
+# still gets zstd swap at half of RAM.
+zram_swap_enabled: true
+zram_swap_percent: 50
+zram_swap_compression: zstd
+zram_swappiness: 100
