@@ -1,4 +1,17 @@
 ---
+- name: Check whether the zram kernel module is already present
+  ansible.builtin.command:
+    argv:
+      - modprobe
+      - -n
+      - zram
+  register: zram_modprobe_dry
+  changed_when: false
+  failed_when: false
+  when:
+    - zram_swap_enabled | bool
+    - ansible_facts['distribution'] == 'Ubuntu'
+
 - name: Install Ubuntu extra kernel modules that provide zram.ko
   ansible.builtin.apt:
     name: "linux-modules-extra-{{ ansible_facts['kernel'] }}"
@@ -11,6 +24,7 @@
   when:
     - zram_swap_enabled | bool
     - ansible_facts['distribution'] == 'Ubuntu'
+    - (zram_modprobe_dry.rc | default(0) | int) != 0
 
 - name: Write zram swappiness sysctl
   ansible.builtin.copy:

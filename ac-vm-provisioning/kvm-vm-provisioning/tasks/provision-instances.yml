@@ -915,7 +915,7 @@
       ] %}
       {% if (item.image_profile_id | default('')) is match('^ubuntu-') %}
       {% set zram_runcmd = [
-        'DEBIAN_FRONTEND=noninteractive apt-get install -y linux-modules-extra-$(uname -r)',
+        'modprobe -n zram || DEBIAN_FRONTEND=noninteractive apt-get install -y linux-modules-extra-$(uname -r)',
         'sysctl --system',
         'systemctl daemon-reload',
         'systemctl enable --now idops-zram-swap.service'
