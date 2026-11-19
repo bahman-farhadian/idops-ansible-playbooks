@@ -19,6 +19,10 @@
 kvm_default_instance_disk_extension: "qcow2"   # Default disk file extension/format.
 kvm_default_vcpu_count: 2                      # Default vCPU allocation for new instances.
 kvm_default_memory_mb: 2048                    # Default memory allocation in MB for new instances.
+kvm_default_zram_swap_enabled: true            # Compressed RAM swap on every guest. Values: true | false.
+kvm_default_zram_swap_percent: 50              # zram disk size as a percent of guest RAM. Half of RAM is 50.
+kvm_default_zram_swap_compression: "zstd"      # zram compression algorithm. Values: zstd | lz4 | lzo.
+kvm_default_zram_swappiness: 100               # vm.swappiness. 100 pushes idle pages into zram.
 kvm_default_root_disk_size_gb: 20              # Default total instance disk size in GiB for new instances.
 kvm_force_single_socket_vcpu_topology: true    # CPU topology policy. Values: true (sockets=1, threads=1) | false (plain vcpu_count).
 kvm_allow_reuse_existing_instance_disks: false # Reuse pre-existing instance disk files when domain is missing. Values: true | false.

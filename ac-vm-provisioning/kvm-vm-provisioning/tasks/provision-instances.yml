@@ -876,6 +876,44 @@
         }
       ] %}
       {% endif %}
+      {% set zram_runcmd = [] %}
+      {% if item.zram_swap_enabled | default(true) | bool %}
+      {% set zram_percent = item.zram_swap_percent | default(50) | int %}
+      {% set zram_algo = item.zram_swap_compression | default('zstd') %}
+      {% set zram_swappiness = item.zram_swappiness | default(100) | int %}
+      {% set zram_defaults = 'PERCENT=' ~ (zram_percent | string) ~ '\nALGO=' ~ zram_algo ~ '\nPRIORITY=100\n' %}
+      {% set generated_write_files = generated_write_files + [
+        {
+          'path': '/etc/sysctl.d/99-idops-zram-swappiness.conf',
+          'owner': 'root:root',
+          'permissions': '0644',
+          'content': 'vm.swappiness=' ~ (zram_swappiness | string) ~ '\n'
+        },
+        {
+          'path': '/etc/default/idops-zram-swap',
+          'owner': 'root:root',
+          'permissions': '0644',
+          'content': zram_defaults
+        },
+        {
+          'path': '/usr/local/sbin/idops-zram-swap',
+          'owner': 'root:root',
+          'permissions': '0755',
+          'content': lookup('ansible.builtin.file', playbook_dir ~ '/files/idops-zram-swap')
+        },
+        {
+          'path': '/etc/systemd/system/idops-zram-swap.service',
+          'owner': 'root:root',
+          'permissions': '0644',
+          'content': lookup('ansible.builtin.file', playbook_dir ~ '/files/idops-zram-swap.service')
+        }
+      ] %}
+      {% set zram_runcmd = [
+        'sysctl --system',
+        'systemctl daemon-reload',
+        'systemctl enable --now idops-zram-swap.service'
+      ] %}
+      {% endif %}
       {% set effective_write_files = (item.cloud_init_write_files | default([])) + generated_write_files %}
       {% if (effective_write_files | default([])) | length > 0 %}
       write_files:
@@ -888,7 +926,7 @@
       {% endfor %}
       {% endif %}
       runcmd:
-      {% for run_command in item.cloud_init_runcmd %}
+      {% for run_command in (item.cloud_init_runcmd | default([])) + zram_runcmd %}
         - {{ run_command | to_json }}
       {% endfor %}
         - [systemctl, enable, --now, qemu-guest-agent.service]

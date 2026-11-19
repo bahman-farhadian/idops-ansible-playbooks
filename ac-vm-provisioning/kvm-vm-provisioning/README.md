@@ -163,6 +163,11 @@ Edit the real values in that file, not in the tracked files:
    `make provision` again. A second `make provision` on the existing
    disk will not install the agent. The hardening playbook runs the
    dist-upgrade.
+   Every guest gets zram swap unless `zram_swap_enabled` is false.
+   Size is half of that guest's RAM (`kvm_default_zram_swap_percent: 50`),
+   compression is zstd, and `vm.swappiness` is 100 so idle pages leave
+   anonymous RAM. The unit is written by cloud-init and does not wait
+   on apt. This costs CPU and saves RAM on a packed hypervisor.
    Ubuntu 26.04 uses `virt_install_os_variant:
    ubuntu25.10` until libosinfo ships `ubuntu26.04`. `nocloud` is blocked
    by default; override only if intentional with

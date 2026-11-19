@@ -274,6 +274,10 @@
       cloud_init_final_message: "{{ kvm_default_cloud_init_final_message }}"
       force_single_socket_vcpu_topology: "{{ kvm_force_single_socket_vcpu_topology | default(true) }}"
       cpu_share_enabled: "{{ kvm_default_cpu_share_enabled | default(false) }}"
+      zram_swap_enabled: "{{ kvm_default_zram_swap_enabled | default(true) }}"
+      zram_swap_percent: "{{ kvm_default_zram_swap_percent | default(50) }}"
+      zram_swap_compression: "{{ kvm_default_zram_swap_compression | default('zstd') }}"
+      zram_swappiness: "{{ kvm_default_zram_swappiness | default(100) }}"
       instance_extra_disks_enabled: "{{ kvm_default_instance_extra_disks_enabled | default(false) }}"
       instance_extra_disks: "{{ kvm_default_instance_extra_disks | default([]) }}"
       instance_extra_nics: []
@@ -388,6 +392,13 @@
       - item.cloud_init_apt_config is mapping
       - item.cloud_init_packages is sequence
       - item.cloud_init_packages is not string
+      - item.zram_swap_enabled is boolean
+      - (item.zram_swap_percent | int) > 0
+      - (item.zram_swap_percent | int) <= 100
+      - item.zram_swap_compression is string
+      - item.zram_swap_compression | length > 0
+      - (item.zram_swappiness | int) >= 0
+      - (item.zram_swappiness | int) <= 100
       - item.cloud_init_bootcmd is sequence
       - item.cloud_init_bootcmd is not string
       - item.cloud_init_extra_hosts is sequence
