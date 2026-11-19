@@ -1,8 +1,7 @@
 [Unit]
 Description=IDOPs zram compressed swap
-DefaultDependencies=no
-After=local-fs.target systemd-sysctl.service
-Before=swap.target
+After=local-fs.target systemd-modules-load.service systemd-sysctl.service
+Before=umount.target
 
 [Service]
 Type=oneshot
@@ -11,4 +10,4 @@ ExecStart=/usr/local/sbin/idops-zram-swap start
 ExecStop=/usr/local/sbin/idops-zram-swap stop
 
 [Install]
-WantedBy=swap.target
+WantedBy=multi-user.target

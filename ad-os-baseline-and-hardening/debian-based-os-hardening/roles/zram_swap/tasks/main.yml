@@ -69,11 +69,11 @@
   failed_when: false
   when: zram_swap_enabled | bool
 
-- name: Enable and start zram swap
+- name: Enable and restart zram swap
   ansible.builtin.systemd:
     name: idops-zram-swap.service
     enabled: true
-    state: started
+    state: restarted
     daemon_reload: true
   when: zram_swap_enabled | bool
 
