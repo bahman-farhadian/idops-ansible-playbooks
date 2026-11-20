@@ -134,19 +134,25 @@ pull-filter ignore "dhcp-option"
 pull-filter ignore "block-outside-dns"
 pull-filter ignore "route"
 EOF
-    # Guard first: if any route below ever covers the subnet the VPN's
-    # own remote endpoint lives in, and the tunnel drops, persist-tun
-    # keeps that route installed - so every reconnect attempt to
-    # VIP_WAN gets routed back into the now-dead tunnel it is trying to
-    # replace, a deadlock no amount of retrying escapes. A /32 host
-    # route always wins over a wider one for the same address
-    # regardless of metric, so this keeps the path to the VPN server
-    # itself on the pre-VPN gateway no matter what the routes below do.
-    printf 'route %s 255.255.255.255 net_gateway 10\n' "$VIP_WAN"
-
     # route-gateway is ignored, and subnet ifconfig has no peer address,
     # so each route names the tunnel gateway. Metric 50 beats metric 100.
     IFS='|' read -r -a route_list <<< "$routes"
+    # persist-tun plus a covering prefix would send reconnects into a
+    # dead tunnel. net_gateway is the client's default route, not the
+    # next hop already used to reach VIP_WAN. Emit that /32 only when
+    # a profile route covers the VIP.
+    vip_guard=0
+    for route in "${route_list[@]}"; do
+      raddr=${route%% *}
+      rmask=${route#* }
+      rmask=${rmask%% *}
+      if [ "$rmask" = "255.255.255.0" ] && [ "${raddr%.*}" = "${VIP_WAN%.*}" ]; then
+        vip_guard=1
+      fi
+    done
+    if [ "$vip_guard" -eq 1 ]; then
+      printf 'route %s 255.255.255.255 net_gateway 10\n' "$VIP_WAN"
+    fi
     for route in "${route_list[@]}"; do
       printf 'route %s %s 50\n' "$route" "$tun_gw"
     done

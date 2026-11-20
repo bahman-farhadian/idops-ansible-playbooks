@@ -12,9 +12,11 @@ firewall_ha_vrid: 51           # VRRP id, 1-255, unique on that L2 network. Exam
 firewall_ha_vip_prefix: 24     # Prefix length of both VIPs. Example: 24.
 
 # Both profiles listen on TCP. The ports differ so the two processes
-# can bind on the same VIP. Admin clients are pushed every route below.
-# User clients are pushed only the user list. Do not put 10.32.0.0/24
-# on the user list.
+# can bind on the same VIP. Admin clients install every route below
+# in the connection file. User clients get only the user list. Do not
+# put 10.32.0.0/24 on the user list. If the client already has a
+# prefix on another NIC, omit that prefix in the local overlay so the
+# tunnel does not steal it.
 openvpn_admin_port: 1213
 openvpn_user_port: 1314
 openvpn_admin_network: "10.8.0.0"    # Admin tunnel pool. Example: "10.8.0.0".

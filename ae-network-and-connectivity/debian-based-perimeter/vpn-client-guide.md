@@ -32,6 +32,13 @@ and it does not send the rest of the person's traffic through the
 tunnel. In the OpenVPN program, leave "redirect all traffic" and
 "block DNS" off.
 
+If this computer already has the WAN prefix (a second NIC or a static
+lab route), omit that prefix from `openvpn_admin_routes` in the local
+settings and deploy again. The tunnel then carries only the isolated
+LAN. `net_gateway` is the client's default route; the profile adds a
+WAN VIP `/32` with that keyword only when a client route covers the
+VIP.
+
 A name starts with a letter and uses letters, digits, `_`, or `-`.
 The same name cannot be on both profiles.
 
