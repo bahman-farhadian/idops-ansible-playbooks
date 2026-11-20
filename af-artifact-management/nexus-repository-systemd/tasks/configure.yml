@@ -113,23 +113,21 @@
     status_code: [200, 204]
   no_log: true
 
-# Run on the Ansible host. The 1 GiB guest has ~50 MiB free and
-# tmpfs /tmp; python on the guest can fail even when REST already works.
+# Guest loopback: isolated LAN HTTP from the control host has no path.
+# uri matches the REST checks; extra python can fail on a 1 GiB guest.
 - name: Check that the web UI can sign in as admin
-  ansible.builtin.command:
-    argv:
-      - /usr/bin/python3
-      - "{{ playbook_dir }}/files/check_admin_login.py"
-      - "--url"
-      - "http://{{ ansible_host }}:{{ nexus_http_port }}"
-      - "--user"
-      - "{{ nexus_admin_user }}"
-      - "--password"
-      - "{{ nexus_admin_password }}"
-  delegate_to: localhost
-  become: false
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ nexus_http_port }}/service/rapture/session"
+    method: POST
+    headers:
+      X-Nexus-UI: "true"
+    body_format: form-urlencoded
+    body:
+      username: "{{ nexus_admin_user | b64encode }}"
+      password: "{{ nexus_admin_password | b64encode }}"
+    status_code: [200, 204]
   register: nexus_ui_login
-  until: nexus_ui_login.rc == 0
+  until: nexus_ui_login.status in [200, 204]
   retries: 12
   delay: 5
   changed_when: false
