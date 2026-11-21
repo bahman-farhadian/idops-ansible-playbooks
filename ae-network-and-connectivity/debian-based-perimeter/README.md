@@ -23,7 +23,9 @@ has the WAN prefix on another NIC, omit that prefix from
 `openvpn_admin_routes` so the tunnel does not steal it. Harden
 FORWARD defaults to DROP and only LAN-to-WAN; admin clients reaching
 the isolated LAN need a `firewall_forward_ipv4_rules` entry from
-`tun-admin` to the LAN interface.
+`tun-admin` to the LAN interface. A control node already on the
+hypervisor LAN uses SSH ProxyJump through the KVM host for isolated
+guests and does not start this OpenVPN client.
 
 Adding, deactivating, and removing a client is an SSH command on
 the firewall. The guide is

@@ -83,6 +83,7 @@ debian_hardening_targets:
     user: "idops"           # SSH user for this host.
     port: 22                # SSH port. Falls back to 22 if omitted.
     become_password: ""     # Optional per-host sudo password.
+    ssh_common_args: ""     # Optional. Isolated libvirt: "-o ProxyJump=kvm-host".
 ```
 
 Leave `become_password` empty if you connect as root, or if sudo does not

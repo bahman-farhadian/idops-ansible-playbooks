@@ -71,6 +71,11 @@ then copied to the guest. It is not fetched again on every deploy.
 The host firewall must allow TCP 8081 and 8082 from the networks that
 should use the cache.
 
+If the guest is on an isolated libvirt network, the control host cannot
+HTTP to that LAN address. `make deploy` checks the web UI on the guest
+loopback. Ansible SSH uses `ssh_common_args` with ProxyJump through the
+KVM host.
+
 The proxies still fetch from Debian, Ubuntu, and Docker Hub. APT
 clients (including this host, once the proxies exist) use:
 

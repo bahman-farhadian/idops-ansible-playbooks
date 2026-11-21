@@ -39,6 +39,11 @@ LAN. `net_gateway` is the client's default route; the profile adds a
 WAN VIP `/32` with that keyword only when a client route covers the
 VIP.
 
+A control node that is already on the hypervisor LAN does not start
+this client. Isolated libvirt guests from that node use SSH ProxyJump
+through the KVM host. OpenVPN is for clients that are not on that
+bridge. Harden FORWARD needs `tun-admin` → LAN for those clients.
+
 A name starts with a letter and uses letters, digits, `_`, or `-`.
 The same name cannot be on both profiles.
 

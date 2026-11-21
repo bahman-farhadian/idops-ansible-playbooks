@@ -236,6 +236,9 @@ Ubuntu 24.04, or Ubuntu 26.04. OS hardening applies. Forwarding and
 SNAT are the hardening firewall role on that guest
 (`firewall_forward_ipv4_enabled`, `firewall_nat_ipv4_enabled`).
 OpenVPN on the pair has an admin profile and a user profile.
+A control node that already has the WAN prefix on a NIC (the
+hypervisor cable) does not start that OpenVPN client. Isolated
+libvirt guests are reached with SSH ProxyJump through the KVM host.
 
 OPNsense is a separate playbook,
 `ae-network-and-connectivity/opnsense-firewall`. It is always a pair.
@@ -859,11 +862,14 @@ lab runs, and the fix that stopped each one.
    Each `route` line must name the gateway: admin `10.8.0.1`, user
    `10.9.0.1`, metric 50.
 
-8. The admin tunnel is up but the LAN VIP does not answer, or SSH to a
-   firewall node times out. The tunnel `/24` swallows the VPN server.
-   Before OpenVPN starts, pin the WAN VIP and both firewall node
-   addresses as `/32` on the underlay. The firewall does not allow SSH
-   from `10.8.0.0/24`.
+8. A host route to an isolated libvirt prefix via the KVM host does
+   not reach the guests. Isolated libvirt does not forward onto that
+   bridge. The hypervisor itself can. From the control node, SSH and
+   Ansible use ProxyJump through the hypervisor
+   (`ssh_common_args: "-o ProxyJump=<kvm-host>"` on each target).
+   If that control node already has the WAN prefix on a NIC, do not
+   start an OpenVPN client there. The tun overlays those routes.
+   OpenVPN stays for clients that are not on that bridge.
 
 9. `vpn-client deactivate` or `remove` exits 1 when that client is the
    only name in the allow file. `grep -vx` exits 1 when it selects no
@@ -897,6 +903,23 @@ lab runs, and the fix that stopped each one.
 14. Do not use a `.local` DNS zone. `systemd-resolved` sends `.local` to
     mDNS and will not ask unicast BIND. Use a unicast name such as
     `.idops`.
+
+15. Admin OpenVPN to the isolated LAN times out while `ip route get` on
+    the client shows the tun. Harden FORWARD is DROP except LAN-to-WAN.
+    Set `firewall_forward_ipv4_rules` to the LAN-to-WAN rule plus
+    `tun-admin` → LAN NIC, source `10.8.0.0/24`, destination the LAN
+    CIDR.
+
+16. OpenVPN `net_gateway` is the client's default route, often Wi-Fi
+    internet, not the more-specific static to the WAN VIP. Omit the WAN
+    prefix from `openvpn_admin_routes` when the client already has it.
+    `vpn-client` writes the VIP `/32` `net_gateway` only when a profile
+    route covers the VIP.
+
+17. Nexus `make deploy` UI login against the guest's LAN address from
+    the control host times out. Isolated libvirt has no HTTP path.
+    That check POSTs `/service/rapture/session` on the guest at
+    `127.0.0.1`.
 
 15. A successful oneshot is `inactive (dead)` with `Result=success`.
     `systemctl --failed` empty is the check. `inactive` alone is not a

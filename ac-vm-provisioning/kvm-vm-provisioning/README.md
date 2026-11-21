@@ -329,6 +329,11 @@ virsh -c qemu:///system net-list --all
 Then set `kvm_default_libvirt_network_name` (or per-instance `libvirt_network_name`)
 to one of those network names.
 
+An isolated libvirt network does not forward packets from another
+machine onto the bridge. The hypervisor can reach those guests. From
+a control node, SSH with ProxyJump through the hypervisor. A host
+route for that prefix via the hypervisor is not enough.
+
 Optional runtime flag to auto-start inactive required networks:
 
 ```bash
