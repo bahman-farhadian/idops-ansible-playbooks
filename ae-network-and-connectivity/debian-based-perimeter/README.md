@@ -20,7 +20,10 @@ on port 1314 and its client can reach `192.168.32.0/24` only. The
 client file installs those routes and nothing else. It does not
 change DNS, and it ignores a full-tunnel push. If the client already
 has the WAN prefix on another NIC, omit that prefix from
-`openvpn_admin_routes` so the tunnel does not steal it.
+`openvpn_admin_routes` so the tunnel does not steal it. Harden
+FORWARD defaults to DROP and only LAN-to-WAN; admin clients reaching
+the isolated LAN need a `firewall_forward_ipv4_rules` entry from
+`tun-admin` to the LAN interface.
 
 Adding, deactivating, and removing a client is an SSH command on
 the firewall. The guide is
