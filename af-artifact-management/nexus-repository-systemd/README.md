@@ -21,6 +21,9 @@ gathers host facts, prints that release, and refuses any other guest.
 - Cleanup policies on those **proxy caches only**: keep up to 30 days.
   A hosted/private Docker registry is out of scope. More repository
   types are added later in this same playbook, one type at a time.
+- Those APT and Docker Hub proxies set `autoBlock: false`. A 404 on a
+  Debian security `Translation-en` index would otherwise trip the
+  circuit breaker for every guest that shares the proxy.
 
 The version is pinned in `vars/nexus.yml` (`nexus_version` and
 `nexus_download_checksum`). The pin is `3.95.4-01`, a generally

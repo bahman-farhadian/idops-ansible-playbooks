@@ -121,6 +121,8 @@ Notes:
 - Ubuntu 24.04+ often uses `ssh.socket`. Pass one stops that unit so
   `sshd_config` `Port` (shipped default `2222`) is the listener.
 - After pass one, ping on port 22 fails. Pass two uses the hardened port.
+- Pass one writes `Port 2222` while still connected on 22. Do not
+  force-restart sshd in that pass; the session would drop.
 
 ## Terminal Dotfiles
 
@@ -150,9 +152,10 @@ split across two roles because each already owned part of this ground:
   entry has to stay above these defaults to win. This is a deliberate
   trade-off for a homelab of frequently rebuilt VMs: it removes MITM
   protection on outbound SSH from this host.
-- **`terminal_dotfiles`** deploys `.tmux.conf` as-is, and `.vimrc` with the
-  Gruvbox colorscheme and the lightline/NERDTree plugins, installed as
-  native Vim 8 packages (no plugin manager needed).
+- **`terminal_dotfiles`** deploys `.tmux.conf` as-is, `.vimrc` with the
+  Gruvbox colorscheme and the lightline/NERDTree plugins (Vim 8 packages,
+  no plugin manager), and `btop.conf` plus the Gruvbox theme for the
+  primary user and, by default, root.
 
 Deliberately **not** brought over, and left to the roles that already own
 that ground:
@@ -241,6 +244,10 @@ restarts Postfix so the change takes effect (reload is not enough). Debian
 Exim is usually already loopback-only.
 
 ## Dist-Upgrade Network Retry Controls
+
+Optional `apt_debian_repository_by_suite` and
+`apt_ubuntu_repository_by_suite` in the local file point each suite at a
+cache (for example Nexus). Tracked defaults stay the public archives.
 
 `package_hardening` uses bounded APT network timeouts and retries for `dist-upgrade`.
 Override these in `vars/debian-hardening.yml` when needed:
