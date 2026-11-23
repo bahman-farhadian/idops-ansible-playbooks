@@ -36,8 +36,17 @@ stay qcow2.
 - Observed-state runtime reconciliation with mandatory external snapshots
 - Optional CPU topology policy to force `sockets=1,threads=1` per instance
 - Optional CPU share capping for controlled overcommit, where N vCPUs are
-  worth one host CPU (hard CFS quota, not a relative weight)
+  worth one host CPU (hard CFS quota, not a relative weight). On by default
+  at 50% of one host CPU per vCPU
+- Default-on zram swap: half of guest RAM, zstd, `vm.swappiness` 100
+- Optional site file (`LOCAL_SITE_SETTINGS_FILE`) for the hypervisor, then
+  a job file (`LOCAL_SETTINGS_FILE`) for the instance list
+- Image downloads with a 1800 second socket timeout and six retries
 - Strict cleanup scope to declared instance names only
+
+Those four images were the guests this playbook was run against. An
+isolated libvirt network does not forward from another machine; SSH to
+those guests uses ProxyJump through the hypervisor.
 
 ## Directory Layout
 
@@ -168,6 +177,10 @@ Edit the real values in that file, not in the tracked files:
    compression is zstd, and `vm.swappiness` is 100 so idle pages leave
    anonymous RAM. The unit is written by cloud-init and does not wait
    on apt. This costs CPU and saves RAM on a packed hypervisor.
+   If `modprobe -n zram` fails (common on Ubuntu 24.04), first boot
+   installs `linux-modules-extra-$(uname -r)` and then loads zram.
+   Ubuntu can load zram with zero devices; the unit `hot_add`s zram0.
+   `systemctl restart` is a stop then a start so the device is new.
    Ubuntu 26.04 uses `virt_install_os_variant:
    ubuntu25.10` until libosinfo ships `ubuntu26.04`. `nocloud` is blocked
    by default; override only if intentional with
@@ -247,6 +260,10 @@ other target above needs `LOCAL_SETTINGS_FILE`.
 
 `make image-cache` pins each profile to an explicit `image_version` (a Debian
 build token or an Ubuntu release serial) and resolves a **trusted checksum** for it.
+Downloads use `kvm_image_download_timeout_seconds` (1800),
+`kvm_image_download_retries` (6), and
+`kvm_image_download_retry_delay_seconds` (20). A 10 second socket
+timeout is too short for a slow TLS path.
 
 The trusted checksum is resolved **once per version** and stored locally as an
 **immutable file** (`chattr +i`) under `kvm_image_checksum_cache_path`. Later runs
@@ -534,8 +551,8 @@ set:
 
 ```bash
 make provision \
-  LOCAL_SITE_SETTINGS_FILE=vars/settings.kvm.dionysus.site.local.yml \
-  LOCAL_SETTINGS_FILE=vars/settings.kvm.dionysus-swarm.local.yml
+  LOCAL_SITE_SETTINGS_FILE=vars/settings.kvm.site.local.yml \
+  LOCAL_SETTINGS_FILE=vars/settings.kvm.job.local.yml
 ```
 
 - Optional: omit it and nothing changes from a single-file setup.
