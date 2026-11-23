@@ -73,8 +73,8 @@ should use the cache.
 
 If the guest is on an isolated libvirt network, the control host cannot
 HTTP to that LAN address. `make deploy` checks the web UI on the guest
-loopback. Ansible SSH uses `ssh_common_args` with ProxyJump through the
-KVM host.
+at `127.0.0.1` (POST `/service/rapture/session`). Ansible SSH uses
+`ssh_common_args` with ProxyJump through the KVM host.
 
 The proxies still fetch from Debian, Ubuntu, and Docker Hub. APT
 clients (including this host, once the proxies exist) use:

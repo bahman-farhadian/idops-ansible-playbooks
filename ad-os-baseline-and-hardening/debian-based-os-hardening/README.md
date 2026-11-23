@@ -21,11 +21,15 @@ How this project is laid out:
 
 Harden and scan gather host facts, print that release, and refuse any other guest.
 
-On 1 GiB guests `/tmp` is tmpfs. zram takes half of RAM with swappiness 100,
-so tmpfs pages are first to leave RAM. Hardening sets `TMPDIR=/var/tmp` so
-Ansible module payloads stay on disk. Before harden it removes leftover
-`/tmp/ansible_*` dirs. After harden it also removes `/var/tmp/ansible_*`
-and `/var/tmp/.ansible` so the guest disk does not keep those files.
+On 1 GiB guests `/tmp` is tmpfs. Hardening reapplies zram swap so a guest
+whose first-boot unit failed still gets it: half of RAM, zstd,
+`vm.swappiness` 100. On Ubuntu, extra kernel modules are installed only
+when `modprobe -n zram` fails. The unit `hot_add`s zram0. `systemctl
+restart` is a stop then a start. zram plus tmpfs means idle tmpfs pages
+leave RAM first. Hardening sets `TMPDIR=/var/tmp` so Ansible module
+payloads stay on disk. Before harden it removes leftover `/tmp/ansible_*`
+dirs. After harden it also removes `/var/tmp/ansible_*` and
+`/var/tmp/.ansible` so the guest disk does not keep those files.
 Hostname is set with `hostnamectl`.
 
 ## Project Layout
@@ -216,7 +220,9 @@ ports from any source. The IPv6 names are `firewall_allowed_tcp_cidrs_v6`
 and `firewall_allowed_udp_cidrs_v6`.
 
 `firewall_forward_ipv4_rules` replaces the single LAN-to-WAN rule when
-the list is not empty. A rule may set `destination`. `firewall_nat_ipv4_rules`
+the list is not empty. Keep the LAN-to-WAN entry in that list. A rule
+may set `destination`. Admin OpenVPN to the isolated LAN needs an entry
+from `tun-admin` to the LAN interface. `firewall_nat_ipv4_rules`
 does the same for masquerade. `exclude_destinations` on a NAT rule skips
 those destinations. `firewall_allow_vrrp_sources` accepts VRRP from those
 addresses.

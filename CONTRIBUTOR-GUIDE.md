@@ -921,6 +921,6 @@ lab runs, and the fix that stopped each one.
     That check POSTs `/service/rapture/session` on the guest at
     `127.0.0.1`.
 
-15. A successful oneshot is `inactive (dead)` with `Result=success`.
+18. A successful oneshot is `inactive (dead)` with `Result=success`.
     `systemctl --failed` empty is the check. `inactive` alone is not a
     failure.
