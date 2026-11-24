@@ -57,6 +57,9 @@ make ping LOCAL_SETTINGS_FILE=vars/settings.local.yml
 make harden LOCAL_SETTINGS_FILE=vars/settings.local.yml
 ```
 
+To apply the same baseline by hand (no Ansible), follow
+[manual-setup.md](manual-setup.md). Each role has commands and a check.
+
 ## Inventory
 
 Tracked files in `vars/` have safe generic defaults. They do not name your
