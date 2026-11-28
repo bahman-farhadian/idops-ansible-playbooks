@@ -53,6 +53,10 @@ Put the real host in `nexus_targets`. Set `nexus_admin_password` and
 `nexus_secrets_key` (`openssl rand -base64 32`) in that file. Do not
 put them in tracked vars.
 
+For a manual walkthrough based on the install and configuration tasks, see
+[manual-setup.md](manual-setup.md). Use Ansible for repeatable deployment
+and repository reconciliation.
+
 Web UI user is `admin`. Sign in from the user icon at the top right.
 
 ## Commands
