@@ -85,6 +85,10 @@ make settings LOCAL_SETTINGS_FILE=vars/settings.debian-based-perimeter.local.yml
 Put the real host in `bind_targets`. Put A records in `bind_records`.
 Do not put real addresses in tracked vars.
 
+For a role-by-role manual walkthrough, see
+[manual-setup.md](manual-setup.md). The Ansible playbook is the repeatable
+way to keep both perimeter nodes aligned.
+
 ## Commands
 
 ```bash
