@@ -71,6 +71,10 @@ those guests uses ProxyJump through the hypervisor.
 
 ## Quick Start
 
+For a one-guest walkthrough of the same stages without Ansible, see
+[manual-setup.md](manual-setup.md). Ansible remains the repeatable path and
+provides the provisioning safety checks and recovery behavior.
+
 ```bash
 cd ac-vm-provisioning/kvm-vm-provisioning
 make venv
