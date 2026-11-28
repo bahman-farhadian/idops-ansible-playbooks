@@ -9,6 +9,13 @@ Tracked defaults live in `vars/debian-hardening.yml` and each role's
 `defaults/main.yml`. The order below matches
 `roles/os_hardening/tasks/main.yml`.
 
+The role tasks and templates are the exact baseline. This walkthrough names
+their destination files and values, but a `.j2` file is not ready to install
+until its Jinja expressions have been rendered with the selected settings.
+Use the chosen deployment's local settings for addresses, users, ports, and
+policy overrides; do not copy real values into this repository. For daily
+convergence and audit output, use the Ansible playbook.
+
 Set this once (path to this playbook directory):
 
 ```bash
